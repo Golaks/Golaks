@@ -10,11 +10,11 @@ import {
   Animated,
   Easing,
   Image,
-  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAlert } from '../contexts/AlertContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
 
@@ -31,6 +31,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { colors, isDark, theme, setTheme } = useTheme();
+  const { showSuccess, showError, showInfo } = useAlert();
 
   // Animation values
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -100,7 +101,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
   const handleLogin = async () => {
     if (!companyId || !username || !password) {
-      Alert.alert('Hata', 'Lütfen tüm alanları doldurunuz.');
+      showError('Lütfen tüm alanları doldurunuz.');
       return;
     }
 
@@ -113,9 +114,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
       // For demo purposes, accept any credentials
       if (companyId && username && password) {
-        onLoginSuccess();
+        showSuccess(`Hoş geldiniz, ${username}!`);
+        // Wait a bit before transitioning to show the success alert
+        setTimeout(() => {
+          onLoginSuccess();
+        }, 1000);
       } else {
-        Alert.alert('Hata', 'Geçersiz giriş bilgileri.');
+        showError('Geçersiz giriş bilgileri.');
       }
     }, 1500);
   };
@@ -240,7 +245,7 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 <Text style={styles.rememberMeText}>Beni Hatırla</Text>
               </Pressable>
 
-              <Pressable onPress={() => Alert.alert('Bilgi', 'Şifre sıfırlama özelliği yakında eklenecek.')}>
+              <Pressable onPress={() => showInfo('Şifre sıfırlama özelliği yakında eklenecek.')}>
                 <Text style={styles.forgotPassword}>Şifremi Unuttum</Text>
               </Pressable>
             </Animated.View>

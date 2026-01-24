@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { StatusBar, StyleSheet, View, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { AlertProvider } from './src/contexts/AlertContext';
 import SplashScreen from './src/components/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 
@@ -63,7 +64,9 @@ function AppContent(): React.JSX.Element {
 export default function App(): React.JSX.Element {
   return (
     <ThemeProvider>
-      <AppContent />
+      <AlertProvider>
+        <AppContent />
+      </AlertProvider>
     </ThemeProvider>
   );
 }
