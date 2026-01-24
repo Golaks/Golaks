@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.golakstemp"
+    namespace "com.golaks.golaksmobile"
     defaultConfig {
-        applicationId "com.golakstemp"
+        applicationId "com.golaks.golaksmobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -117,3 +117,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

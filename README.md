@@ -1,97 +1,144 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Golaks Mobile
 
-# Getting Started
+Modern React Native mobil uygulama ve PHP backend API.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 📱 Proje Yapısı
 
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```
+Golaks/
+├── src/                    # React Native kaynak kodları
+│   ├── components/        # Yeniden kullanılabilir komponentler
+│   ├── contexts/          # React Context (Theme, vb.)
+│   ├── screens/           # Uygulama ekranları
+│   ├── services/          # API servisleri
+│   ├── constants/         # Sabitler
+│   ├── types/             # TypeScript tipleri
+│   ├── utils/             # Yardımcı fonksiyonlar
+│   └── assets/            # Görseller, fontlar
+├── api/                   # PHP Backend API
+│   ├── config/            # Veritabanı ve ayar dosyaları
+│   ├── controllers/       # API controllers
+│   ├── models/            # Veritabanı modelleri
+│   ├── middleware/        # Middleware'ler
+│   ├── utils/             # Utility class'ları
+│   └── routes/            # API rotaları
+├── android/               # Android native kod
+├── ios/                   # iOS native kod
+└── docs/                  # Dokümantasyon
 ```
 
-## Step 2: Build and run your app
+## 🚀 Teknolojiler
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### Mobile App
+- **React Native** 0.83.1
+- **TypeScript**
+- **React** 19.2.0
+- **AsyncStorage** - Veri saklama
+- **Linear Gradient** - Gradient efektler
+- **Vector Icons** - İkonlar
 
-### Android
+### Backend API
+- **PHP** 8.x
+- **MySQL** - Multi-tenant database
+- **JWT** - Authentication
+- **REST API** - Modern API yapısı
 
-```sh
-# Using npm
-npm run android
+## 🔐 Multi-Tenant Architecture
 
-# OR using Yarn
-yarn android
+Uygulama multi-tenant yapısını destekler:
+- Her firma için ayrı veritabanı
+- Firma ID bazlı giriş sistemi
+- JWT token ile authentication
+- Tenant-specific data isolation
+
+### Login Flow
+```
+Firma ID + Kullanıcı Adı + Şifre
 ```
 
-### iOS
+## 📦 Kurulum
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+### Mobile App
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+```bash
+# Dependencies
+npm install
 
-```sh
-bundle install
-```
+# iOS
+cd ios && bundle install && bundle exec pod install && cd ..
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+# Run iOS
 npm run ios
 
-# OR using Yarn
-yarn ios
+# Run Android
+npm run android
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Backend API
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+```bash
+# PHP requirements
+- PHP >= 8.0
+- MySQL >= 5.7
+- PDO extension
+- JSON extension
 
-## Step 3: Modify your app
+# Setup
+1. Veritabanlarını oluştur (auth ve tenant databases)
+2. api/config/database.php dosyasını ayarla
+3. Web sunucunu yapılandır (Apache/Nginx)
+```
 
-Now that you have successfully run the app, let's make changes!
+## 🎨 Özellikler
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Mobile
+- ✅ Modern splash screen animasyonları
+- ✅ Login ekranı (Firma ID + Kullanıcı + Şifre)
+- ✅ Light/Dark tema desteği
+- ✅ Animasyonlu UI komponentleri
+- ✅ Reusable Input ve Button komponentleri
+- ✅ TypeScript tip güvenliği
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+### Backend
+- ✅ RESTful API yapısı
+- ✅ JWT authentication
+- ✅ Multi-tenant database support
+- ✅ Centralized error handling
+- ✅ CORS support
+- ✅ Clean architecture
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+## 🔧 Yapılandırma
 
-## Congratulations! :tada:
+### API Endpoint
+```typescript
+// src/constants/ApiConfig.ts
+export const BASE_API_URL = 'https://api.golaks.com';
+```
 
-You've successfully run and modified your React Native App. :partying_face:
+### Bundle Identifier
+```
+iOS: com.golaks.golaksmobile
+Android: com.golaks.golaksmobile
+```
 
-### Now what?
+## 📚 Dokümantasyon
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+- [Multi-Tenant Architecture](MULTI_TENANT_ARCHITECTURE.md) - Detaylı mimari açıklama
 
-# Troubleshooting
+## 🤝 Geliştirme
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+```bash
+# Metro bundler
+npm start
 
-# Learn More
+# Clear cache
+npm start -- --reset-cache
 
-To learn more about React Native, take a look at the following resources:
+# Build
+npm run android -- --mode=release
+npm run ios -- --configuration=Release
+```
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## 📄 Lisans
+
+© 2026 Golaks. Tüm hakları saklıdır.

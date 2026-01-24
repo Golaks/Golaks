@@ -73,3 +73,10 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# API
+api/.env
+api/logs/
+api/cache/
+api/temp/
+api/uploads/
