@@ -43,6 +43,7 @@ const Alert: React.FC<AlertProps> = ({
           color: '#10B981',
           backgroundColor: '#D1FAE5',
           borderColor: '#34D399',
+          textColor: '#065F46',
         };
       case 'error':
         return {
@@ -50,6 +51,7 @@ const Alert: React.FC<AlertProps> = ({
           color: '#EF4444',
           backgroundColor: '#FEE2E2',
           borderColor: '#F87171',
+          textColor: '#991B1B',
         };
       case 'warning':
         return {
@@ -57,6 +59,7 @@ const Alert: React.FC<AlertProps> = ({
           color: '#F59E0B',
           backgroundColor: '#FEF3C7',
           borderColor: '#FBBF24',
+          textColor: '#92400E',
         };
       case 'info':
         return {
@@ -64,6 +67,7 @@ const Alert: React.FC<AlertProps> = ({
           color: '#3B82F6',
           backgroundColor: '#DBEAFE',
           borderColor: '#60A5FA',
+          textColor: '#1E40AF',
         };
     }
   };
@@ -130,18 +134,18 @@ const Alert: React.FC<AlertProps> = ({
             <Text
               style={[
                 styles.title,
-                {color: colors.text, fontWeight: '600'},
+                {color: config.textColor, fontWeight: '600'},
               ]}>
               {title}
             </Text>
           )}
-          <Text style={[styles.message, {color: colors.text}]}>
+          <Text style={[styles.message, {color: config.textColor}]}>
             {message}
           </Text>
         </View>
 
         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-          <Icon name="close" size={20} color={colors.textSecondary} />
+          <Icon name="close" size={20} color={config.textColor} />
         </TouchableOpacity>
       </View>
     </Animated.View>
