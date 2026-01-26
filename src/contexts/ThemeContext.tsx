@@ -42,9 +42,20 @@ export interface ThemeColors {
   info: string;
   infoBackground: string;
 
+  // Additional colors
+  green: string;
+  greenBackground: string;
+  orange: string;
+  orangeBackground: string;
+  purple: string;
+  purpleBackground: string;
+  indigo: string;
+  indigoBackground: string;
+
   // Input
   inputBackground: string;
   inputBorder: string;
+  inputLabel: string;
   placeholder: string;
 
   // Modal/Overlay
@@ -92,9 +103,20 @@ const lightColors: ThemeColors = {
   info: '#3B82F6',
   infoBackground: '#DBEAFE',
 
+  // Additional colors
+  green: '#10B981',
+  greenBackground: '#D1FAE5',
+  orange: '#F97316',
+  orangeBackground: '#FED7AA',
+  purple: '#8B5CF6',
+  purpleBackground: '#EDE9FE',
+  indigo: '#6366F1',
+  indigoBackground: '#E0E7FF',
+
   // Input
   inputBackground: '#F9FAFB',
   inputBorder: '#E5E7EB',
+  inputLabel: '#374151',
   placeholder: '#9CA3AF',
 
   // Modal/Overlay
@@ -142,9 +164,20 @@ const darkColors: ThemeColors = {
   info: '#3B82F6',
   infoBackground: '#1E3A8A',
 
+  // Additional colors
+  green: '#10B981',
+  greenBackground: '#064E3B',
+  orange: '#F97316',
+  orangeBackground: '#78350F',
+  purple: '#8B5CF6',
+  purpleBackground: '#4C1D95',
+  indigo: '#6366F1',
+  indigoBackground: '#312E81',
+
   // Input
   inputBackground: '#1F2937',
   inputBorder: '#374151',
+  inputLabel: '#E5E7EB',
   placeholder: '#6B7280',
 
   // Modal/Overlay

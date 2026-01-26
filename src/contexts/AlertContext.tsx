@@ -1,6 +1,6 @@
 import React, {createContext, useContext, useState, ReactNode} from 'react';
 import {View, StyleSheet} from 'react-native';
-import Alert, {AlertType, AlertProps} from '../components/Alert';
+import AlertDialog, {AlertType, AlertDialogProps} from '../components/AlertDialog';
 
 interface AlertMessage {
   id: string;
@@ -90,7 +90,7 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
       {children}
       <View style={styles.alertContainer} pointerEvents="box-none">
         {alerts.map(alert => (
-          <Alert
+          <AlertDialog
             key={alert.id}
             id={alert.id}
             type={alert.type}

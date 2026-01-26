@@ -1,29 +1,58 @@
 /**
  * Authentication Types
+ * Backend: GolaksMobile uyumlu yapı
  */
 
-export interface TenantInfo {
-  subdomain: string; // app, test, client1, etc.
-  databaseName: string;
-  apiEndpoint: string;
-  displayName: string;
+export interface LoginRequest {
+  email: string;
+  password: string;
+  device_id?: string;
 }
 
-export interface LoginRequest {
-  email: string; // username olarak kullanılacak
-  password: string;
-  companyCode: string; // Zorunlu: "app", "test", "client1", vb.
-  deviceId?: string;
+export interface ProgramYetkileri {
+  muhasebe: boolean;
+  tabakhane: boolean;
+  magaza: boolean;
+  konfeksiyon: boolean;
+}
+
+export interface BarcodePermissions {
+  manufacturer: boolean;
+  year: boolean;
+  info: boolean;
+  entryPrice: boolean;
+  costPrice: boolean;
+  labelPrice: boolean;
+}
+
+export type UserRole = 'user' | 'admin' | 'superAdmin';
+
+export interface UserInfo {
+  id: string;
+  firma_id: string;
+  firma_unvani: string;
+  name: string;
+  email: string;
+  telefon?: string;
+  avatar?: string;
+  bildirimler: number;
+  yetkiler: Record<string, any>;
+  programYetkileri: ProgramYetkileri;
+  barcodePermissions: BarcodePermissions;
+  kullanici_rol: number; // 0: User, 1: Admin, 2: Super Admin
+  role: UserRole; // Mapped from kullanici_rol
+  mobilDataVersiyon: string;
+  mobilResim: string;
+  resimDomain: string;
+  firmaAyarlar: Record<string, any>;
 }
 
 export interface LoginResponse {
   success: boolean;
+  message?: string;
   data?: {
     token: string;
-    refreshToken: string;
     user: UserInfo;
-    tenant: TenantInfo;
-    permissions: UserPermissions;
   };
   error?: {
     message: string;
@@ -31,23 +60,19 @@ export interface LoginResponse {
   };
 }
 
-export interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  role: 'admin' | 'user' | 'manager';
-}
-
-export interface UserPermissions {
-  modules: string[]; // ['muhasebe', 'stok', 'cari', etc.]
-  features: Record<string, boolean>;
-}
-
 export interface StoredAuth {
   token: string;
-  refreshToken: string;
-  tenant: TenantInfo;
   user: UserInfo;
   expiresAt: number;
+}
+
+// API Response types
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: {
+    message: string;
+    code: string;
+  };
 }

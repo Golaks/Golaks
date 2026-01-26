@@ -48,10 +48,24 @@ class Router {
         $this->get('/user/profile', 'UserController', 'profile');
         $this->put('/user/profile', 'UserController', 'updateProfile');
 
+        // Notification Routes (Protected)
+        $this->get('/notifications', 'NotificationController', 'getNotifications');
+        $this->get('/notifications/unread', 'NotificationController', 'getUnreadNotifications');
+        $this->put('/notifications/mark-all-read', 'NotificationController', 'markAllAsRead');
+        $this->put('/notifications/:id/read', 'NotificationController', 'markAsRead');
+        $this->delete('/notifications/:id', 'NotificationController', 'deleteNotification');
+        $this->post('/notifications/send', 'NotificationController', 'sendNotification');
+
         // Data Routes (Protected, Tenant-specific)
         $this->get('/data/dashboard', 'DataController', 'dashboard');
         $this->get('/data/products', 'DataController', 'products');
         $this->get('/data/customers', 'DataController', 'customers');
+
+        // App Routes (Protected, Tenant-specific)
+        require ROUTES_PATH . '/apps/account.php';
+        require ROUTES_PATH . '/apps/tannery.php';
+        require ROUTES_PATH . '/apps/confection.php';
+        require ROUTES_PATH . '/apps/shop.php';
 
         // Health Check
         $this->get('/health', 'HealthController', 'check');
@@ -89,7 +103,26 @@ class Router {
      * Dispatch request to appropriate controller
      */
     public function dispatch() {
-        if (!isset($this->routes[$this->method][$this->path])) {
+        $route = null;
+
+        // First, try exact match
+        if (isset($this->routes[$this->method][$this->path])) {
+            $route = $this->routes[$this->method][$this->path];
+        } else {
+            // Try pattern matching for dynamic routes
+            foreach ($this->routes[$this->method] ?? [] as $pattern => $routeData) {
+                // Convert :id to regex pattern
+                $regexPattern = preg_replace('/:\w+/', '(\d+)', $pattern);
+                $regexPattern = '#^' . $regexPattern . '$#';
+
+                if (preg_match($regexPattern, $this->path)) {
+                    $route = $routeData;
+                    break;
+                }
+            }
+        }
+
+        if (!$route) {
             http_response_code(404);
             echo json_encode([
                 'success' => false,
@@ -100,13 +133,23 @@ class Router {
             ]);
             return;
         }
-
-        $route = $this->routes[$this->method][$this->path];
         $controllerName = $route['controller'];
         $methodName = $route['method'];
 
-        // Load controller
+        // Load controller - Check for app-specific controllers first
         $controllerFile = CONTROLLERS_PATH . '/' . $controllerName . '.php';
+
+        // Check if controller is in apps subdirectory
+        if (strpos($controllerName, 'Account') === 0) {
+            $controllerFile = CONTROLLERS_PATH . '/apps/account/' . str_replace('Account', '', $controllerName) . '.php';
+        } elseif (strpos($controllerName, 'Tannery') === 0) {
+            $controllerFile = CONTROLLERS_PATH . '/apps/tannery/' . str_replace('Tannery', '', $controllerName) . '.php';
+        } elseif (strpos($controllerName, 'Confection') === 0) {
+            $controllerFile = CONTROLLERS_PATH . '/apps/confection/' . str_replace('Confection', '', $controllerName) . '.php';
+        } elseif (strpos($controllerName, 'Shop') === 0) {
+            $controllerFile = CONTROLLERS_PATH . '/apps/shop/' . str_replace('Shop', '', $controllerName) . '.php';
+        }
+
         if (!file_exists($controllerFile)) {
             throw new Exception("Controller not found: " . $controllerName);
         }

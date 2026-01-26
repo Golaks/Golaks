@@ -38,12 +38,27 @@ export default function Button({
 
   const isDisabled = disabled || loading;
 
+  const getTextColor = () => {
+    switch (variant) {
+      case 'primary':
+      case 'danger':
+        return '#FFFFFF';
+      case 'secondary':
+        return colors.text;
+      default:
+        return '#FFFFFF';
+    }
+  };
+
+  const textColor = getTextColor();
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.button,
         fullWidth && styles.fullWidth,
-        isDisabled && styles.buttonDisabled,
+        disabled && styles.buttonDisabled,
+        loading && styles.buttonLoading,
         pressed && !isDisabled && styles.buttonPressed,
         style,
       ]}
@@ -51,14 +66,14 @@ export default function Button({
       disabled={isDisabled}
       android_ripple={{ color: 'rgba(255, 255, 255, 0.3)' }}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color="#FFFFFF" />
-      ) : (
-        <>
-          {icon && <Icon name={icon} size={20} color="#FFFFFF" style={styles.icon} />}
-          <Text style={[styles.buttonText, textStyle]}>{text}</Text>
-        </>
-      )}
+      <>
+        {loading ? (
+          <ActivityIndicator size="small" color={textColor} style={styles.icon} />
+        ) : (
+          icon && <Icon name={icon} size={20} color={textColor} style={styles.icon} />
+        )}
+        <Text style={[styles.buttonText, textStyle]}>{text}</Text>
+      </>
     </Pressable>
   );
 }
@@ -106,6 +121,9 @@ const createStyles = (colors: any, variant: 'primary' | 'secondary' | 'danger') 
     buttonDisabled: {
       backgroundColor: colors.border,
       opacity: 0.6,
+    },
+    buttonLoading: {
+      opacity: 0.8,
     },
     buttonPressed: {
       opacity: 0.8,

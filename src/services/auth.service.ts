@@ -1,35 +1,46 @@
 /**
  * Authentication Service
- * Handles user authentication and tenant management
+ * Handles user authentication - GolaksMobile uyumlu
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
-import { apiService } from './api.service';
 import {
   LoginRequest,
   LoginResponse,
   StoredAuth,
-  TenantInfo,
+  UserInfo,
+  UserRole,
 } from '../types/auth.types';
 
 const AUTH_STORAGE_KEY = '@golaks_auth';
-const TENANT_STORAGE_KEY = '@golaks_tenant';
+const USER_STORAGE_KEY = '@golaks_user';
+
+/**
+ * Map kullanici_rol to UserRole
+ * 0: User, 1: Admin, 2: Super Admin
+ */
+const mapKullaniciRolToRole = (kullanici_rol: number): UserRole => {
+  switch (kullanici_rol) {
+    case 2:
+      return 'superAdmin';
+    case 1:
+      return 'admin';
+    case 0:
+    default:
+      return 'user';
+  }
+};
 
 class AuthService {
   /**
-   * Login with company ID, username, and password
+   * Login with email and password
    */
-  async login(
-    companyId: string,
-    username: string,
-    password: string
-  ): Promise<LoginResponse> {
+  async login(email: string, password: string): Promise<LoginResponse> {
     try {
       const requestBody: LoginRequest = {
-        email: username, // Backend'de email field'ı varsa uyumlu olsun
+        email,
         password,
-        companyCode: companyId,
       };
 
       const response = await fetch(API_ENDPOINTS.LOGIN, {
@@ -43,17 +54,21 @@ class AuthService {
       const data: LoginResponse = await response.json();
 
       if (data.success && data.data) {
+        // Map role from kullanici_rol
+        const userWithRole = {
+          ...data.data.user,
+          role: mapKullaniciRolToRole(data.data.user.kullanici_rol),
+        };
+
         // Store authentication data
-        await this.storeAuth(data.data);
-
-        // Set API service credentials
-        apiService.setAuth(
-          data.data.token,
-          data.data.refreshToken,
-          data.data.tenant.subdomain
-        );
-
-        return data;
+        await this.storeAuth(data.data.token, userWithRole);
+        return {
+          ...data,
+          data: {
+            ...data.data,
+            user: userWithRole,
+          },
+        };
       }
 
       return data;
@@ -72,18 +87,16 @@ class AuthService {
   /**
    * Store authentication data
    */
-  private async storeAuth(authData: NonNullable<LoginResponse['data']>): Promise<void> {
+  private async storeAuth(token: string, user: UserInfo): Promise<void> {
     try {
       const storedAuth: StoredAuth = {
-        token: authData.token,
-        refreshToken: authData.refreshToken,
-        tenant: authData.tenant,
-        user: authData.user,
-        expiresAt: Date.now() + 3600 * 1000, // 1 hour default
+        token,
+        user,
+        expiresAt: Date.now() + 15552000 * 1000, // JWT_EXPIRATION from .env
       };
 
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(storedAuth));
-      await AsyncStorage.setItem(TENANT_STORAGE_KEY, JSON.stringify(authData.tenant));
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     } catch (error) {
       console.error('Error storing auth data:', error);
     }
@@ -106,17 +119,35 @@ class AuthService {
   }
 
   /**
-   * Get stored tenant info
+   * Get stored user info
    */
-  async getStoredTenant(): Promise<TenantInfo | null> {
+  async getStoredUser(): Promise<UserInfo | null> {
     try {
-      const storedTenant = await AsyncStorage.getItem(TENANT_STORAGE_KEY);
-      if (storedTenant) {
-        return JSON.parse(storedTenant);
+      const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        // Ensure role is set
+        if (!user.role && user.kullanici_rol) {
+          user.role = mapKullaniciRolToRole(user.kullanici_rol);
+        }
+        return user;
       }
       return null;
     } catch (error) {
-      console.error('Error getting stored tenant:', error);
+      console.error('Error getting stored user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get authentication token
+   */
+  async getToken(): Promise<string | null> {
+    try {
+      const auth = await this.getStoredAuth();
+      return auth?.token || null;
+    } catch (error) {
+      console.error('Error getting token:', error);
       return null;
     }
   }
@@ -133,8 +164,8 @@ class AuthService {
 
       // Check if token is expired
       if (auth.expiresAt < Date.now()) {
-        // Try to refresh
-        return await apiService.refreshAccessToken();
+        await this.logout();
+        return false;
       }
 
       return true;
@@ -147,64 +178,40 @@ class AuthService {
    * Logout user
    */
   async logout(): Promise<void> {
-    await apiService.logout();
-  }
-
-  /**
-   * Switch tenant (if user has access to multiple tenants)
-   */
-  async switchTenant(tenantId: string): Promise<boolean> {
     try {
-      const response = await apiService.post(API_ENDPOINTS.GET_TENANT_INFO, {
-        tenantId,
-      });
+      // Clear stored data
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
 
-      if (response.success && response.data) {
-        // Update stored tenant
-        const auth = await this.getStoredAuth();
-        if (auth) {
-          auth.tenant = response.data as TenantInfo;
-          await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
-          await AsyncStorage.setItem(
-            TENANT_STORAGE_KEY,
-            JSON.stringify(response.data)
-          );
-
-          // Update API service
-          apiService.setAuth(
-            auth.token,
-            auth.refreshToken,
-            (response.data as TenantInfo).subdomain
-          );
-
-          return true;
-        }
-      }
-
-      return false;
+      // TODO: Call logout endpoint if needed
+      // const token = await this.getToken();
+      // if (token) {
+      //   await fetch(API_ENDPOINTS.LOGOUT, {
+      //     method: 'POST',
+      //     headers: {
+      //       'Authorization': `Bearer ${token}`,
+      //       'Content-Type': 'application/json',
+      //     },
+      //   });
+      // }
     } catch (error) {
-      console.error('Error switching tenant:', error);
-      return false;
+      console.error('Error during logout:', error);
     }
   }
 
   /**
-   * Get list of tenants user has access to
+   * Update stored user info
    */
-  async getUserTenants(): Promise<TenantInfo[]> {
+  async updateUser(user: UserInfo): Promise<void> {
     try {
-      const response = await apiService.get<{ tenants: TenantInfo[] }>(
-        API_ENDPOINTS.LIST_TENANTS
-      );
-
-      if (response.success && response.data) {
-        return response.data.tenants;
+      const auth = await this.getStoredAuth();
+      if (auth) {
+        auth.user = user;
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
       }
-
-      return [];
     } catch (error) {
-      console.error('Error getting user tenants:', error);
-      return [];
+      console.error('Error updating user:', error);
     }
   }
 }

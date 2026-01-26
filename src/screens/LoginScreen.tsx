@@ -15,28 +15,35 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAlert } from '../contexts/AlertContext';
+import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Checkbox from '../components/Checkbox';
+import { useFormValidation } from '../hooks/useFormValidation';
 
 const GolaksLogo = require('../assets/images/golaks-logo.png');
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
+  onForgotPassword: () => void;
 }
 
-export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
-  const [companyId, setCompanyId] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+export default function LoginScreen({ onLoginSuccess, onForgotPassword }: LoginScreenProps) {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { colors, isDark, theme, setTheme } = useTheme();
   const { showSuccess, showError, showInfo } = useAlert();
+  const { login } = useAuth();
+
+  // Form validation
+  const { fields, setValue, validateForm } = useFormValidation({
+    username: '',
+    password: '',
+  });
 
   // Animation values
   const logoAnim = useRef(new Animated.Value(0)).current;
   const cardAnim = useRef(new Animated.Value(0)).current;
-  const companyAnim = useRef(new Animated.Value(0)).current;
   const usernameAnim = useRef(new Animated.Value(0)).current;
   const passwordAnim = useRef(new Animated.Value(0)).current;
   const optionsAnim = useRef(new Animated.Value(0)).current;
@@ -57,12 +64,6 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       Animated.timing(cardAnim, {
         toValue: 1,
         duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(companyAnim, {
-        toValue: 1,
-        duration: 500,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
@@ -100,29 +101,40 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   }, []);
 
   const handleLogin = async () => {
-    if (!companyId || !username || !password) {
-      showError('Lütfen tüm alanları doldurunuz.');
+    // Validate form
+    const isValid = validateForm({
+      username: [
+        { required: true, message: 'Kullanıcı adı gereklidir' },
+        { email: true, message: 'Geçerli bir e-posta adresi giriniz' },
+      ],
+      password: [
+        { required: true, message: 'Şifre gereklidir' },
+        { minLength: 4, message: 'En az 4 karakter olmalıdır' },
+      ],
+    });
+
+    if (!isValid) {
       return;
     }
 
     setIsLoading(true);
 
-    // Simulated login - replace with actual API call
-    // Backend'e gönderilecek: { companyId, username, password }
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      // Actual API call
+      const result = await login(fields.username.value, fields.password.value);
 
-      // For demo purposes, accept any credentials
-      if (companyId && username && password) {
-        showSuccess(`Hoş geldiniz, ${username}!`);
-        // Wait a bit before transitioning to show the success alert
-        setTimeout(() => {
-          onLoginSuccess();
-        }, 1000);
+      if (result.success) {
+        // Direkt geçiş yap, alert gösterme
+        onLoginSuccess();
       } else {
-        showError('Geçersiz giriş bilgileri.');
+        showError(result.message || 'Giriş başarısız');
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Login error:', error);
+      showError('Bağlantı hatası. Lütfen tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const createAnimatedStyle = (anim: Animated.Value, direction: 'up' | 'down' = 'down') => ({
@@ -189,26 +201,17 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </Text>
             </View>
 
-            {/* Company ID Input */}
-            <Animated.View style={createAnimatedStyle(companyAnim)}>
-              <Input
-                label="Firma ID"
-                icon="business-outline"
-                placeholder="Örn: app, test, client1"
-                value={companyId}
-                onChangeText={setCompanyId}
-                autoCapitalize="none"
-              />
-            </Animated.View>
-
             {/* Username Input */}
             <Animated.View style={createAnimatedStyle(usernameAnim)}>
               <Input
                 label="Kullanıcı Adı"
-                icon="person-outline"
-                placeholder="Kullanıcı adınızı girin"
-                value={username}
-                onChangeText={setUsername}
+                icon="mail-outline"
+                placeholder="ornek@golaks.com"
+                value={fields.username.value}
+                onChangeText={(value) => setValue('username', value)}
+                error={fields.username.error}
+                shake={fields.username.shake}
+                keyboardType="email-address"
                 autoCapitalize="none"
               />
             </Animated.View>
@@ -219,8 +222,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 label="Şifre"
                 icon="lock-closed-outline"
                 placeholder="Şifrenizi girin"
-                value={password}
-                onChangeText={setPassword}
+                value={fields.password.value}
+                onChangeText={(value) => setValue('password', value)}
+                error={fields.password.error}
+                shake={fields.password.shake}
                 isPassword
                 autoCapitalize="none"
               />
@@ -230,23 +235,14 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             <Animated.View
               style={[styles.optionsContainer, createAnimatedStyle(optionsAnim)]}
             >
-              <Pressable
+              <Checkbox
+                label="Beni Hatırla"
+                checked={rememberMe}
                 onPress={() => setRememberMe(!rememberMe)}
-                style={styles.rememberMeContainer}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    rememberMe && styles.checkboxChecked,
-                  ]}
-                >
-                  {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-                </View>
-                <Text style={styles.rememberMeText}>Beni Hatırla</Text>
-              </Pressable>
+              />
 
-              <Pressable onPress={() => showInfo('Şifre sıfırlama özelliği yakında eklenecek.')}>
-                <Text style={styles.forgotPassword}>Şifremi Unuttum</Text>
+              <Pressable onPress={onForgotPassword}>
+                <Text style={styles.forgotPassword}>Şifremi Unuttum?</Text>
               </Pressable>
             </Animated.View>
 
@@ -299,7 +295,10 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               style={[styles.copyrightContainer, createAnimatedStyle(footerAnim)]}
             >
               <Text style={styles.copyrightText}>
-                © 2026 Golaks. Tüm hakları saklıdır.
+                Polaris Dış Ticaret Ltd. Şti.
+              </Text>
+              <Text style={styles.copyrightText}>
+                © 1995 - {new Date().getFullYear()} Golaks. Tüm Hakları Saklıdır.
               </Text>
             </Animated.View>
           </Animated.View>
@@ -374,49 +373,25 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 28,
+    alignItems: 'center',
   },
   welcomeText: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 6,
+    textAlign: 'center',
   },
   welcomeSubtext: {
     fontSize: 15,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   optionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-  },
-  rememberMeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 5,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  rememberMeText: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
   forgotPassword: {
     fontSize: 14,
@@ -446,14 +421,18 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
   themeButtonCardActive: {
-    backgroundColor: isDark ? colors.card : '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.1)',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   copyrightContainer: {
     alignItems: 'center',

@@ -80,3 +80,6 @@ api/logs/
 api/cache/
 api/temp/
 api/uploads/
+
+# Environment Config
+src/config/env.ts

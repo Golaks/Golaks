@@ -57,8 +57,10 @@ define('CONFIG_PATH', BASE_PATH . '/config');
 define('CONTROLLERS_PATH', BASE_PATH . '/controllers');
 define('MODELS_PATH', BASE_PATH . '/models');
 define('MIDDLEWARE_PATH', BASE_PATH . '/middleware');
+define('ROUTES_PATH', BASE_PATH . '/routes');
 define('UTILS_PATH', BASE_PATH . '/utils');
 define('LOGS_PATH', BASE_PATH . '/logs');
+define('BASE_URL', Env::get('BASE_URL', 'https://api.golaks.com'));
 
 // Error Reporting (based on environment)
 if (APP_ENV === 'production') {
