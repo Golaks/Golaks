@@ -36,6 +36,14 @@ export const API_ENDPOINTS = {
   // Company Management (Super Admin) - GET: list, POST: create, PUT: update, DELETE: delete
   COMPANY_MANAGEMENT: `${BASE_API_URL}/company-management`,
 
+  // Notifications
+  NOTIFICATIONS: `${BASE_API_URL}/notifications`,
+  NOTIFICATIONS_UNREAD: `${BASE_API_URL}/notifications/unread`,
+  NOTIFICATIONS_MARK_ALL_READ: `${BASE_API_URL}/notifications/mark-all-read`,
+  NOTIFICATION_MARK_READ: (id: string) => `${BASE_API_URL}/notifications/${id}/read`,
+  NOTIFICATION_DELETE: (id: string) => `${BASE_API_URL}/notifications/${id}`,
+  NOTIFICATION_SEND: `${BASE_API_URL}/notifications/send`,
+
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak
   DASHBOARD: `${BASE_API_URL}/data/dashboard`,

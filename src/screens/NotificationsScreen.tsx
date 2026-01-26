@@ -10,6 +10,7 @@ import TabBar, { TabName } from '../components/TabBar';
 import EmptyState from '../components/EmptyState';
 import NotificationDetailModal from '../components/NotificationDetailModal';
 import notificationService, { Notification } from '../services/notification.service';
+import { authService } from '../services/auth.service';
 
 interface NotificationsScreenProps {
   onTabChange?: (tab: TabName) => void;
@@ -18,7 +19,7 @@ interface NotificationsScreenProps {
 
 export default function NotificationsScreen({ onTabChange, onLogout }: NotificationsScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout, user } = useAuth();
+  const { logout, user, refreshNotificationCount } = useAuth();
   const { showAlert } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('notifications');
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -37,10 +38,11 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
   const loadNotifications = async () => {
     try {
-      if (!user?.token) return;
+      const token = await authService.getToken();
+      if (!token) return;
 
       setLoading(true);
-      const response = await notificationService.getNotifications(user.token);
+      const response = await notificationService.getNotifications(token);
 
       if (response.success) {
         setNotifications(response.data);
@@ -55,10 +57,11 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
   const refreshNotifications = async () => {
     try {
-      if (!user?.token) return;
+      const token = await authService.getToken();
+      if (!token) return;
 
       setRefreshing(true);
-      const response = await notificationService.getNotifications(user.token);
+      const response = await notificationService.getNotifications(token);
 
       if (response.success) {
         setNotifications(response.data);
@@ -80,9 +83,13 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
   const handleNotificationPress = async (notification: Notification) => {
     try {
+      const token = await authService.getToken();
+
       // Bildirim zaten okunmuşsa API çağrısı yapma
-      if (!notification.read && user?.token) {
-        await notificationService.markAsRead(user.token, notification.id);
+      if (!notification.read && token) {
+        await notificationService.markAsRead(token, notification.id);
+        // Refresh global notification count
+        refreshNotificationCount();
       }
 
       // State'i güncelle
@@ -107,12 +114,16 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
   const handleMarkAllRead = async () => {
     try {
-      if (!user?.token) return;
+      const token = await authService.getToken();
+      if (!token) return;
 
-      await notificationService.markAllAsRead(user.token);
+      await notificationService.markAllAsRead(token);
 
       // State'i güncelle
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
+      // Refresh global notification count
+      refreshNotificationCount();
 
       showAlert('success', 'Başarılı', 'Tüm bildirimler okundu olarak işaretlendi');
     } catch (error: any) {

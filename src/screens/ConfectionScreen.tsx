@@ -24,10 +24,9 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
 
 export default function ConfectionScreen({ onBack, onTabChange, onLogout }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [confectionTab, setConfectionTab] = useState<ConfectionTab>('reports');
-  const [notificationCount] = useState(3);
 
   const styles = createStyles(colors, isDark);
 

@@ -11,6 +11,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
 import notificationService from '../services/notification.service';
 import { authService } from '../services/auth.service';
@@ -67,12 +68,12 @@ interface NotificationSendScreenProps {
 
 export default function NotificationSendScreen({ onBack, onTabChange }: NotificationSendScreenProps) {
   const { colors, isDark } = useTheme();
+  const { notificationCount, refreshNotificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
   const styles = createStyles(colors, isDark);
   const globalStyles = createGlobalStyles(colors);
 
   const [activeTab, setActiveTab] = useState<TabName>('profile');
-  const [notificationCount] = useState(3);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [category, setCategory] = useState<'bilgi' | 'genel' | 'duyuru' | 'guncelleme' | 'uyari' | 'acil'>('genel');
@@ -178,6 +179,9 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
       if (result.success) {
         const successMessage = `Bildirim ${result.basarili_gonderim || 0} kullanıcıya başarıyla gönderildi`;
         showSuccess(successMessage);
+
+        // Refresh notification count (sender might be in target group)
+        refreshNotificationCount();
 
         // Formu temizle
         setTitle('');

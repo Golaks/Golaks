@@ -24,10 +24,9 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
 
 export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [shopTab, setShopTab] = useState<ShopTab>('reports');
-  const [notificationCount] = useState(3);
 
   const styles = createStyles(colors, isDark);
 

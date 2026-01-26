@@ -60,9 +60,8 @@ interface ApplicationsScreenProps {
 
 export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }: ApplicationsScreenProps) {
   const { colors, isDark, theme, setTheme } = useTheme();
-  const { logout, user } = useAuth();
+  const { logout, user, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [notificationCount] = useState(3);
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(
     user?.avatar ? `${BASE_API_URL}/${user.avatar}` : undefined
   );

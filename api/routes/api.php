@@ -23,6 +23,9 @@ class Router {
         if (($pos = strpos($path, '?')) !== false) {
             $path = substr($path, 0, $pos);
         }
+        // Remove common base paths
+        $path = preg_replace('#^/Golaks(/|$)#', '/', $path);
+        $path = preg_replace('#^/index\.php(/|$)#', '/', $path);
         // Remove API prefix
         $path = str_replace(API_PREFIX, '', $path);
         return rtrim($path, '/') ?: '/';

@@ -30,10 +30,9 @@ interface ProfileScreenProps {
 
 export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement }: ProfileScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout, user, refreshUser } = useAuth();
+  const { logout, user, refreshUser, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('profile');
-  const [notificationCount] = useState(3);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);

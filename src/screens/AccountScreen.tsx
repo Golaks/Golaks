@@ -26,10 +26,9 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
 
 export default function AccountScreen({ onBack, onTabChange, onLogout }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [accountTab, setAccountTab] = useState<AccountTab>('reports');
-  const [notificationCount] = useState(3);
   const [showParameterModal, setShowParameterModal] = useState(false);
 
   const styles = createStyles(colors, isDark);

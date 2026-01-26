@@ -37,59 +37,12 @@ require_once __DIR__ . '/includes/auth.php';
 header('Access-Control-Allow-Origin: ' . CORS_ORIGIN);
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Content-Type: application/json; charset=UTF-8');
 
 // Handle OPTIONS request for CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
-}
-
-// Request URI ve Method
-$requestUri = $_SERVER['REQUEST_URI'];
-$requestMethod = $_SERVER['REQUEST_METHOD'];
-
-// Get endpoint from query parameter or path
-$endpoint = $_GET['endpoint'] ?? null;
-
-// If no endpoint in query, try to parse from path
-if (!$endpoint) {
-    // Get the path from REQUEST_URI
-    $path = parse_url($requestUri, PHP_URL_PATH);
-
-    // Remove common base paths
-    $path = preg_replace('#^/Golaks(/|$)#', '', $path);
-    $path = preg_replace('#^/api(/|$)#', '', $path);
-    $path = preg_replace('#^/index\.php(/|$)#', '', $path);
-
-    $endpoint = trim($path, '/');
-}
-
-// Route yoksa - API bilgisi döndür
-if (empty($endpoint)) {
-    Response::success([
-        'name' => 'Golaks API',
-        'version' => '1.0.0',
-        'status' => 'active',
-        'timestamp' => date('Y-m-d H:i:s')
-    ]);
-}
-
-// Endpoint dosyası yolu
-$endpointFile = __DIR__ . '/endpoints/' . $endpoint . '.php';
-
-// Endpoint dosyası var mı kontrol et
-if (!file_exists($endpointFile)) {
-    Response::error(
-        'Endpoint not found',
-        'ENDPOINT_NOT_FOUND',
-        404,
-        [
-            'endpoint' => $endpoint,
-            'file_path' => $endpointFile,
-            'request_uri' => $requestUri,
-            'exists' => file_exists($endpointFile) ? 'yes' : 'no'
-        ]
-    );
 }
 
 // Request body'yi al (JSON parse)
@@ -103,13 +56,86 @@ if ($requestBody && $_POST_DATA === null && json_last_error() !== JSON_ERROR_NON
 
 $_POST_DATA = $_POST_DATA ?? [];
 
-// Endpoint dosyasını çalıştır
-try {
-    require_once $endpointFile;
-} catch (Throwable $e) {
-    Response::error(
-        'Sunucu hatası: ' . $e->getMessage(),
-        'SERVER_ERROR',
-        500
-    );
+// Define request method for legacy endpoints
+$requestMethod = $_SERVER['REQUEST_METHOD'];
+
+// Get request path
+$requestUri = $_SERVER['REQUEST_URI'];
+$path = parse_url($requestUri, PHP_URL_PATH);
+
+// Remove common base paths
+$path = preg_replace('#^/Golaks(/|$)#', '', $path);
+$path = preg_replace('#^/api(/|$)#', '', $path);
+$path = preg_replace('#^/index\.php(/|$)#', '', $path);
+$endpoint = trim($path, '/');
+
+// Check if it's a router-based endpoint (starts with specific prefixes)
+$routerPrefixes = ['auth/', 'notifications/', 'user/', 'tenant/', 'data/', 'apps/'];
+$useRouter = false;
+foreach ($routerPrefixes as $prefix) {
+    if (strpos($endpoint, $prefix) === 0) {
+        $useRouter = true;
+        break;
+    }
+}
+
+if ($useRouter) {
+    // Use new Router system
+    if (!defined('API_PREFIX')) {
+        define('API_PREFIX', '/api');
+    }
+    if (!defined('ROUTES_PATH')) {
+        define('ROUTES_PATH', __DIR__ . '/routes');
+    }
+    if (!defined('CONTROLLERS_PATH')) {
+        define('CONTROLLERS_PATH', __DIR__ . '/controllers');
+    }
+
+    try {
+        require_once ROUTES_PATH . '/api.php';
+        $router = new Router();
+        $router->dispatch();
+    } catch (Throwable $e) {
+        error_log('Router error: ' . $e->getMessage());
+        Response::error(
+            'Sunucu hatası: ' . $e->getMessage(),
+            'SERVER_ERROR',
+            500
+        );
+    }
+} else {
+    // Use legacy endpoint system
+    if (empty($endpoint)) {
+        Response::success([
+            'name' => 'Golaks API',
+            'version' => '1.0.0',
+            'status' => 'active',
+            'timestamp' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    $endpointFile = __DIR__ . '/endpoints/' . $endpoint . '.php';
+
+    if (!file_exists($endpointFile)) {
+        Response::error(
+            'Endpoint not found',
+            'ENDPOINT_NOT_FOUND',
+            404,
+            [
+                'endpoint' => $endpoint,
+                'request_uri' => $requestUri
+            ]
+        );
+    }
+
+    try {
+        require_once $endpointFile;
+    } catch (Throwable $e) {
+        error_log('Endpoint error: ' . $e->getMessage());
+        Response::error(
+            'Sunucu hatası: ' . $e->getMessage(),
+            'SERVER_ERROR',
+            500
+        );
+    }
 }

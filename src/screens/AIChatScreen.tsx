@@ -15,9 +15,8 @@ interface AIChatScreenProps {
 
 export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('aiChat');
-  const [notificationCount] = useState(3);
   const [message, setMessage] = useState('');
 
   const styles = createStyles(colors, isDark);

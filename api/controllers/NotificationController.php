@@ -192,15 +192,17 @@ class NotificationController {
         try {
             $db = Database::getInstance();
 
-            // Check if user is superadmin
+            // Check if user is superadmin and get company ID
             $user = $db->fetchOne(
-                "SELECT kullanici_rol FROM mobil_kullanici WHERE id = ?",
+                "SELECT kullanici_rol, mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
                 [$userId]
             );
 
             if (!$user || $user['kullanici_rol'] != 2) {
                 Response::forbidden('Bu işlem için yetkiniz bulunmamaktadır');
             }
+
+            $firmaId = $user['mobil_firmalar_id'];
 
             $input = json_decode(file_get_contents('php://input'), true);
 
@@ -237,32 +239,25 @@ class NotificationController {
                 Response::badRequest('Geçersiz bildirim tipi');
             }
 
-            // Get user's company ID
-            $userInfo = $db->fetchOne(
-                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
-                [$userId]
-            );
-            $firmaId = $userInfo['mobil_firmalar_id'] ?? 1;
-
             // Determine target users
             $hedefKullanicilar = [];
 
             if ($hedefTip === 'all') {
-                // All active users
+                // All active users (all companies)
                 $hedefKullanicilar = $db->fetchAll(
                     "SELECT id FROM mobil_kullanici WHERE aktif = 1"
                 );
             } elseif ($hedefTip === 'role') {
-                // Users with specific role
+                // Users with specific role (all companies)
                 if ($hedefDeger === null || !in_array((int)$hedefDeger, [0, 1, 2])) {
                     Response::badRequest('Geçerli bir rol seçmelisiniz');
                 }
                 $hedefKullanicilar = $db->fetchAll(
                     "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND kullanici_rol = ?",
-                    [$hedefDeger]
+                    [(int)$hedefDeger]
                 );
             } elseif ($hedefTip === 'user') {
-                // Specific users
+                // Specific users (all companies)
                 if (empty($hedefDeger)) {
                     Response::badRequest('En az bir kullanıcı seçmelisiniz');
                 }
@@ -296,24 +291,32 @@ class NotificationController {
                     'baslik' => $baslik,
                     'mesaj' => $mesaj,
                     'hedef_tip' => $hedefTip,
-                    'hedef_deger' => $hedefDeger,
+                    'hedef_deger' => $hedefDeger ?? '',
                     'bildirim_tipi' => $bildirimTipi,
-                    'toplam_hedef' => $toplamHedef,
-                    'olusturma_tarihi' => date('Y-m-d H:i:s'),
-                    'gonderim_tarihi' => date('Y-m-d H:i:s')
+                    'toplam_hedef' => $toplamHedef
                 ]);
+
+                // Set gonderim_tarihi immediately
+                $db->execute(
+                    "UPDATE mobil_bildirim SET gonderim_tarihi = NOW() WHERE id = ?",
+                    [$bildirimId]
+                );
 
                 // Create notification log for each target user
                 $basariliGonderim = 0;
                 foreach ($hedefKullanicilar as $kullanici) {
                     try {
-                        $db->insert('mobil_bildirim_log', [
+                        $logId = $db->insert('mobil_bildirim_log', [
                             'mobil_bildirim_id' => $bildirimId,
                             'mobil_kullanici_id' => $kullanici['id'],
-                            'durum' => 'gonderildi',
-                            'olusturma_tarihi' => date('Y-m-d H:i:s'),
-                            'gonderim_tarihi' => date('Y-m-d H:i:s')
+                            'durum' => 'gonderildi'
                         ]);
+
+                        // Set gonderim_tarihi immediately
+                        $db->execute(
+                            "UPDATE mobil_bildirim_log SET gonderim_tarihi = NOW() WHERE id = ?",
+                            [$logId]
+                        );
                         $basariliGonderim++;
                     } catch (Exception $e) {
                         error_log("Failed to send notification to user {$kullanici['id']}: " . $e->getMessage());

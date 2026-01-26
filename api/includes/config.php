@@ -1,36 +1,27 @@
 <?php
 /**
  * Configuration Loader
- * Loads environment variables from .env file
+ * Loads main configuration file
  */
 
-// Load .env file
-$envFile = __DIR__ . '/../.env';
-if (file_exists($envFile)) {
-    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue;
-        }
+// Load main config
+require_once __DIR__ . '/../config/config.php';
 
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-
-        if (!array_key_exists($name, $_ENV)) {
-            define($name, $value);
-        }
-    }
+// Database Configuration (Legacy support)
+if (!defined('DB_HOST')) {
+    define('DB_HOST', Env::get('DB_HOST', 'localhost'));
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', Env::get('DB_NAME', 'golaks'));
+}
+if (!defined('DB_USER')) {
+    define('DB_USER', Env::get('DB_USER', 'root'));
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', Env::get('DB_PASS', ''));
 }
 
-// Set timezone
-date_default_timezone_set(defined('APP_TIMEZONE') ? APP_TIMEZONE : 'Europe/Istanbul');
-
-// Error reporting
-if (defined('APP_DEBUG') && APP_DEBUG === 'true') {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
+// CORS Origin (Legacy support)
+if (!defined('CORS_ORIGIN')) {
+    define('CORS_ORIGIN', Env::get('CORS_ALLOWED_ORIGINS', '*'));
 }

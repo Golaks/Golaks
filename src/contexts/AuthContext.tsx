@@ -6,14 +6,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '../services/auth.service';
 import { UserInfo } from '../types/auth.types';
+import notificationService from '../services/notification.service';
 
 interface AuthContextType {
   user: UserInfo | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  notificationCount: number;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshNotificationCount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,11 +25,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   // Check authentication on mount
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Refresh notification count when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshNotificationCount();
+    }
+  }, [isAuthenticated]);
 
   const checkAuth = async () => {
     try {
@@ -97,15 +108,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshNotificationCount = async () => {
+    try {
+      const token = await authService.getToken();
+      if (!token) {
+        setNotificationCount(0);
+        return;
+      }
+
+      const response = await notificationService.getNotifications(token);
+      if (response.success) {
+        setNotificationCount(response.unread_count);
+      }
+    } catch (error) {
+      console.error('Refresh notification count error:', error);
+      setNotificationCount(0);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated,
         isLoading,
+        notificationCount,
         login,
         logout,
         refreshUser,
+        refreshNotificationCount,
       }}
     >
       {children}

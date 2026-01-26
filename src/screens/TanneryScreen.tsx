@@ -24,10 +24,9 @@ const TANNERY_TABS: TabOption<TanneryTab>[] = [
 
 export default function TanneryScreen({ onBack, onTabChange, onLogout }: TanneryScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [tanneryTab, setTanneryTab] = useState<TanneryTab>('reports');
-  const [notificationCount] = useState(3);
 
   const styles = createStyles(colors, isDark);
 

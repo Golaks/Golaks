@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { BASE_API_URL } from '../constants/ApiConfig';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 
 export interface Notification {
   id: string;
@@ -9,7 +8,7 @@ export interface Notification {
   type: 'bilgi' | 'genel' | 'duyuru' | 'guncelleme' | 'uyari' | 'acil';
   read: boolean;
   created_at: string;
-  status?: string; // 'gonderildi' | 'okundu' | 'hata'
+  status?: string;
 }
 
 export interface NotificationListResponse {
@@ -27,89 +26,74 @@ export interface NotificationMarkReadResponse {
 class NotificationService {
   private getAuthHeader(token: string) {
     return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
   }
 
-  /**
-   * Tüm bildirimleri getirir
-   */
   async getNotifications(token: string): Promise<NotificationListResponse> {
     try {
-      const response = await axios.get(
-        `${BASE_API_URL}/notifications`,
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS, {
+        method: 'GET',
+        headers: this.getAuthHeader(token),
+      });
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Get notifications error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Bildirimler yüklenemedi');
+      console.error('Get notifications error:', error);
+      throw new Error('Bildirimler yüklenemedi');
     }
   }
 
-  /**
-   * Okunmamış bildirimleri getirir
-   */
   async getUnreadNotifications(token: string): Promise<NotificationListResponse> {
     try {
-      const response = await axios.get(
-        `${BASE_API_URL}/notifications/unread`,
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS_UNREAD, {
+        method: 'GET',
+        headers: this.getAuthHeader(token),
+      });
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Get unread notifications error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Okunmamış bildirimler yüklenemedi');
+      console.error('Get unread notifications error:', error);
+      throw new Error('Okunmamış bildirimler yüklenemedi');
     }
   }
 
-  /**
-   * Belirli bir bildirimi okundu olarak işaretler
-   */
   async markAsRead(token: string, notificationId: string): Promise<NotificationMarkReadResponse> {
     try {
-      const response = await axios.put(
-        `${BASE_API_URL}/notifications/${notificationId}/read`,
-        {},
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      const response = await fetch(API_ENDPOINTS.NOTIFICATION_MARK_READ(notificationId), {
+        method: 'PUT',
+        headers: this.getAuthHeader(token),
+      });
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Mark notification as read error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Bildirim okundu işaretlenemedi');
+      console.error('Mark notification as read error:', error);
+      throw new Error('Bildirim okundu işaretlenemedi');
     }
   }
 
-  /**
-   * Tüm bildirimleri okundu olarak işaretler
-   */
   async markAllAsRead(token: string): Promise<NotificationMarkReadResponse> {
     try {
-      const response = await axios.put(
-        `${BASE_API_URL}/notifications/mark-all-read`,
-        {},
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      const response = await fetch(API_ENDPOINTS.NOTIFICATIONS_MARK_ALL_READ, {
+        method: 'PUT',
+        headers: this.getAuthHeader(token),
+      });
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Mark all notifications as read error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Bildirimler okundu işaretlenemedi');
+      console.error('Mark all notifications as read error:', error);
+      throw new Error('Bildirimler okundu işaretlenemedi');
     }
   }
 
-  /**
-   * Bildirim gönderir (sadece superadmin için)
-   */
   async sendNotification(
     token: string,
     data: {
       baslik: string;
       mesaj: string;
       hedef_tip: 'all' | 'role' | 'user';
-      hedef_deger?: string | null; // rol ID veya kullanıcı ID listesi (JSON)
+      hedef_deger?: string | null;
       bildirim_tipi: 'bilgi' | 'genel' | 'duyuru' | 'guncelleme' | 'uyari' | 'acil';
     }
   ): Promise<{
@@ -124,31 +108,43 @@ class NotificationService {
     basarisiz_gonderim?: number;
   }> {
     try {
-      const response = await axios.post(
-        `${BASE_API_URL}/notifications/send`,
-        data,
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      console.log('Sending notification to:', API_ENDPOINTS.NOTIFICATION_SEND);
+      console.log('Request data:', data);
+
+      const response = await fetch(API_ENDPOINTS.NOTIFICATION_SEND, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify(data),
+      });
+
+      console.log('Response status:', response.status);
+
+      const responseData = await response.json();
+      console.log('Response data:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.error?.message || responseData.message || 'Bildirim gönderilemedi');
+      }
+
+      return responseData;
     } catch (error: any) {
-      console.error('Send notification error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Bildirim gönderilemedi');
+      console.error('Send notification error:', error);
+      console.error('Error details:', error.message);
+      throw new Error(error.message || 'Bildirim gönderilemedi');
     }
   }
 
-  /**
-   * Bildirimi siler
-   */
   async deleteNotification(token: string, notificationId: string): Promise<NotificationMarkReadResponse> {
     try {
-      const response = await axios.delete(
-        `${BASE_API_URL}/notifications/${notificationId}`,
-        this.getAuthHeader(token)
-      );
-      return response.data;
+      const response = await fetch(API_ENDPOINTS.NOTIFICATION_DELETE(notificationId), {
+        method: 'DELETE',
+        headers: this.getAuthHeader(token),
+      });
+      const data = await response.json();
+      return data;
     } catch (error: any) {
-      console.error('Delete notification error:', error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || 'Bildirim silinemedi');
+      console.error('Delete notification error:', error);
+      throw new Error('Bildirim silinemedi');
     }
   }
 }

@@ -28,9 +28,8 @@ interface QRScanScreenProps {
 
 export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
-  const [notificationCount] = useState(3);
   const [scanMode, setScanMode] = useState<ScanMode>('barcode');
   const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
