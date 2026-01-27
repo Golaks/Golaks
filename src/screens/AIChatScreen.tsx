@@ -1,23 +1,55 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TextInput, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
-import LinearGradient from 'react-native-linear-gradient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
+import { BASE_API_URL } from '../constants/ApiConfig';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 interface AIChatScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
 }
 
+interface Message {
+  id: string;
+  text: string;
+  isUser: boolean;
+  timestamp: Date;
+}
+
 export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout, notificationCount } = useAuth();
+  const { logout, notificationCount, user } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('aiChat');
   const [message, setMessage] = useState('');
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Saate göre selamlama
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 12) {
+      return 'Günaydın';
+    } else if (hour >= 12 && hour < 18) {
+      return 'İyi öğlenler';
+    } else {
+      return 'İyi akşamlar';
+    }
+  };
+
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      text: `${getGreeting()} ${user?.name || 'Kullanıcı'}! Ben GolaksIQ, sizin yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?`,
+      isUser: false,
+      timestamp: new Date(),
+    },
+  ]);
 
   const styles = createStyles(colors, isDark);
 
@@ -34,6 +66,53 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
     console.log('Send message:', message);
     setMessage('');
   };
+
+  const handleClearChat = () => {
+    setShowClearConfirm(true);
+  };
+
+  const handleClearConfirm = () => {
+    setMessages([
+      {
+        id: '1',
+        text: `${getGreeting()} ${user?.name || 'Kullanıcı'}! Ben GolaksIQ, sizin yapay zeka asistanınızım. Size nasıl yardımcı olabilirim?`,
+        isUser: false,
+        timestamp: new Date(),
+      },
+    ]);
+    setShowClearConfirm(false);
+    showSuccess('Sohbet temizlendi');
+  };
+
+  const handleCopyAll = () => {
+    const allText = messages
+      .filter(msg => msg.id !== '1')
+      .map(msg => `${msg.isUser ? 'Siz' : 'GolaksIQ'}: ${msg.text}`)
+      .join('\n\n');
+
+    if (allText) {
+      // TODO: Clipboard implementation needed
+      showSuccess('Tüm mesajlar kopyalandı');
+    } else {
+      showError('Kopyalanacak mesaj yok');
+    }
+  };
+
+  const customMenuItems = [
+    {
+      icon: 'copy-outline',
+      label: 'Tümünü Kopyala',
+      subtext: 'Mesajları panoya kopyala',
+      onPress: handleCopyAll,
+    },
+    {
+      icon: 'trash-outline',
+      label: 'Sohbeti Temizle',
+      subtext: 'Tüm konuşmayı sil',
+      onPress: handleClearChat,
+      isDanger: true,
+    },
+  ];
 
   const handleLogout = async () => {
     try {
@@ -53,6 +132,7 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
           title="GolaksIQ"
           showMenu={true}
           onLogout={handleLogout}
+          customMenuItems={customMenuItems}
         />
 
         <ScrollView
@@ -60,65 +140,60 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Page Title */}
-          <View style={styles.pageHeader}>
-            <View style={styles.pageTitleContainer}>
-              <View style={[styles.pageTitleIcon, { backgroundColor: '#8B5CF615' }]}>
-                <Icon name="chatbubbles" size={18} color="#8B5CF6" />
+          {/* Messages */}
+          {messages.map((msg) => (
+            <View
+              key={msg.id}
+              style={[
+                styles.messageContainer,
+                msg.isUser ? styles.userMessageContainer : styles.systemMessageContainer,
+              ]}
+            >
+              {!msg.isUser && (
+                <View style={styles.systemAvatar}>
+                  <Image
+                    source={require('../assets/images/icon.png')}
+                    style={styles.systemAvatarImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+              <View
+                style={[
+                  styles.messageBubble,
+                  msg.isUser ? styles.userBubble : styles.systemBubble,
+                ]}
+              >
+                <Text style={[styles.messageText, msg.isUser ? styles.userText : styles.systemText]}>
+                  {msg.text}
+                </Text>
               </View>
-              <Text style={styles.pageTitle}>GolaksIQ</Text>
+              {msg.isUser && user?.avatar && (
+                <Image
+                  source={{ uri: `${BASE_API_URL}/${user.avatar}` }}
+                  style={styles.userAvatar}
+                  resizeMode="cover"
+                />
+              )}
+              {msg.isUser && !user?.avatar && (
+                <View style={styles.userAvatarPlaceholder}>
+                  <Icon name="person" size={16} color={colors.primary} />
+                </View>
+              )}
             </View>
-          </View>
-
-          {/* Welcome Card */}
-          <LinearGradient
-            colors={['#3B82F6', '#2563EB']}
-            style={styles.welcomeCard}
-          >
-            <Icon name="sparkles" size={48} color="#FFFFFF" />
-            <Text style={styles.welcomeTitle}>AI Asistanınız Hazır!</Text>
-            <Text style={styles.welcomeSubtitle}>
-              Sorularınızı sorun, size yardımcı olmaktan mutluluk duyarım.
-            </Text>
-          </LinearGradient>
-
-          {/* Suggestions */}
-          <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>Önerilen Sorular</Text>
-            <View style={styles.suggestionsGrid}>
-              {[
-                { icon: 'calculator', text: 'Muhasebe raporları nasıl alınır?' },
-                { icon: 'business', text: 'Stok durumu nasıl kontrol edilir?' },
-                { icon: 'people', text: 'Cari hesap özeti nerede?' },
-                { icon: 'document-text', text: 'Rapor formatları nelerdir?' },
-              ].map((suggestion, index) => (
-                <Pressable
-                  key={index}
-                  style={({ pressed }) => [
-                    styles.suggestionCard,
-                    pressed && styles.suggestionCardPressed,
-                  ]}
-                  onPress={() => setMessage(suggestion.text)}
-                >
-                  <Icon name={suggestion.icon} size={20} color={colors.primary} />
-                  <Text style={styles.suggestionText}>{suggestion.text}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Info */}
-          <View style={styles.infoCard}>
-            <Icon name="information-circle-outline" size={20} color={colors.textSecondary} />
-            <Text style={styles.infoText}>
-              Bu özellik yakında aktif olacaktır. Şimdilik önerilen soruları deneyebilirsiniz.
-            </Text>
-          </View>
+          ))}
         </ScrollView>
 
         {/* Input Area */}
         <View style={styles.inputContainer}>
+          <View style={styles.warningContainer}>
+            <Icon name="information-circle-outline" size={12} color={colors.textTertiary} />
+            <Text style={styles.warningText}>
+              GolaksIQ hata yapabilir, önemli bilgilerinizi kontrol edin.
+            </Text>
+          </View>
           <View style={styles.inputWrapper}>
+            <Icon name="sparkles-outline" size={20} color={colors.textTertiary} style={styles.inputIcon} />
             <TextInput
               style={styles.input}
               value={message}
@@ -126,6 +201,7 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
               placeholder="Bir şeyler sorun..."
               placeholderTextColor={colors.placeholder}
               multiline
+              maxLength={1000}
             />
             <Pressable
               style={[
@@ -149,6 +225,21 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
           onTabPress={handleTabPress}
           notificationCount={notificationCount}
         />
+
+        {/* Clear Chat Confirmation */}
+        <ConfirmDialog
+          visible={showClearConfirm}
+          title="Sohbeti Temizle"
+          message="Tüm mesajlar silinecek. Devam etmek istiyor musunuz?"
+          icon="trash-outline"
+          iconColor="#EF4444"
+          confirmText="Temizle"
+          cancelText="İptal"
+          confirmIcon="checkmark-outline"
+          cancelIcon="close-outline"
+          onConfirm={handleClearConfirm}
+          onCancel={() => setShowClearConfirm(false)}
+        />
       </View>
     </SafeAreaProvider>
   );
@@ -165,117 +256,112 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     scrollContent: {
       padding: 16,
-      paddingBottom: 120,
+      paddingBottom: 195,
     },
-    pageHeader: {
-      marginBottom: 16,
-    },
-    pageTitleContainer: {
+    messageContainer: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
+      marginBottom: 16,
+      alignItems: 'flex-end',
+      gap: 8,
     },
-    pageTitleIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
+    userMessageContainer: {
+      flexDirection: 'row-reverse',
+    },
+    systemMessageContainer: {
+      flexDirection: 'row',
+    },
+    messageBubble: {
+      maxWidth: '75%',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 18,
+    },
+    userBubble: {
+      backgroundColor: colors.primary,
+      borderBottomRightRadius: 4,
+    },
+    systemBubble: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderBottomLeftRadius: 4,
+    },
+    messageText: {
+      fontSize: 15,
+      lineHeight: 20,
+    },
+    userText: {
+      color: '#FFFFFF',
+    },
+    systemText: {
+      color: colors.text,
+    },
+    systemAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: `${colors.primary}15`,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 0,
+      overflow: 'hidden',
     },
-    pageTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.text,
-      opacity: 0.6,
+    systemAvatarImage: {
+      width: 28,
+      height: 28,
     },
-    welcomeCard: {
-      padding: 32,
-      borderRadius: 20,
+    userAvatar: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      flexShrink: 0,
+    },
+    userAvatarPlaceholder: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: `${colors.primary}15`,
       alignItems: 'center',
-      marginBottom: 24,
-    },
-    welcomeTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: '#FFFFFF',
-      marginTop: 16,
-      marginBottom: 8,
-    },
-    welcomeSubtitle: {
-      fontSize: 14,
-      color: 'rgba(255, 255, 255, 0.9)',
-      textAlign: 'center',
-    },
-    suggestionsContainer: {
-      marginBottom: 24,
-    },
-    suggestionsTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: colors.text,
-      marginBottom: 12,
-    },
-    suggestionsGrid: {
-      gap: 12,
-    },
-    suggestionCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      backgroundColor: colors.card,
-      padding: 16,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    suggestionCardPressed: {
-      opacity: 0.7,
-      backgroundColor: colors.border,
-      transform: [{ scale: 0.98 }],
-    },
-    suggestionText: {
-      flex: 1,
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.text,
-    },
-    infoCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      backgroundColor: colors.card,
-      padding: 16,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    infoText: {
-      flex: 1,
-      fontSize: 13,
-      color: colors.textSecondary,
-      lineHeight: 18,
+      justifyContent: 'center',
+      flexShrink: 0,
     },
     inputContainer: {
       position: 'absolute',
-      bottom: 80,
+      bottom: 125,
       left: 0,
       right: 0,
       paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: colors.backgroundSecondary,
+      paddingVertical: 10,
+      backgroundColor: colors.background,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+    },
+    warningContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginBottom: 8,
+    },
+    warningText: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      textAlign: 'center',
     },
     inputWrapper: {
       flexDirection: 'row',
       alignItems: 'flex-end',
-      gap: 8,
+      gap: 10,
       backgroundColor: colors.card,
-      borderRadius: 24,
-      paddingHorizontal: 16,
+      borderRadius: 14,
+      paddingLeft: 14,
+      paddingRight: 10,
       paddingVertical: 8,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    inputIcon: {
+      marginBottom: 10,
     },
     input: {
       flex: 1,
@@ -283,12 +369,14 @@ const createStyles = (colors: any, isDark: boolean) =>
       color: colors.text,
       maxHeight: 100,
       paddingVertical: 8,
+      paddingHorizontal: 0,
     },
     sendButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 36,
+      height: 36,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: 2,
     },
   });

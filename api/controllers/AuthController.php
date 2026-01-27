@@ -14,37 +14,39 @@ class AuthController extends BaseController {
      *
      * Request Body:
      * {
-     *   "companyCode": "app",
-     *   "email": "user@example.com",
+     *   "email": "kullanici_adi",
      *   "password": "password123"
      * }
      */
     public function login() {
         // Validate required fields
-        $this->validateRequired(['companyCode', 'email', 'password']);
+        $this->validateRequired(['email', 'password']);
 
-        $companyCode = $this->requestData['companyCode'];
-        $email = $this->requestData['email'];
+        $kullaniciAdi = $this->requestData['email'];
         $password = $this->requestData['password'];
 
         try {
             // Get auth database connection
             $db = $this->getAuthDb();
 
-            // Find user by email and company code
+            // Find user by kullanici_adi with firma bilgileri
             $stmt = $db->prepare("
-                SELECT u.*, t.id as tenant_id, t.subdomain, t.database_name, t.display_name as tenant_display_name
-                FROM users u
-                INNER JOIN tenants t ON u.tenant_id = t.id
-                WHERE u.email = :email
-                AND t.subdomain = :company_code
-                AND u.status = 'active'
+                SELECT
+                    u.*,
+                    f.id as firma_id,
+                    f.firma_unvani,
+                    f.firma_ayarlar,
+                    f.aktif as firma_aktif
+                FROM mobil_kullanici u
+                INNER JOIN mobil_firmalar f ON u.mobil_firmalar_id = f.id
+                WHERE u.kullanici_adi = :kullanici_adi
+                AND u.aktif = 1
+                AND f.aktif = 1
                 LIMIT 1
             ");
 
             $stmt->execute([
-                ':email' => $email,
-                ':company_code' => $companyCode
+                ':kullanici_adi' => $kullaniciAdi
             ]);
 
             $user = $stmt->fetch();
@@ -52,14 +54,14 @@ class AuthController extends BaseController {
             // Check if user exists
             if (!$user) {
                 $this->sendError(
-                    'Geçersiz e-posta veya şirket kodu',
+                    'Geçersiz kullanıcı adı',
                     'INVALID_CREDENTIALS',
                     401
                 );
             }
 
             // Verify password
-            if (!password_verify($password, $user['password'])) {
+            if (!password_verify($password, $user['sifre'])) {
                 $this->sendError(
                     'Geçersiz şifre',
                     'INVALID_CREDENTIALS',
@@ -72,17 +74,19 @@ class AuthController extends BaseController {
 
             $payload = [
                 'user_id' => $user['id'],
-                'email' => $user['email'],
-                'tenant_id' => $user['tenant_id'],
-                'subdomain' => $user['subdomain']
+                'kullanici_adi' => $user['kullanici_adi'],
+                'firma_id' => $user['mobil_firmalar_id']
             ];
 
             $token = JWT::encode($payload, JWT_SECRET_KEY, JWT_EXPIRY);
             $refreshToken = JWT::encode($payload, JWT_SECRET_KEY, REFRESH_TOKEN_EXPIRY);
 
             // Update last login
-            $updateStmt = $db->prepare("UPDATE users SET last_login = NOW() WHERE id = :id");
+            $updateStmt = $db->prepare("UPDATE mobil_kullanici SET son_giris_tarihi = NOW() WHERE id = :id");
             $updateStmt->execute([':id' => $user['id']]);
+
+            // Parse firma_ayarlar JSON
+            $firmaAyarlar = json_decode($user['firma_ayarlar'], true) ?? [];
 
             // Prepare response
             $response = [
@@ -90,15 +94,20 @@ class AuthController extends BaseController {
                 'refreshToken' => $refreshToken,
                 'user' => [
                     'id' => $user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'role' => $user['role']
-                ],
-                'tenant' => [
-                    'id' => $user['tenant_id'],
-                    'subdomain' => $user['subdomain'],
-                    'databaseName' => $user['database_name'],
-                    'displayName' => $user['tenant_display_name']
+                    'firma_id' => $user['firma_id'],
+                    'firma_unvani' => $user['firma_unvani'],
+                    'name' => $user['ad_soyad'],
+                    'email' => $user['kullanici_adi'],
+                    'telefon' => $user['kullanici_telefon'],
+                    'avatar' => $user['resim_yolu'],
+                    'bildirimler' => $user['bildirimler'],
+                    'yetkiler' => json_decode($user['kullanici_yetkiler'], true) ?? [],
+                    'kullanici_rol' => $user['kullanici_rol'],
+                    'role' => $user['kullanici_rol'], // Frontend mapping yapacak
+                    'firmaAyarlar' => $firmaAyarlar,
+                    'mobilDataVersiyon' => '1.0.0',
+                    'mobilResim' => $user['resim_yolu'],
+                    'resimDomain' => BASE_URL
                 ]
             ];
 
@@ -186,18 +195,137 @@ class AuthController extends BaseController {
      *
      * Request Body:
      * {
-     *   "email": "user@example.com"
+     *   "action": "request|verify|reset",
+     *   "email": "kullanici_adi",
+     *   "code": "123456",    // for verify & reset
+     *   "newPassword": "..." // for reset
      * }
      */
     public function forgotPassword() {
-        $this->validateRequired(['email']);
+        $action = $this->requestData['action'] ?? 'request';
 
-        $email = $this->requestData['email'];
+        try {
+            $db = $this->getAuthDb();
 
-        // TODO: Generate password reset token
-        // TODO: Send email with reset link
+            if ($action === 'request') {
+                // Step 1: Generate and send verification code
+                $this->validateRequired(['email']);
+                $kullaniciAdi = $this->requestData['email'];
 
-        $this->sendSuccess(null, 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi');
+                // Check if user exists
+                $stmt = $db->prepare("SELECT id, ad_soyad FROM mobil_kullanici WHERE kullanici_adi = :kullanici_adi LIMIT 1");
+                $stmt->execute([':kullanici_adi' => $kullaniciAdi]);
+                $user = $stmt->fetch();
+
+                if (!$user) {
+                    $this->sendError('Kullanıcı bulunamadı', 'USER_NOT_FOUND', 404);
+                }
+
+                // Generate 6-digit code
+                $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+                $expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+                // Save to database
+                $updateStmt = $db->prepare("
+                    UPDATE mobil_kullanici
+                    SET sifre_sifirlama_token = :token,
+                        sifre_sifirlama_token_sure = :expiry
+                    WHERE id = :id
+                ");
+                $updateStmt->execute([
+                    ':token' => $code,
+                    ':expiry' => $expiry,
+                    ':id' => $user['id']
+                ]);
+
+                // Send Email
+                require_once UTILS_PATH . '/Email.php';
+                $emailResult = Email::sendPasswordResetCode($kullaniciAdi, $user['ad_soyad'], $code);
+
+                if ($emailResult['success']) {
+                    $this->sendSuccess(null, 'Doğrulama kodu e-posta adresinize gönderildi');
+                } else {
+                    $this->sendError(
+                        'E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin.',
+                        'EMAIL_SEND_FAILED',
+                        500
+                    );
+                }
+
+            } elseif ($action === 'verify') {
+                // Step 2: Verify code
+                $this->validateRequired(['email', 'code']);
+                $kullaniciAdi = $this->requestData['email'];
+                $code = $this->requestData['code'];
+
+                $stmt = $db->prepare("
+                    SELECT id FROM mobil_kullanici
+                    WHERE kullanici_adi = :kullanici_adi
+                    AND sifre_sifirlama_token = :code
+                    AND sifre_sifirlama_token_sure > NOW()
+                    LIMIT 1
+                ");
+                $stmt->execute([
+                    ':kullanici_adi' => $kullaniciAdi,
+                    ':code' => $code
+                ]);
+                $user = $stmt->fetch();
+
+                if (!$user) {
+                    $this->sendError('Geçersiz veya süresi dolmuş kod', 'INVALID_CODE', 400);
+                }
+
+                $this->sendSuccess(null, 'Kod doğrulandı');
+
+            } elseif ($action === 'reset') {
+                // Step 3: Reset password
+                $this->validateRequired(['email', 'code', 'newPassword']);
+                $kullaniciAdi = $this->requestData['email'];
+                $code = $this->requestData['code'];
+                $newPassword = $this->requestData['newPassword'];
+
+                $stmt = $db->prepare("
+                    SELECT id FROM mobil_kullanici
+                    WHERE kullanici_adi = :kullanici_adi
+                    AND sifre_sifirlama_token = :code
+                    AND sifre_sifirlama_token_sure > NOW()
+                    LIMIT 1
+                ");
+                $stmt->execute([
+                    ':kullanici_adi' => $kullaniciAdi,
+                    ':code' => $code
+                ]);
+                $user = $stmt->fetch();
+
+                if (!$user) {
+                    $this->sendError('Geçersiz veya süresi dolmuş kod', 'INVALID_CODE', 400);
+                }
+
+                // Update password
+                $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
+                $updateStmt = $db->prepare("
+                    UPDATE mobil_kullanici
+                    SET sifre = :sifre,
+                        sifre_sifirlama_token = NULL,
+                        sifre_sifirlama_token_sure = NULL,
+                        son_sifre_degisim_tarihi = NOW()
+                    WHERE id = :id
+                ");
+                $updateStmt->execute([
+                    ':sifre' => $hashedPassword,
+                    ':id' => $user['id']
+                ]);
+
+                $this->sendSuccess(null, 'Şifreniz başarıyla değiştirildi');
+            } else {
+                $this->sendError('Geçersiz action parametresi', 'INVALID_ACTION', 400);
+            }
+
+        } catch (PDOException $e) {
+            $this->sendError('Veritabanı hatası: ' . $e->getMessage(), 'DATABASE_ERROR', 500);
+        } catch (Exception $e) {
+            $this->sendError('Bir hata oluştu: ' . $e->getMessage(), 'SERVER_ERROR', 500);
+        }
     }
 
     /**

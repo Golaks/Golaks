@@ -15,6 +15,8 @@ interface AccountScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onAccountSummary?: () => void;
+  onCashBank?: () => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -24,7 +26,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -135,8 +137,9 @@ export default function AccountScreen({ onBack, onTabChange, onLogout }: Account
                 color="#3B82F6"
                 description="Kasa ve banka hesap durumu raporu"
                 onPress={() => {
-                  console.log('Kasa & Banka raporu oluşturuluyor...');
-                  // Direkt rapor oluşturulacak, parametre yok
+                  if (onCashBank) {
+                    onCashBank();
+                  }
                 }}
               />
               <MenuCard
@@ -145,8 +148,9 @@ export default function AccountScreen({ onBack, onTabChange, onLogout }: Account
                 color="#8B5CF6"
                 description="Cari hesap bakiyeleri özet raporu"
                 onPress={() => {
-                  console.log('Cari Özet raporu oluşturuluyor...');
-                  // Direkt rapor oluşturulacak, parametre yok
+                  if (onAccountSummary) {
+                    onAccountSummary();
+                  }
                 }}
               />
               <MenuCard

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable, Image } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import DeviceInfo from 'react-native-device-info';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { BASE_API_URL } from '../constants/ApiConfig';
@@ -9,6 +10,7 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import MenuCard from '../components/MenuCard';
 import ComingSoonModal from '../components/ComingSoonModal';
+import VersionBadge from '../components/VersionBadge';
 
 interface Application {
   id: string;
@@ -205,6 +207,15 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
             onPress={() => handleTabPress('notifications')}
             badgeCount={notificationCount}
           />
+
+          {/* Version Info */}
+          <View style={styles.versionSection}>
+            <VersionBadge
+              version={DeviceInfo.getVersion()}
+              buildNumber={DeviceInfo.getBuildNumber()}
+              size="small"
+            />
+          </View>
         </ScrollView>
 
         {/* Bottom TabBar */}
@@ -359,5 +370,11 @@ const createStyles = (colors: any, isDark: boolean) =>
       color: colors.textSecondary,
       textAlign: 'center',
       lineHeight: 16,
+    },
+    versionSection: {
+      marginTop: 20,
+      marginBottom: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

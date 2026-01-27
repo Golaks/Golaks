@@ -17,6 +17,10 @@
 - [Legal Documents](./features/LegalDocuments.md) - Yasal doküman yönetimi
 - [Cache Management](./features/CacheManagement.md) - Önbellek yönetim sistemi
 
+### 4. Backend & API
+- [API Architecture](./api-architecture.md) - Backend API mimarisi, endpoint'ler, controller'lar ve geliştirme rehberi
+- [API Setup](./api-setup.md) - Kurulum, deployment, güvenlik ve production rehberi
+
 ## 🎨 Tema ve Stil Standartları
 
 ### Renk Kullanımı
@@ -66,14 +70,29 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 
 ## 📚 API Referansları
 
-### Servisler
+### Frontend Servisler
 - `profileService` - Profil işlemleri için
 - `authService` - Kimlik doğrulama için
+- `accountService` - Cari hesap işlemleri için
+- `notificationService` - Bildirim işlemleri için
 
 ### Context'ler
 - `useAuth()` - Kullanıcı bilgileri ve yetkilendirme
 - `useTheme()` - Tema ve renk yönetimi
 - `useAlert()` - Bildirim ve uyarı mesajları
+
+### Backend API
+- **Mimari ve Geliştirme:** [API Architecture](./api-architecture.md)
+- **Kurulum ve Deployment:** [API Setup](./api-setup.md)
+
+**Temel Endpoint Grupları:**
+- `/auth/*` - Authentication (Login, Logout, Password Reset)
+- `/user/*` - User Management & Profile
+- `/company/*` - Company Management (SuperAdmin)
+- `/account/*` - Account/Cari Operations
+- `/notifications/*` - Notification Management
+- `/tenant/*` - Multi-tenant Operations
+- `/apps/*` - App-specific endpoints (account, tannery, confection, shop)
 
 ## 🚀 Hızlı Başlangıç
 
@@ -102,6 +121,15 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 
 ## 📝 Versiyon Geçmişi
 
+### v1.1.0 (27 Ocak 2026)
+- ✅ **Backend API:** Tamamen modern controller/router mimarisine geçiş
+- ✅ **Backend API:** Legacy endpoint sistemi kaldırıldı
+- ✅ **Backend API:** UserController profil yönetimi metodları eklendi
+- ✅ **Backend API:** CompanyController firma yönetimi eklendi
+- ✅ **Backend API:** AccountController multi-database cari sistemi
+- ✅ **Dokümantasyon:** Kapsamlı API Architecture dokümantasyonu eklendi
+- ✅ **Frontend:** AccountSummaryScreen ve cari filtreleme sistemi eklendi
+
 ### v1.0.0 (25 Ocak 2026)
 - ✅ MenuCard disabled state desteği
 - ✅ Role-based access control sistemi
@@ -128,3 +156,5 @@ Her modül için detaylı dokümantasyon ilgili klasörlerde bulunabilir:
 - `./components/` - Bileşen dokümantasyonları
 - `./screens/` - Ekran dokümantasyonları
 - `./features/` - Özellik dokümantasyonları
+- `./api-architecture.md` - Backend API mimarisi ve geliştirme rehberi
+- `./api-setup.md` - Backend kurulum ve deployment rehberi

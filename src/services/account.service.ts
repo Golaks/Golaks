@@ -1,0 +1,157 @@
+/**
+ * Account Service
+ * Cari hesap işlemleri
+ */
+
+import { API_ENDPOINTS } from '../constants/ApiConfig';
+
+export interface CariBalance {
+  doviz: string;
+  bakiye: number;
+  durum: 'AB' | 'BB'; // AB: Alacak Bakiyesi, BB: Borç Bakiyesi
+}
+
+export interface CariAccount {
+  id: number;
+  hesapKodu: string;
+  unvan: string;
+  kisaUnvan: string;
+  doviz: string;
+  sube: string;
+  bakiyeler?: CariBalance[]; // Optional, lazy loaded
+}
+
+export interface CariListResponse {
+  success: boolean;
+  data: {
+    data: CariAccount[];
+    count: number;
+    filterType: string;
+  };
+  message?: string;
+}
+
+export interface CashBankItem {
+  id?: number;
+  hesapKodu?: string;
+  unvan?: string;
+  sube: string;
+  doviz: string;
+  bakiye: number;
+}
+
+export interface CashBankSummaryResponse {
+  success: boolean;
+  data: {
+    kasa: CashBankItem[];
+    banka: CashBankItem[];
+    groupBy: 'all' | 'branch';
+  };
+  message?: string;
+}
+
+class AccountService {
+  private getAuthHeader(token: string) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+  }
+
+  /**
+   * Cari hesap listesini getirir
+   */
+  async getCariList(
+    token: string,
+    dataName: string,
+    filterType: 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' = 'all',
+    search: string = ''
+  ): Promise<CariListResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_LIST, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          filterType,
+          search,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Cari listesi alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('Get cari list error:', error);
+      throw new Error(error.message || 'Cari listesi alınamadı');
+    }
+  }
+
+  /**
+   * Cari hesap bakiyesini getirir
+   */
+  async getCariBalance(
+    token: string,
+    dataName: string,
+    cariId: number
+  ): Promise<{ success: boolean; data: { bakiyeler: CariBalance[] }; message?: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_BALANCE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          cariId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Bakiye alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('Get cari balance error:', error);
+      throw new Error(error.message || 'Bakiye alınamadı');
+    }
+  }
+
+  /**
+   * Kasa ve Banka özet raporunu getirir
+   */
+  async getCashBankSummary(
+    token: string,
+    dataName: string,
+    groupBy: 'all' | 'branch' = 'all'
+  ): Promise<CashBankSummaryResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CASH_BANK_SUMMARY, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          groupBy,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Kasa-Banka raporu alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('Get cash bank summary error:', error);
+      throw new Error(error.message || 'Kasa-Banka raporu alınamadı');
+    }
+  }
+}
+
+export default new AccountService();

@@ -16,6 +16,7 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import BarcodeScanner from '../components/BarcodeScanner';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +34,7 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
   const [scanMode, setScanMode] = useState<ScanMode>('barcode');
   const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   // Animation values
   const modeSlideAnim = useRef(new Animated.Value(0)).current;
@@ -44,7 +46,6 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
     if (onTabChange) {
       onTabChange(tab);
     }
-    console.log('Active tab:', tab);
   };
 
   const handleModeChange = (mode: ScanMode) => {
@@ -63,8 +64,12 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
   };
 
   const handleScanPress = () => {
-    console.log('Open camera scanner');
-    // TODO: Implement camera scanner
+    setScannerVisible(true);
+  };
+
+  const handleBarcodeScanned = (barcode: string) => {
+    console.log('Scanned barcode:', barcode);
+    setInputValue(barcode);
   };
 
   const handleQuickNumber = (prefix: string) => {
@@ -284,6 +289,14 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
           </View>
 
         </ScrollView>
+
+        {/* Barcode Scanner Modal */}
+        <BarcodeScanner
+          visible={scannerVisible}
+          onClose={() => setScannerVisible(false)}
+          onBarcodeScanned={handleBarcodeScanned}
+          title="Barkod Tara"
+        />
 
         {/* Bottom TabBar */}
         <TabBar

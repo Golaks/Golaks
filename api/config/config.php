@@ -11,6 +11,12 @@ Env::load();
 // Timezone
 date_default_timezone_set(Env::get('APP_TIMEZONE', 'Europe/Istanbul'));
 
+// Database Config
+define('DB_HOST', Env::get('DB_HOST', 'localhost'));
+define('DB_NAME', Env::get('DB_NAME', 'golaks_crm'));
+define('DB_USER', Env::get('DB_USER', 'root'));
+define('DB_PASS', Env::get('DB_PASS', ''));
+
 // App Config
 define('APP_NAME', Env::get('APP_NAME', 'Golaks API'));
 define('APP_VERSION', Env::get('APP_VERSION', '1.0.0'));

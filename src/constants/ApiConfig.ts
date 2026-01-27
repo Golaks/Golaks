@@ -17,24 +17,36 @@ export const BASE_API_URL = BASE_URL;
  * API Endpoints
  */
 export const API_ENDPOINTS = {
-  // Authentication (GolaksMobile uyumlu endpoint'ler)
-  LOGIN: `${BASE_API_URL}/login`,
-  LOGOUT: `${BASE_API_URL}/logout`,
-  REFRESH_TOKEN: `${BASE_API_URL}/refresh`,
-  PASSWORD_RESET: `${BASE_API_URL}/password-reset`,
-  PROFILE: `${BASE_API_URL}/profile`,
+  // Authentication (Modern API v1.1.0)
+  LOGIN: `${BASE_API_URL}/auth/login`,
+  LOGOUT: `${BASE_API_URL}/auth/logout`,
+  REFRESH_TOKEN: `${BASE_API_URL}/auth/refresh`,
+  FORGOT_PASSWORD: `${BASE_API_URL}/auth/forgot-password`,
+  RESET_PASSWORD: `${BASE_API_URL}/auth/reset-password`,
+  PASSWORD_RESET: `${BASE_API_URL}/auth/forgot-password`, // Alias for backward compatibility
 
   // Tenant Management
   GET_TENANT_INFO: `${BASE_API_URL}/tenant/info`,
   LIST_TENANTS: `${BASE_API_URL}/tenant/list`, // Kullanıcının erişebildiği tenant'lar
 
-  // User
+  // User Profile
   GET_USER_PROFILE: `${BASE_API_URL}/user/profile`,
-  USER_SETTINGS: `${BASE_API_URL}/user-settings`,
-  USER_MANAGEMENT: `${BASE_API_URL}/user-management`,
+  UPDATE_USER_PROFILE: `${BASE_API_URL}/user/profile`,
+  CHANGE_PASSWORD: `${BASE_API_URL}/user/change-password`,
+  UPDATE_NOTIFICATIONS: `${BASE_API_URL}/user/notifications`,
+  UPLOAD_PHOTO: `${BASE_API_URL}/user/upload-photo`,
 
-  // Company Management (Super Admin) - GET: list, POST: create, PUT: update, DELETE: delete
-  COMPANY_MANAGEMENT: `${BASE_API_URL}/company-management`,
+  // User Management (Admin/SuperAdmin)
+  USER_LIST: `${BASE_API_URL}/user/list`,
+  USER_CREATE: `${BASE_API_URL}/user/create`,
+  USER_UPDATE: `${BASE_API_URL}/user/update`,
+  USER_DELETE: `${BASE_API_URL}/user/delete`,
+
+  // Company Management (Super Admin)
+  COMPANY_LIST: `${BASE_API_URL}/company/list`,
+  COMPANY_CREATE: `${BASE_API_URL}/company/create`,
+  COMPANY_UPDATE: `${BASE_API_URL}/company/update`,
+  COMPANY_DELETE: `${BASE_API_URL}/company/delete`,
 
   // Notifications
   NOTIFICATIONS: `${BASE_API_URL}/notifications`,
@@ -43,6 +55,12 @@ export const API_ENDPOINTS = {
   NOTIFICATION_MARK_READ: (id: string) => `${BASE_API_URL}/notifications/${id}/read`,
   NOTIFICATION_DELETE: (id: string) => `${BASE_API_URL}/notifications/${id}`,
   NOTIFICATION_SEND: `${BASE_API_URL}/notifications/send`,
+
+  // Account endpoints (muhasebe)
+  ACCOUNT_CARI_LIST: `${BASE_API_URL}/account/cari-list`,
+  ACCOUNT_CARI_BALANCE: `${BASE_API_URL}/account/cari-balance`,
+  ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
+  ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
 
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak

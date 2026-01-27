@@ -35,6 +35,9 @@ class Router {
      * Register all routes
      */
     private function registerRoutes() {
+        // Root endpoint
+        $this->get('/', 'HealthController', 'check');
+
         // Authentication Routes
         $this->post('/auth/login', 'AuthController', 'login');
         $this->post('/auth/logout', 'AuthController', 'logout');
@@ -50,6 +53,15 @@ class Router {
         // User Routes (Protected)
         $this->get('/user/profile', 'UserController', 'profile');
         $this->put('/user/profile', 'UserController', 'updateProfile');
+        $this->put('/user/change-password', 'UserController', 'changePassword');
+        $this->put('/user/notifications', 'UserController', 'updateNotifications');
+        $this->post('/user/upload-photo', 'UserController', 'uploadPhoto');
+
+        // User Management Routes (Protected, Admin/SuperAdmin only)
+        $this->get('/user/list', 'UserController', 'getList');
+        $this->post('/user/create', 'UserController', 'create');
+        $this->put('/user/update', 'UserController', 'update');
+        $this->delete('/user/delete', 'UserController', 'delete');
 
         // Notification Routes (Protected)
         $this->get('/notifications', 'NotificationController', 'getNotifications');
@@ -58,6 +70,17 @@ class Router {
         $this->put('/notifications/:id/read', 'NotificationController', 'markAsRead');
         $this->delete('/notifications/:id', 'NotificationController', 'deleteNotification');
         $this->post('/notifications/send', 'NotificationController', 'sendNotification');
+
+        // Account Routes (Protected, Company-specific)
+        $this->post('/account/cari-list', 'AccountController', 'getCariList');
+        $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
+        $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
+
+        // Company Routes (Protected, Super Admin only)
+        $this->get('/company/list', 'CompanyController', 'getList');
+        $this->post('/company/list', 'CompanyController', 'create');
+        $this->put('/company/list', 'CompanyController', 'update');
+        $this->delete('/company/list', 'CompanyController', 'delete');
 
         // Data Routes (Protected, Tenant-specific)
         $this->get('/data/dashboard', 'DataController', 'dashboard');
@@ -143,7 +166,8 @@ class Router {
         $controllerFile = CONTROLLERS_PATH . '/' . $controllerName . '.php';
 
         // Check if controller is in apps subdirectory
-        if (strpos($controllerName, 'Account') === 0) {
+        // Note: AccountController is in root controllers/, not in apps/account/
+        if (strpos($controllerName, 'AccountReport') === 0 || strpos($controllerName, 'AccountTransaction') === 0) {
             $controllerFile = CONTROLLERS_PATH . '/apps/account/' . str_replace('Account', '', $controllerName) . '.php';
         } elseif (strpos($controllerName, 'Tannery') === 0) {
             $controllerFile = CONTROLLERS_PATH . '/apps/tannery/' . str_replace('Tannery', '', $controllerName) . '.php';

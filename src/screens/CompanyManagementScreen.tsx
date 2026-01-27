@@ -210,17 +210,26 @@ export default function CompanyManagementScreen({
       if (!sessionStr) return;
 
       const session = JSON.parse(sessionStr);
-      const response = await fetch(API_ENDPOINTS.COMPANY_MANAGEMENT, {
+      console.log('Fetching companies from:', API_ENDPOINTS.COMPANY_LIST);
+      console.log('Token available:', !!session.token);
+
+      const response = await fetch(API_ENDPOINTS.COMPANY_LIST, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.token}`,
         },
       });
 
+      console.log('Company response status:', response.status);
       const data = await response.json();
+      console.log('Company response data:', JSON.stringify(data, null, 2));
 
       if (data.success && data.data?.companies) {
+        console.log('Companies loaded:', data.data.companies.length);
         setCompanies(data.data.companies);
+      } else {
+        console.log('No companies or wrong format:', data);
+        alert.showError('Hata', data.error?.message || 'Firma listesi yüklenemedi');
       }
     } catch (error) {
       console.error('Company load error:', error);
@@ -520,7 +529,7 @@ export default function CompanyManagementScreen({
 
 
 
-      const response = await fetch(API_ENDPOINTS.COMPANY_MANAGEMENT, {
+      const response = await fetch(API_ENDPOINTS.COMPANY_LIST, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -580,7 +589,7 @@ export default function CompanyManagementScreen({
 
 
 
-      const response = await fetch(API_ENDPOINTS.COMPANY_MANAGEMENT, {
+      const response = await fetch(API_ENDPOINTS.COMPANY_LIST, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1257,7 +1266,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.backgroundSecondary,
+      backgroundColor: colors.background,
     },
     headerRight: {
       flexDirection: 'row',
@@ -1321,7 +1330,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
     searchContainer: {
       paddingHorizontal: 16,
       paddingVertical: 12,
-      backgroundColor: colors.backgroundSecondary,
+      backgroundColor: colors.background,
     },
     pageHeader: {
       paddingHorizontal: 16,

@@ -34,9 +34,9 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Uygulama konum verisi toplamaz. Bu izin sadece kullandığımız kamera kütüphanesinin gereksinimi içindir.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Profil fotoğrafınızı çekmek için kamera erişimine ihtiyacımız var</string>
+	<string>Profil fotoğrafınızı çekmek ve barkod taramak için kamera erişimine ihtiyacımız var</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Profil fotoğrafınızı seçmek için foto galeri erişimine ihtiyacımız var</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

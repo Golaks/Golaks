@@ -135,18 +135,19 @@ class BaseController {
      */
     protected function getAuthDb() {
         if (!$this->db) {
-            $this->db = Database::getAuthConnection();
+            $this->db = Database::getInstance()->getConnection();
         }
         return $this->db;
     }
 
     /**
      * Get Tenant database connection
+     * For now, returns the same connection (single database)
      */
-    protected function getTenantDb($tenantId) {
-        if (!$this->tenantDb || !isset($this->tenantDb[$tenantId])) {
-            $this->tenantDb[$tenantId] = Database::getTenantConnection($tenantId);
+    protected function getTenantDb($tenantId = null) {
+        if (!$this->tenantDb) {
+            $this->tenantDb = Database::getInstance()->getConnection();
         }
-        return $this->tenantDb[$tenantId];
+        return $this->tenantDb;
     }
 }

@@ -108,10 +108,10 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setIsLoading(true);
     try {
       const token = await getToken();
-      console.log('Fetching users from:', API_ENDPOINTS.USER_MANAGEMENT);
+      console.log('Fetching users from:', API_ENDPOINTS.USER_LIST);
       console.log('Token available:', !!token);
 
-      const response = await fetch(API_ENDPOINTS.USER_MANAGEMENT, {
+      const response = await fetch(API_ENDPOINTS.USER_LIST, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -277,20 +277,23 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         permissions: formPermissions,
       };
 
+      let endpoint = API_ENDPOINTS.USER_CREATE;
+      let method = 'POST';
+
       if (isEditMode && selectedUser) {
-        requestBody.action = 'update';
+        endpoint = API_ENDPOINTS.USER_UPDATE;
+        method = 'PUT';
         requestBody.id = selectedUser.id;
         requestBody.active = selectedUser.active;
         if (formPassword.trim()) {
           requestBody.password = formPassword;
         }
       } else {
-        requestBody.action = 'create';
         requestBody.password = formPassword;
       }
 
-      const response = await fetch(API_ENDPOINTS.USER_MANAGEMENT, {
-        method: 'POST',
+      const response = await fetch(endpoint, {
+        method: method,
         headers: {
           'Authorization': `Bearer ${await getToken()}`,
           'Content-Type': 'application/json',
@@ -347,14 +350,13 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setShowActiveConfirm(false);
 
     try {
-      const response = await fetch(API_ENDPOINTS.USER_MANAGEMENT, {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${await getToken()}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'update',
           id: selectedUser.id,
           name: selectedUser.name,
           email: selectedUser.email,
@@ -398,11 +400,15 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     if (!selectedUser) return;
 
     try {
-      const response = await fetch(`${API_ENDPOINTS.USER_MANAGEMENT}?user_id=${selectedUser.id}`, {
+      const response = await fetch(API_ENDPOINTS.USER_DELETE, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${await getToken()}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          user_id: selectedUser.id,
+        }),
       });
 
       const data = await response.json();

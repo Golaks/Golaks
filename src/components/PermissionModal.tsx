@@ -10,11 +10,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import Button from './Button';
 
 export type PermissionType = 'camera' | 'gallery' | 'notifications';
 
@@ -61,7 +61,7 @@ export default function PermissionModal({
   title = 'İzinler Gerekli',
   subtitle = 'Uygulamanın düzgün çalışması için aşağıdaki izinlere ihtiyaç duyuyor:',
 }: PermissionModalProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const scaleAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -77,7 +77,7 @@ export default function PermissionModal({
     }
   }, [visible, scaleAnim]);
 
-  const styles = createStyles(colors, isDark);
+  const styles = createStyles(colors);
 
   const permissionList: Permission[] = permissions.map((type) => ({
     type,
@@ -113,11 +113,7 @@ export default function PermissionModal({
           </View>
 
           {/* Permission List */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.permissionListContainer}>
             {permissionList.map((permission, index) => (
               <View
                 key={permission.type}
@@ -144,37 +140,24 @@ export default function PermissionModal({
                 </View>
               </View>
             ))}
-          </ScrollView>
+          </View>
 
           {/* Actions */}
           <View style={styles.actions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.cancelButton,
-                pressed && styles.buttonPressed,
-              ]}
+            <Button
+              text="İptal"
+              icon="close-circle-outline"
               onPress={onCancel}
-            >
-              <Text style={styles.cancelButtonText}>İptal</Text>
-            </Pressable>
+              variant="secondary"
+              style={styles.cancelButton}
+            />
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.confirmButton,
-                pressed && styles.buttonPressed,
-              ]}
+            <Button
+              text="İzin Ver"
+              icon="shield-checkmark-outline"
               onPress={onRequestPermissions}
-            >
-              <Icon
-                name="checkmark-circle-outline"
-                size={20}
-                color="#FFFFFF"
-                style={styles.buttonIcon}
-              />
-              <Text style={styles.confirmButtonText}>İzin Ver</Text>
-            </Pressable>
+              style={styles.confirmButton}
+            />
           </View>
         </Animated.View>
       </View>
@@ -182,7 +165,7 @@ export default function PermissionModal({
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
+const createStyles = (colors: any) =>
   StyleSheet.create({
     overlay: {
       flex: 1,
@@ -233,10 +216,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       textAlign: 'center',
       lineHeight: 20,
     },
-    scrollView: {
-      maxHeight: 300,
-    },
-    scrollContent: {
+    permissionListContainer: {
       padding: 20,
     },
     permissionItem: {
@@ -293,39 +273,14 @@ const createStyles = (colors: any, isDark: boolean) =>
     actions: {
       flexDirection: 'row',
       padding: 16,
-      gap: 12,
+      gap: 10,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    button: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 14,
-      borderRadius: 12,
-      gap: 8,
-    },
-    buttonPressed: {
-      opacity: 0.7,
-    },
     cancelButton: {
-      backgroundColor: isDark ? colors.border : '#F3F4F6',
+      flex: 1,
     },
     confirmButton: {
-      backgroundColor: colors.primary,
-    },
-    cancelButtonText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.text,
-    },
-    confirmButtonText: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: '#FFFFFF',
-    },
-    buttonIcon: {
-      marginRight: 4,
+      flex: 1,
     },
   });

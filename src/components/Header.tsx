@@ -8,6 +8,15 @@ import ConfirmDialog from './ConfirmDialog';
 const AppIcon = require('../assets/images/icon.png');
 const GolaksLogo = require('../assets/images/golaks-logo.png');
 
+interface MenuItem {
+  icon: string;
+  label: string;
+  subtext?: string;
+  onPress: () => void;
+  color?: string;
+  isDanger?: boolean;
+}
+
 interface HeaderProps {
   title: string;
   showBackButton?: boolean;
@@ -19,6 +28,7 @@ interface HeaderProps {
   showLogo?: boolean;
   leftButton?: React.ReactNode;
   rightButton?: React.ReactNode;
+  customMenuItems?: MenuItem[];
 }
 
 export default function Header({
@@ -32,10 +42,12 @@ export default function Header({
   showLogo = true,
   leftButton,
   rightButton,
+  customMenuItems,
 }: HeaderProps) {
   const { colors, isDark, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [showCustomMenu, setShowCustomMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const styles = createStyles(colors, insets.top);
@@ -107,6 +119,10 @@ export default function Header({
         <View style={styles.rightContainer}>
           {rightButton ? (
             rightButton
+          ) : customMenuItems ? (
+            <Pressable onPress={() => setShowCustomMenu(true)} style={styles.iconButton}>
+              <Icon name="ellipsis-vertical" size={24} color={colors.text} />
+            </Pressable>
           ) : rightIcon ? (
             <Pressable onPress={handleRightIconPress} style={styles.iconButton}>
               <Icon name={rightIcon} size={24} color={colors.text} />
@@ -181,6 +197,75 @@ export default function Header({
                 </View>
                 <Icon name="chevron-forward" size={18} color="#EF444460" />
               </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Custom Menu Modal */}
+      {customMenuItems && customMenuItems.length > 0 && (
+        <Modal
+          visible={showCustomMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCustomMenu(false)}
+        >
+          <Pressable
+            style={styles.customMenuOverlay}
+            onPress={() => setShowCustomMenu(false)}
+          >
+            <Pressable
+              style={styles.customMenuContent}
+              onPress={(e) => e.stopPropagation()}
+            >
+              {customMenuItems.map((item, index) => (
+                <React.Fragment key={index}>
+                  {index > 0 && <View style={styles.menuDivider} />}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.menuOption,
+                      pressed && styles.menuOptionPressed,
+                    ]}
+                    onPress={() => {
+                      setShowCustomMenu(false);
+                      item.onPress();
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.menuIconContainer,
+                        { backgroundColor: item.isDanger ? '#EF444420' : `${item.color || colors.primary}20` },
+                      ]}
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={20}
+                        color={item.isDanger ? '#EF4444' : (item.color || colors.primary)}
+                      />
+                    </View>
+                    <View style={styles.menuTextContainer}>
+                      <Text
+                        style={[
+                          styles.menuOptionText,
+                          item.isDanger && { color: '#EF4444' },
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                      {item.subtext && (
+                        <Text style={styles.menuOptionSubtext}>
+                          {item.subtext}
+                        </Text>
+                      )}
+                    </View>
+                    <Icon
+                      name="chevron-forward"
+                      size={18}
+                      color={item.isDanger ? '#EF444460' : colors.textTertiary}
+                    />
+                  </Pressable>
+                </React.Fragment>
+              ))}
             </Pressable>
           </Pressable>
         </Modal>
@@ -268,6 +353,27 @@ const createStyles = (colors: any, topInset: number) =>
       paddingLeft: 16,
     },
     menuModalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 8,
+      minWidth: 280,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    customMenuOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-start',
+      alignItems: 'flex-end',
+      paddingTop: topInset + 56,
+      paddingRight: 16,
+    },
+    customMenuContent: {
       backgroundColor: colors.card,
       borderRadius: 16,
       padding: 8,

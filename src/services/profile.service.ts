@@ -23,9 +23,6 @@ class ProfileService {
       // FormData oluştur
       const formData = new FormData();
 
-      // Action parametresi ekle
-      formData.append('action', 'upload-photo');
-
       // Dosya bilgilerini hazırla
       const filename = photoUri.split('/').pop() || 'photo.jpg';
       const match = /\.(\w+)$/.exec(filename);
@@ -37,7 +34,7 @@ class ProfileService {
         type: type,
       } as any);
 
-      const response = await fetch(API_ENDPOINTS.USER_SETTINGS, {
+      const response = await fetch(API_ENDPOINTS.UPLOAD_PHOTO, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -82,14 +79,13 @@ class ProfileService {
         };
       }
 
-      const response = await fetch(API_ENDPOINTS.USER_SETTINGS, {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.UPDATE_USER_PROFILE, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'update-profile',
           name,
           phone,
         }),
@@ -130,14 +126,13 @@ class ProfileService {
         };
       }
 
-      const response = await fetch(API_ENDPOINTS.USER_SETTINGS, {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.CHANGE_PASSWORD, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'change-password',
           currentPassword,
           newPassword,
         }),
@@ -177,16 +172,13 @@ class ProfileService {
         };
       }
 
-      const response = await fetch(API_ENDPOINTS.USER_SETTINGS, {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.UPDATE_NOTIFICATIONS, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          action: 'update-notifications',
-          settings,
-        }),
+        body: JSON.stringify(settings),
       });
 
       const data = await response.json();

@@ -5,26 +5,25 @@ const GolaksIcon = require('../assets/images/icon.png');
 
 interface LoadingSpinnerProps {
   size?: number;
+  color?: string;
 }
 
-export default function LoadingSpinner({ size = 80 }: LoadingSpinnerProps) {
-
-  // Logo animations
-  const logoScale = useRef(new Animated.Value(0.95)).current;
+export default function LoadingSpinner({ size = 80, color }: LoadingSpinnerProps) {
+  const scaleValue = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Gentle breathing pulse for logo
+    // Pulse animation (scale)
     Animated.loop(
       Animated.sequence([
-        Animated.timing(logoScale, {
-          toValue: 1.05,
-          duration: 1500,
+        Animated.timing(scaleValue, {
+          toValue: 1.2,
+          duration: 750,
           easing: Easing.bezier(0.45, 0.05, 0.55, 0.95),
           useNativeDriver: true,
         }),
-        Animated.timing(logoScale, {
-          toValue: 0.95,
-          duration: 1500,
+        Animated.timing(scaleValue, {
+          toValue: 1,
+          duration: 750,
           easing: Easing.bezier(0.45, 0.05, 0.55, 0.95),
           useNativeDriver: true,
         }),
@@ -32,20 +31,14 @@ export default function LoadingSpinner({ size = 80 }: LoadingSpinnerProps) {
     ).start();
   }, []);
 
+  const iconSize = size * 0.8; // Icon'u %80 boyutunda göster
+
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      {/* Main logo with animations */}
-      <Animated.View
-        style={[
-          styles.logoContainer,
-          {
-            transform: [{ scale: logoScale }],
-          },
-        ]}
-      >
+      <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
         <Image
           source={GolaksIcon}
-          style={[styles.logoImage, { width: size, height: size }]}
+          style={[styles.icon, { width: iconSize, height: iconSize }]}
           resizeMode="contain"
         />
       </Animated.View>
@@ -58,11 +51,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoImage: {
+  icon: {
     opacity: 0.9,
   },
 });

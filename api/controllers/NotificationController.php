@@ -10,7 +10,7 @@ class NotificationController {
      */
     public function getNotifications() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         try {
             $db = Database::getInstance();
@@ -85,7 +85,7 @@ class NotificationController {
      */
     public function getUnreadNotifications() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         try {
             $db = Database::getInstance();
@@ -128,7 +128,7 @@ class NotificationController {
      */
     public function markAsRead() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         // Get notification ID from URI
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -162,7 +162,7 @@ class NotificationController {
      */
     public function markAllAsRead() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         try {
             $db = Database::getInstance();
@@ -187,7 +187,7 @@ class NotificationController {
      */
     public function sendNotification() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         try {
             $db = Database::getInstance();
@@ -358,7 +358,7 @@ class NotificationController {
      */
     public function deleteNotification() {
         $auth = Auth::requireAuth();
-        $userId = $auth['userId'];
+        $userId = $auth['user_id'];
 
         // Get notification ID from URI
         $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
