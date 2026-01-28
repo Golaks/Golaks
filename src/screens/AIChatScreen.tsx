@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput, Keyboard, Platform, Animated } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
 import { BASE_API_URL } from '../constants/ApiConfig';
+import { aiService, ChatMessage } from '../services/ai.service';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -20,6 +21,7 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  isLoading?: boolean;
 }
 
 export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProps) {
@@ -29,6 +31,66 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
   const [activeTab, setActiveTab] = useState<TabName>('aiChat');
   const [message, setMessage] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Klavye listener
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
+  // Typing animasyonu
+  const TypingDots = () => {
+    const dot1 = useRef(new Animated.Value(0)).current;
+    const dot2 = useRef(new Animated.Value(0)).current;
+    const dot3 = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      const animate = (dot: Animated.Value, delay: number) => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(dot, { toValue: 1, duration: 300, useNativeDriver: true }),
+            Animated.timing(dot, { toValue: 0, duration: 300, useNativeDriver: true }),
+          ])
+        ).start();
+      };
+      animate(dot1, 0);
+      animate(dot2, 150);
+      animate(dot3, 300);
+    }, []);
+
+    return (
+      <View style={styles.typingIndicator}>
+        {[dot1, dot2, dot3].map((dot, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              styles.typingDot,
+              { opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) },
+              { transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }] },
+            ]}
+          />
+        ))}
+      </View>
+    );
+  };
 
   // Saate göre selamlama
   const getGreeting = () => {
@@ -61,10 +123,81 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
     console.log('Active tab:', tab);
   };
 
-  const handleSend = () => {
-    if (!message.trim()) return;
-    console.log('Send message:', message);
+  const handleSend = async () => {
+    if (!message.trim() || isLoading) return;
+
+    const userMessageText = message.trim();
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: userMessageText,
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
     setMessage('');
+    setIsLoading(true);
+
+    // Add loading message
+    const loadingMessageId = (Date.now() + 1).toString();
+    setMessages(prev => [...prev, {
+      id: loadingMessageId,
+      text: '',
+      isUser: false,
+      timestamp: new Date(),
+      isLoading: true,
+    }]);
+
+    // Build conversation history
+    const conversationHistory: ChatMessage[] = messages
+      .filter(msg => msg.id !== '1')
+      .map(msg => ({
+        role: msg.isUser ? 'user' : 'assistant',
+        content: msg.text,
+      }));
+
+    conversationHistory.push({
+      role: 'user',
+      content: userMessageText,
+    });
+
+    try {
+      const response = await aiService.sendChatMessage(userMessageText, conversationHistory);
+
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessageId);
+
+        let errorText = 'Bir hata oluştu';
+        if (response.error) {
+          if (typeof response.error === 'string') {
+            errorText = response.error;
+          } else if (typeof response.error === 'object' && response.error.message) {
+            errorText = response.error.message;
+          }
+        }
+
+        const aiMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          text: response.success && response.data ? response.data.message : errorText,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        return [...filtered, aiMessage];
+      });
+    } catch (error) {
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessageId);
+        const errorMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          text: 'Bağlantı hatası',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        return [...filtered, errorMessage];
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClearChat = () => {
@@ -136,9 +269,11 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
         />
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 120 : 200 }]}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
           {/* Messages */}
           {messages.map((msg) => (
@@ -164,9 +299,13 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
                   msg.isUser ? styles.userBubble : styles.systemBubble,
                 ]}
               >
-                <Text style={[styles.messageText, msg.isUser ? styles.userText : styles.systemText]}>
-                  {msg.text}
-                </Text>
+                {msg.isLoading ? (
+                  <TypingDots />
+                ) : (
+                  <Text style={[styles.messageText, msg.isUser ? styles.userText : styles.systemText]}>
+                    {msg.text}
+                  </Text>
+                )}
               </View>
               {msg.isUser && user?.avatar && (
                 <Image
@@ -185,7 +324,7 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
         </ScrollView>
 
         {/* Input Area */}
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { bottom: keyboardHeight > 0 ? keyboardHeight : 100 }]}>
           <View style={styles.warningContainer}>
             <Icon name="information-circle-outline" size={12} color={colors.textTertiary} />
             <Text style={styles.warningText}>
@@ -202,6 +341,7 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
               placeholderTextColor={colors.placeholder}
               multiline
               maxLength={1000}
+              keyboardAppearance={isDark ? 'dark' : 'light'}
             />
             <Pressable
               style={[
@@ -256,7 +396,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     scrollContent: {
       padding: 16,
-      paddingBottom: 195,
+      paddingBottom: 200,
     },
     messageContainer: {
       flexDirection: 'row',
@@ -327,7 +467,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     inputContainer: {
       position: 'absolute',
-      bottom: 125,
       left: 0,
       right: 0,
       paddingHorizontal: 16,
@@ -378,5 +517,18 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 2,
+    },
+    typingIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 8,
+    },
+    typingDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.textTertiary,
+      opacity: 0.6,
     },
   });

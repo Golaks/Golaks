@@ -2,17 +2,19 @@
 
 > **Proje:** Golaks Mobile App
 > **Platform:** React Native 0.83.1
-> **Son Güncelleme:** 25 Ocak 2026
+> **Son Güncelleme:** 28 Ocak 2026
 
 ## 📋 İçindekiler
 
 ### 1. Bileşenler (Components)
 - [MenuCard](./components/MenuCard.md) - Menü kartı bileşeni, disabled state desteği ile
+- [BarcodeScanner](./components/BarcodeScanner.md) - Barkod/QR kod tarama bileşeni, otomatik odaklama ile
 
 ### 2. Ekranlar (Screens)
 - [ProfileScreen](./screens/ProfileScreen.md) - Kullanıcı profil ve ayarlar ekranı
 
 ### 3. Özellikler (Features)
+- [AI Chat (GolaksIQ)](./features/AIChat.md) - Yapay zeka asistanı, load balancing ve çoklu AI sunucu desteği
 - [Role-Based Access Control](./features/RoleBasedAccess.md) - Rol tabanlı erişim kontrolü
 - [Legal Documents](./features/LegalDocuments.md) - Yasal doküman yönetimi
 - [Cache Management](./features/CacheManagement.md) - Önbellek yönetim sistemi
@@ -71,6 +73,7 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 ## 📚 API Referansları
 
 ### Frontend Servisler
+- `aiService` - AI Chat (GolaksIQ) işlemleri için
 - `profileService` - Profil işlemleri için
 - `authService` - Kimlik doğrulama için
 - `accountService` - Cari hesap işlemleri için
@@ -86,6 +89,7 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 - **Kurulum ve Deployment:** [API Setup](./api-setup.md)
 
 **Temel Endpoint Grupları:**
+- `/ai/*` - AI Chat Operations (GolaksIQ)
 - `/auth/*` - Authentication (Login, Logout, Password Reset)
 - `/user/*` - User Management & Profile
 - `/company/*` - Company Management (SuperAdmin)
@@ -121,6 +125,17 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 
 ## 📝 Versiyon Geçmişi
 
+### v1.2.0 (28 Ocak 2026)
+- ✅ **AI Chat (GolaksIQ):** Yapay zeka asistanı sistemi eklendi
+- ✅ **AI Load Balancer:** Çoklu AI sunucu desteği (OpenAI, Claude, Groq, Ollama)
+- ✅ **System Prompts:** Çok dilli (TR/EN) ve kapsam kısıtlamalı AI asistanı
+- ✅ **Barcode Scanner:** Geliştirilmiş barkod tarayıcı (340x340 çerçeve)
+- ✅ **Auto-Focus:** Otomatik ve dokunarak odaklama özelliği
+- ✅ **Camera Format:** Yüksek çözünürlük kamera desteği (1920x1080)
+- ✅ **JWT Expiry:** Token süresi 6 aya uzatıldı (15552000 saniye)
+- ✅ **UI Standardization:** Tüm kaydet butonları "Kaydet" olarak standardize edildi
+- ✅ **Dokümantasyon:** AIChat ve BarcodeScanner dokümantasyonları eklendi
+
 ### v1.1.0 (27 Ocak 2026)
 - ✅ **Backend API:** Tamamen modern controller/router mimarisine geçiş
 - ✅ **Backend API:** Legacy endpoint sistemi kaldırıldı
@@ -144,6 +159,7 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 - `react-native-safe-area-context` - Safe area yönetimi
 - `react-native-vector-icons` - Icon setleri
 - `@react-native-async-storage/async-storage` - Yerel depolama
+- `react-native-vision-camera` - Kamera ve barkod tarama
 
 ### Performans
 - Modals lazy loading ile yüklenir

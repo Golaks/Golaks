@@ -650,7 +650,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           iconColor={colors.primary}
           onClose={() => setShowUserModal(false)}
           onSave={handleSaveUser}
-          saveButtonText={isEditMode ? 'Güncelle' : 'Kaydet'}
+          saveButtonText="Kaydet"
           cancelButtonText="İptal"
           saveDisabled={isSaving}
         >

@@ -845,7 +845,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           }}
           onSave={handlePasswordSave}
           onFieldChange={handlePasswordFieldChange}
-          saveButtonText="Şifreyi Güncelle"
+          saveButtonText="Kaydet"
         />
 
         {/* Clear Cache Modal */}

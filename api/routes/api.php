@@ -71,6 +71,10 @@ class Router {
         $this->delete('/notifications/:id', 'NotificationController', 'deleteNotification');
         $this->post('/notifications/send', 'NotificationController', 'sendNotification');
 
+        // AI Routes (Protected)
+        $this->post('/ai/chat', 'AIController', 'chat');
+        $this->get('/ai/health', 'AIController', 'health');
+
         // Account Routes (Protected, Company-specific)
         $this->post('/account/cari-list', 'AccountController', 'getCariList');
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');

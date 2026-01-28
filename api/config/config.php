@@ -26,9 +26,9 @@ define('APP_DEBUG', Env::getBool('APP_DEBUG', false));
 // Security
 define('JWT_SECRET_KEY', Env::get('JWT_SECRET_KEY', 'change-this-secret-key'));
 define('JWT_SECRET', JWT_SECRET_KEY); // Alias for backward compatibility
-define('JWT_EXPIRY', Env::getInt('JWT_EXPIRY', 3600));
+define('JWT_EXPIRY', Env::getInt('JWT_EXPIRY', 15552000)); // 6 months (180 days)
 define('JWT_EXPIRATION', JWT_EXPIRY); // Alias for backward compatibility
-define('REFRESH_TOKEN_EXPIRY', Env::getInt('REFRESH_TOKEN_EXPIRY', 604800));
+define('REFRESH_TOKEN_EXPIRY', Env::getInt('REFRESH_TOKEN_EXPIRY', 15552000)); // 6 months (180 days)
 
 // API Config
 define('API_PREFIX', Env::get('API_PREFIX', '/api'));

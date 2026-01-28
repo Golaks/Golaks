@@ -9,7 +9,7 @@ import {
   Animated,
   Image,
 } from 'react-native';
-import { Camera, useCameraDevice, useCodeScanner } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import PermissionModal from './PermissionModal';
@@ -33,8 +33,57 @@ export default function BarcodeScanner({
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const device = useCameraDevice('back');
+  const cameraRef = useRef<Camera>(null);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+
+  // Select optimal format for barcode scanning (higher resolution for better recognition)
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1920, height: 1080 } },
+    { fps: 30 },
+  ]);
+
+  // Focus function
+  const triggerFocus = async () => {
+    if (cameraRef.current && device?.supportsFocus && isCameraReady) {
+      try {
+        await cameraRef.current.focus({ x: 0.5, y: 0.5 });
+      } catch (e) {
+        // Focus failed, ignore
+      }
+    }
+  };
+
+  // Camera initialized callback
+  const handleCameraInitialized = () => {
+    setIsCameraReady(true);
+    // Initial focus after camera is ready
+    setTimeout(triggerFocus, 300);
+  };
+
+  // Auto focus interval - only when camera is ready
+  useEffect(() => {
+    let focusInterval: NodeJS.Timeout | null = null;
+
+    if (isActive && isCameraReady && device?.supportsFocus) {
+      // Periodic auto focus every 1.5 seconds for better responsiveness
+      focusInterval = setInterval(triggerFocus, 1500);
+    }
+
+    return () => {
+      if (focusInterval) {
+        clearInterval(focusInterval);
+      }
+    };
+  }, [isActive, isCameraReady, device]);
+
+  // Reset camera ready state when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setIsCameraReady(false);
+    }
+  }, [visible]);
 
   const styles = createStyles(colors);
 
@@ -216,15 +265,22 @@ export default function BarcodeScanner({
                   <View style={styles.overlaySide} />
                   <View style={styles.scanFrameContainer}>
                     {/* Scanning Frame with Camera inside */}
-                    <View style={styles.scanFrame}>
+                    <Pressable style={styles.scanFrame} onPress={triggerFocus}>
                       {/* Camera only in scan frame */}
                       {hasPermission && device && (
                         <Camera
+                          ref={cameraRef}
                           style={StyleSheet.absoluteFill}
                           device={device}
                           isActive={isActive}
                           codeScanner={codeScanner}
                           torch={torchOn ? 'on' : 'off'}
+                          format={format}
+                          onInitialized={handleCameraInitialized}
+                          onError={(error) => console.log('Camera error:', error)}
+                          enableZoomGesture={false}
+                          exposure={0}
+                          videoStabilizationMode="off"
                         />
                       )}
 
@@ -237,14 +293,14 @@ export default function BarcodeScanner({
                               {
                                 translateY: scanLineAnim.interpolate({
                                   inputRange: [0, 1],
-                                  outputRange: [0, 240],
+                                  outputRange: [0, 290],
                                 }),
                               },
                             ],
                           },
                         ]}
                       />
-                    </View>
+                    </Pressable>
                   </View>
                   <View style={styles.overlaySide} />
                 </View>
@@ -256,7 +312,7 @@ export default function BarcodeScanner({
               <View style={styles.instructionsBadge}>
                 <Icon name="scan-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.instructionsText}>
-                  Barkodu kare içine yerleştirin
+                  Barkodu kare içine yerleştirin{'\n'}Odaklamak için dokunun
                 </Text>
               </View>
 
@@ -339,11 +395,11 @@ const createStyles = (colors: any) =>
       ...StyleSheet.absoluteFillObject,
     },
     overlayTop: {
-      flex: 0.45,
+      flex: 0.35,
       backgroundColor: '#000000',
       justifyContent: 'flex-end',
       alignItems: 'center',
-      paddingBottom: 50,
+      paddingBottom: 40,
     },
     logoContainer: {
       alignItems: 'center',
@@ -366,9 +422,9 @@ const createStyles = (colors: any) =>
       backgroundColor: '#000000',
     },
     scanFrameContainer: {
-      width: 300,
-      height: 300,
-      padding: 24,
+      width: 340,
+      height: 340,
+      padding: 20,
     },
     scanFrame: {
       flex: 1,
@@ -414,7 +470,7 @@ const createStyles = (colors: any) =>
     },
     instructionsContainer: {
       position: 'absolute',
-      bottom: 100,
+      bottom: 80,
       left: 0,
       right: 0,
       alignItems: 'center',
@@ -434,6 +490,8 @@ const createStyles = (colors: any) =>
       fontSize: 15,
       fontWeight: '600',
       color: '#FFFFFF',
+      textAlign: 'center',
+      lineHeight: 22,
     },
     formatsCard: {
       backgroundColor: 'rgba(0, 0, 0, 0.75)',

@@ -156,8 +156,8 @@ DB_PASS=
 
 # JWT
 JWT_SECRET_KEY=your-super-secret-key-change-this-in-production
-JWT_EXPIRY=3600
-REFRESH_TOKEN_EXPIRY=604800
+JWT_EXPIRY=15552000
+REFRESH_TOKEN_EXPIRY=15552000
 
 # CORS
 CORS_ORIGIN=*
@@ -292,8 +292,8 @@ curl -X POST http://localhost/Golaks/api/auth/login \
 
 ### JWT Token Güvenliği
 
-- Token süresi: 1 saat (configurable)
-- Refresh token süresi: 7 gün
+- Token süresi: 6 ay / 180 gün (15552000 saniye, configurable)
+- Refresh token süresi: 6 ay / 180 gün (15552000 saniye)
 - Algorithm: HS256
 - Secret key minimum 32 karakter
 
