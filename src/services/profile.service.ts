@@ -58,7 +58,6 @@ class ProfileService {
         error: data.error?.message || 'Fotoğraf yüklenemedi',
       };
     } catch (error) {
-      console.error('Upload profile photo error:', error);
       return {
         success: false,
         error: 'Bağlantı hatası. Lütfen tekrar deneyin.',
@@ -105,7 +104,6 @@ class ProfileService {
         error: data.error?.message || 'Profil güncellenemedi',
       };
     } catch (error) {
-      console.error('Update profile error:', error);
       return {
         success: false,
         error: 'Bağlantı hatası. Lütfen tekrar deneyin.',
@@ -151,7 +149,6 @@ class ProfileService {
         error: data.error?.message || 'Şifre değiştirilemedi',
       };
     } catch (error) {
-      console.error('Change password error:', error);
       return {
         success: false,
         error: 'Bağlantı hatası. Lütfen tekrar deneyin.',
@@ -194,7 +191,6 @@ class ProfileService {
         error: data.error?.message || 'Bildirim ayarları güncellenemedi',
       };
     } catch (error) {
-      console.error('Update notification settings error:', error);
       return {
         success: false,
         error: 'Bağlantı hatası. Lütfen tekrar deneyin.',

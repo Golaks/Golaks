@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Text, Pressable, Modal, Image, ActivityIn
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import DeviceInfo from 'react-native-device-info';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
@@ -74,6 +75,11 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   });
   const [isCalculatingSize, setIsCalculatingSize] = useState(false);
 
+  // App version info
+  const appVersion = DeviceInfo.getVersion();
+  const buildNumber = DeviceInfo.getBuildNumber();
+  const versionString = `Versiyon ${appVersion} (${buildNumber})`;
+
   const handleLogoutPress = () => {
     setShowLogoutConfirm(true);
   };
@@ -86,7 +92,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -97,7 +102,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -116,7 +120,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         await uploadPhoto(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Camera error:', error);
       showError('Kamera açılamadı');
     }
   };
@@ -135,7 +138,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         await uploadPhoto(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Gallery error:', error);
       showError('Galeri açılamadı');
     }
   };
@@ -165,7 +167,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         showError(result.error || 'Fotoğraf yüklenemedi');
       }
     } catch (error) {
-      console.error('Upload error:', error);
       showError('Fotoğraf yüklenirken bir hata oluştu');
     } finally {
       setIsUploadingPhoto(false);
@@ -218,14 +219,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   ]);
 
   // Update photo URL when user avatar changes
-  // Debug: Log user role
-  useEffect(() => {
-    if (user) {
-      console.log('ProfileScreen - User Role:', user.role);
-      console.log('ProfileScreen - User kullanici_rol:', user.kullanici_rol);
-      console.log('ProfileScreen - Full User:', JSON.stringify(user, null, 2));
-    }
-  }, [user]);
 
   useEffect(() => {
     if (user?.avatar) {
@@ -271,7 +264,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
     if (onTabChange) {
       onTabChange(tab);
     }
-    console.log('Active tab:', tab);
   };
 
   const handleProfileFieldChange = (key: string, value: string) => {
@@ -324,7 +316,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         showError(result.error || 'Profil güncellenemedi');
       }
     } catch (error) {
-      console.error('Profile save error:', error);
       showError('Profil güncellenirken bir hata oluştu');
     }
   };
@@ -382,7 +373,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         showError(result.error || 'Şifre değiştirilemedi');
       }
     } catch (error) {
-      console.error('Password change error:', error);
       showError('Şifre değiştirilirken bir hata oluştu');
     }
   };
@@ -398,7 +388,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         showError(result.error || 'Bildirim ayarları güncellenemedi');
       }
     } catch (error) {
-      console.error('Notification settings save error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     }
   };
@@ -406,14 +395,12 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   const handleDeleteAccount = async () => {
     try {
       // TODO: Implement delete account API call
-      console.log('Hesap siliniyor...');
       showSuccess('Hesabınız başarıyla silindi');
       await logout();
       if (onLogout) {
         onLogout();
       }
     } catch (error) {
-      console.error('Delete account error:', error);
       showError('Hesap silinirken bir hata oluştu');
     } finally {
       setShowDeleteAccountConfirm(false);
@@ -455,7 +442,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
             }
           }
         } catch (error) {
-          console.error(`Error reading key ${key}:`, error);
         }
       }
 
@@ -467,7 +453,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         sessionData: Math.round(sessionSize * 100) / 100,
       });
     } catch (error) {
-      console.error('Calculate cache sizes error:', error);
     } finally {
       setIsCalculatingSize(false);
     }
@@ -489,8 +474,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         setIsClearingCache(false);
         return;
       }
-
-      console.log('Önbellek temizleniyor:', itemsToClean);
 
       // Actual cache clearing implementation
       const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
@@ -555,7 +538,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
 
       if (uniqueKeysToRemove.length > 0) {
         await AsyncStorage.multiRemove(uniqueKeysToRemove);
-        console.log(`Temizlenen key sayısı: ${uniqueKeysToRemove.length}`);
       }
 
       // Simulated delay for better UX
@@ -584,7 +566,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
         }
       }
     } catch (error) {
-      console.error('Clear cache error:', error);
       showError('Önbellek temizlenirken bir hata oluştu');
     } finally {
       setIsClearingCache(false);
@@ -687,11 +668,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           {/* Super Admin Section */}
           {(() => {
             const isSuperAdmin = user?.role === 'superAdmin' || user?.kullanici_rol === 2;
-            console.log('Super Admin Check:', {
-              role: user?.role,
-              kullanici_rol: user?.kullanici_rol,
-              isSuperAdmin,
-            });
             return isSuperAdmin;
           })() && (
             <View style={styles.section}>
@@ -762,7 +738,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               icon="options-outline"
               color={colors.primary}
               description="Genel uygulama ayarları"
-              onPress={() => console.log('General settings pressed')}
+              onPress={() => {}}
               disabled={user?.role === 'user' || user?.kullanici_rol === 0}
             />
           </View>
@@ -788,7 +764,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               name="Uygulama Hakkında"
               icon="information-circle-outline"
               color={colors.primary}
-              description="Versiyon 1.0.0"
+              description={versionString}
               onPress={() => setShowAboutModal(true)}
             />
           </View>
@@ -1575,7 +1551,7 @@ Yenilenme ve teknolojiyi takip etme felsefesiyle yolumuza devam ediyoruz. Her ge
 Merkez: Tekirdağ • Veri Merkezi: İstanbul
 www.golaks.com • info@golaks.com
 
-Versiyon 1.0.0
+${versionString}
 © 1995-${new Date().getFullYear()} Golaks • Tüm Hakları Saklıdır`}
                 </Text>
               </ScrollView>

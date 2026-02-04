@@ -53,7 +53,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Auth check error:', error);
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -79,7 +78,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         message: response.error?.message || 'Giriş başarısız'
       };
     } catch (error) {
-      console.error('Login error:', error);
       return {
         success: false,
         message: 'Bağlantı hatası. Lütfen tekrar deneyin.'
@@ -93,7 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -104,7 +101,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(storedUser);
       }
     } catch (error) {
-      console.error('Refresh user error:', error);
     }
   };
 
@@ -121,7 +117,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setNotificationCount(response.unread_count);
       }
     } catch (error) {
-      console.error('Refresh notification count error:', error);
       setNotificationCount(0);
     }
   };

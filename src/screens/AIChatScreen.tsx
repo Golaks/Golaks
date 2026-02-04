@@ -120,7 +120,6 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
     if (onTabChange) {
       onTabChange(tab);
     }
-    console.log('Active tab:', tab);
   };
 
   const handleSend = async () => {
@@ -254,7 +253,6 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 

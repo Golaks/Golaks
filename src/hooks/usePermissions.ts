@@ -47,7 +47,6 @@ export const usePermissions = () => {
       // Şimdilik mock
       return 'unavailable';
     } catch (error) {
-      console.error('Camera permission check error:', error);
       return 'unavailable';
     }
   };
@@ -70,7 +69,6 @@ export const usePermissions = () => {
       );
       return 'unavailable';
     } catch (error) {
-      console.error('Camera permission request error:', error);
       return 'denied';
     }
   };
@@ -91,7 +89,6 @@ export const usePermissions = () => {
 
       return 'unavailable';
     } catch (error) {
-      console.error('Gallery permission check error:', error);
       return 'unavailable';
     }
   };
@@ -117,7 +114,6 @@ export const usePermissions = () => {
       );
       return 'unavailable';
     } catch (error) {
-      console.error('Gallery permission request error:', error);
       return 'denied';
     }
   };
@@ -134,7 +130,6 @@ export const usePermissions = () => {
 
       return 'unavailable';
     } catch (error) {
-      console.error('Notification permission check error:', error);
       return 'unavailable';
     }
   };
@@ -156,7 +151,6 @@ export const usePermissions = () => {
       );
       return 'unavailable';
     } catch (error) {
-      console.error('Notification permission request error:', error);
       return 'denied';
     }
   };
@@ -193,7 +187,6 @@ export const usePermissions = () => {
     try {
       await Linking.openSettings();
     } catch (error) {
-      console.error('Open settings error:', error);
       Alert.alert('Hata', 'Ayarlar açılamadı');
     }
   };

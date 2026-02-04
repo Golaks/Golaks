@@ -37,12 +37,12 @@ export default function ComingSoonModal({
           </View>
 
           {/* Title */}
-          <Text style={styles.title}>Çok Yakında!</Text>
+          <Text style={styles.title}>Geliştirme Aşamasında</Text>
 
           {/* Message */}
           <Text style={styles.message}>
             <Text style={styles.appName}>{appName}</Text> uygulaması şu anda geliştirme
-            aşamasında. Çok yakında sizlerle birlikte olacağız!
+            aşamasında. Tamamlandığında sizlere duyuracağız.
           </Text>
 
           {/* Close Button */}

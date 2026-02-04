@@ -6,6 +6,13 @@ import Input from './Input';
 import InputPhone from './InputPhone';
 import IOSSwitch from './IOSSwitch';
 
+interface AvailablePrograms {
+  muhasebe: boolean;
+  tabakhane: boolean;
+  konfeksiyon: boolean;
+  magaza: boolean;
+}
+
 interface UserFormProps {
   formName: string;
   formEmail: string;
@@ -20,6 +27,7 @@ interface UserFormProps {
     magaza?: boolean;
   };
   isEditMode: boolean;
+  availablePrograms?: AvailablePrograms;
   onNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
@@ -31,7 +39,7 @@ interface UserFormProps {
 
 const PERMISSIONS = [
   { key: 'muhasebe', label: 'Muhasebe', icon: 'calculator-outline' },
-  { key: 'tabakhane', label: 'Tabakhane', icon: 'layers-outline' },
+  { key: 'tabakhane', label: 'Tabakhane', icon: 'business-outline' },
   { key: 'konfeksiyon', label: 'Konfeksiyon', icon: 'shirt-outline' },
   { key: 'magaza', label: 'Mağaza', icon: 'storefront-outline' },
 ];
@@ -60,6 +68,7 @@ export default function UserForm({
   formDefaultScreen,
   formPermissions,
   isEditMode,
+  availablePrograms,
   onNameChange,
   onEmailChange,
   onPhoneChange,
@@ -268,20 +277,57 @@ export default function UserForm({
             <Text style={styles.sectionTitleText}>Uygulama Yetkileri</Text>
           </View>
           <View style={[styles.permissionList, { marginBottom: 20 }]}>
-            {PERMISSIONS.map((perm) => (
-              <View key={perm.key} style={styles.permissionItem}>
-                <View style={styles.permissionLeft}>
-                  <Icon name={perm.icon} size={20} color={colors.text} />
-                  <Text style={styles.permissionLabel}>{perm.label}</Text>
+            {PERMISSIONS.map((perm) => {
+              const isAvailable = availablePrograms
+                ? availablePrograms[perm.key as keyof AvailablePrograms]
+                : true;
+              const isEnabled = formPermissions[perm.key as keyof typeof formPermissions] || false;
+
+              return (
+                <View
+                  key={perm.key}
+                  style={[
+                    styles.permissionItem,
+                    !isAvailable && styles.permissionItemDisabled,
+                  ]}
+                >
+                  <View style={styles.permissionLeft}>
+                    <Icon
+                      name={perm.icon}
+                      size={20}
+                      color={isAvailable ? colors.text : colors.textTertiary}
+                    />
+                    <View>
+                      <Text
+                        style={[
+                          styles.permissionLabel,
+                          !isAvailable && styles.permissionLabelDisabled,
+                        ]}
+                      >
+                        {perm.label}
+                      </Text>
+                      {!isAvailable && (
+                        <Text style={styles.permissionDisabledHint}>
+                          Firma için aktif değil
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  {isAvailable ? (
+                    <IOSSwitch
+                      value={isEnabled}
+                      onValueChange={(value) =>
+                        onPermissionsChange({ ...formPermissions, [perm.key]: value })
+                      }
+                    />
+                  ) : (
+                    <View style={styles.lockIconContainer}>
+                      <Icon name="lock-closed" size={18} color={colors.textTertiary} />
+                    </View>
+                  )}
                 </View>
-                <IOSSwitch
-                  value={formPermissions[perm.key as keyof typeof formPermissions] || false}
-                  onValueChange={(value) =>
-                    onPermissionsChange({ ...formPermissions, [perm.key]: value })
-                  }
-                />
-              </View>
-            ))}
+              );
+            })}
           </View>
         </>
       )}
@@ -424,5 +470,25 @@ const createStyles = (colors: any, isDark: boolean) =>
     permissionLabel: {
       fontSize: 15,
       color: colors.text,
+    },
+    permissionLabelDisabled: {
+      color: colors.textTertiary,
+    },
+    permissionItemDisabled: {
+      opacity: 0.6,
+      backgroundColor: colors.cardSecondary,
+    },
+    permissionDisabledHint: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+    lockIconContainer: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
   });

@@ -111,7 +111,6 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
         setUsers(data.data.users);
       }
     } catch (error) {
-      console.error('Fetch users error:', error);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -194,7 +193,6 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
         showError(result.message || 'Bildirim gönderilemedi');
       }
     } catch (error: any) {
-      console.error('Send notification error:', error);
       showError(error.message || 'Bildirim gönderilirken hata oluştu');
     } finally {
       setIsSending(false);

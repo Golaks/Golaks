@@ -50,6 +50,38 @@ export interface CashBankSummaryResponse {
   message?: string;
 }
 
+export interface CariTransaction {
+  id: number;
+  tarih: string;
+  fisNo: string;
+  aciklama: string;
+  borc: number;
+  alacak: number;
+  bakiye: number;
+  doviz: string;
+  fisTuru: string;
+}
+
+export interface CariEkstreResponse {
+  success: boolean;
+  data: {
+    cari: {
+      id: number;
+      hesapKodu: string;
+      unvan: string;
+      doviz: string;
+    };
+    transactions: CariTransaction[];
+    summary: {
+      toplamBorc: number;
+      toplamAlacak: number;
+      bakiye: number;
+      count: number;
+    };
+  };
+  message?: string;
+}
+
 class AccountService {
   private getAuthHeader(token: string) {
     return {
@@ -86,7 +118,6 @@ class AccountService {
 
       return data;
     } catch (error: any) {
-      console.error('Get cari list error:', error);
       throw new Error(error.message || 'Cari listesi alınamadı');
     }
   }
@@ -117,7 +148,6 @@ class AccountService {
 
       return data;
     } catch (error: any) {
-      console.error('Get cari balance error:', error);
       throw new Error(error.message || 'Bakiye alınamadı');
     }
   }
@@ -148,8 +178,43 @@ class AccountService {
 
       return data;
     } catch (error: any) {
-      console.error('Get cash bank summary error:', error);
       throw new Error(error.message || 'Kasa-Banka raporu alınamadı');
+    }
+  }
+
+  /**
+   * Cari hesap ekstre (işlem hareketleri) getirir
+   */
+  async getCariEkstre(
+    token: string,
+    dataName: string,
+    cariId: number,
+    startDate?: string,
+    endDate?: string,
+    limit: number = 100
+  ): Promise<CariEkstreResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_EKSTRE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          cariId,
+          startDate,
+          endDate,
+          limit,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Ekstre alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Ekstre alınamadı');
     }
   }
 }

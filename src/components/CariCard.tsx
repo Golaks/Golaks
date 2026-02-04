@@ -12,9 +12,10 @@ interface CariCardProps {
   onToggle?: () => void;
   onLoadBalance?: () => void;
   isLoadingBalance?: boolean;
+  showExpandIcon?: boolean;
 }
 
-export default function CariCard({ cari, onPress, expanded = false, onToggle, onLoadBalance, isLoadingBalance = false }: CariCardProps) {
+export default function CariCard({ cari, onPress, expanded = false, onToggle, onLoadBalance, isLoadingBalance = false, showExpandIcon = true }: CariCardProps) {
   const { colors, isDark } = useTheme();
   const [animation] = useState(new Animated.Value(0));
 
@@ -85,11 +86,13 @@ export default function CariCard({ cari, onPress, expanded = false, onToggle, on
               </Text>
             </View>
           </View>
-          <View style={styles.headerRight}>
-            <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
-              <Icon name="chevron-down" size={20} color={colors.textSecondary} />
-            </Animated.View>
-          </View>
+          {showExpandIcon && (
+            <View style={styles.headerRight}>
+              <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+                <Icon name="chevron-down" size={20} color={colors.textSecondary} />
+              </Animated.View>
+            </View>
+          )}
         </View>
 
         {/* Expanded Content */}

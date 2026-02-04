@@ -40,7 +40,6 @@ class NotificationService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Get notifications error:', error);
       throw new Error('Bildirimler yüklenemedi');
     }
   }
@@ -54,7 +53,6 @@ class NotificationService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Get unread notifications error:', error);
       throw new Error('Okunmamış bildirimler yüklenemedi');
     }
   }
@@ -68,7 +66,6 @@ class NotificationService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Mark notification as read error:', error);
       throw new Error('Bildirim okundu işaretlenemedi');
     }
   }
@@ -82,7 +79,6 @@ class NotificationService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Mark all notifications as read error:', error);
       throw new Error('Bildirimler okundu işaretlenemedi');
     }
   }
@@ -108,19 +104,13 @@ class NotificationService {
     basarisiz_gonderim?: number;
   }> {
     try {
-      console.log('Sending notification to:', API_ENDPOINTS.NOTIFICATION_SEND);
-      console.log('Request data:', data);
-
       const response = await fetch(API_ENDPOINTS.NOTIFICATION_SEND, {
         method: 'POST',
         headers: this.getAuthHeader(token),
         body: JSON.stringify(data),
       });
 
-      console.log('Response status:', response.status);
-
       const responseData = await response.json();
-      console.log('Response data:', responseData);
 
       if (!response.ok) {
         throw new Error(responseData.error?.message || responseData.message || 'Bildirim gönderilemedi');
@@ -128,8 +118,6 @@ class NotificationService {
 
       return responseData;
     } catch (error: any) {
-      console.error('Send notification error:', error);
-      console.error('Error details:', error.message);
       throw new Error(error.message || 'Bildirim gönderilemedi');
     }
   }
@@ -143,7 +131,6 @@ class NotificationService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Delete notification error:', error);
       throw new Error('Bildirim silinemedi');
     }
   }

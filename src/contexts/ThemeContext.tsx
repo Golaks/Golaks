@@ -220,7 +220,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         setThemeState(savedTheme as ThemeMode);
       }
     } catch (error) {
-      console.error('Error loading theme preference:', error);
     }
   };
 
@@ -229,7 +228,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       setThemeState(newTheme);
       await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
     } catch (error) {
-      console.error('Error saving theme preference:', error);
     }
   };
 

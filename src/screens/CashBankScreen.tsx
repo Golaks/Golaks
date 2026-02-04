@@ -89,7 +89,6 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
         throw new Error(response.message || 'Kasa-Banka raporu alınamadı');
       }
     } catch (err: any) {
-      console.error('Load cash bank summary error:', err);
 
       // Token süresi dolmuşsa veya geçersizse kullanıcıyı logout et
       if (err.message && (err.message.includes('Invalid or expired token') ||
@@ -100,7 +99,6 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
             onLogout();
           }
         } catch (logoutError) {
-          console.error('Logout error:', logoutError);
         }
       } else {
         setError(err.message || 'Bir hata oluştu');
@@ -203,7 +201,6 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -245,7 +242,6 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
           {isLoading ? (
             <View style={styles.centerContainer}>
               <LoadingSpinner />
-              <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
             </View>
           ) : error ? (
             <EmptyState
@@ -272,11 +268,7 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
                   description="Raporu görmek için yukarıdaki sekmelere tıklayın"
                 />
               ) : kasaList.length === 0 && bankaList.length === 0 ? (
-                <EmptyState
-                  icon="document-outline"
-                  title="Veri Bulunamadı"
-                  description="Henüz kayıt bulunmuyor"
-                />
+                <EmptyState />
               ) : selectedTab === 'byBranch' ? (
                 // Şubeye göre accordion view
                 Object.entries(groupByBranch()).map(([subeName, dovizler]) => {
@@ -550,13 +542,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 400,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.text,
-      opacity: 0.6,
     },
     listSection: {
       marginTop: 4,

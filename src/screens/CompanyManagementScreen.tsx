@@ -210,9 +210,6 @@ export default function CompanyManagementScreen({
       if (!sessionStr) return;
 
       const session = JSON.parse(sessionStr);
-      console.log('Fetching companies from:', API_ENDPOINTS.COMPANY_LIST);
-      console.log('Token available:', !!session.token);
-
       const response = await fetch(API_ENDPOINTS.COMPANY_LIST, {
         method: 'GET',
         headers: {
@@ -220,19 +217,14 @@ export default function CompanyManagementScreen({
         },
       });
 
-      console.log('Company response status:', response.status);
       const data = await response.json();
-      console.log('Company response data:', JSON.stringify(data, null, 2));
 
       if (data.success && data.data?.companies) {
-        console.log('Companies loaded:', data.data.companies.length);
         setCompanies(data.data.companies);
       } else {
-        console.log('No companies or wrong format:', data);
         alert.showError('Hata', data.error?.message || 'Firma listesi yüklenemedi');
       }
     } catch (error) {
-      console.error('Company load error:', error);
       alert.showError('Hata', 'Firma yönetimi yüklenemedi');
     } finally {
       setIsLoading(false);
@@ -1216,11 +1208,7 @@ export default function CompanyManagementScreen({
               <LoadingSpinner size={80} />
             </View>
           ) : filteredCompanies.length === 0 ? (
-            <EmptyState
-              icon="business-outline"
-              title="Firma Bulunamadı"
-              subtitle="Henüz firma eklenmemiş veya arama kriterlerine uygun firma bulunamadı"
-            />
+            <EmptyState />
           ) : (
             filteredCompanies.map((company) => (
               <Pressable
@@ -1394,11 +1382,6 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 60,
-    },
-    loadingText: {
-      marginTop: 12,
-      fontSize: 14,
-      color: colors.textSecondary,
     },
     emptyContainer: {
       alignItems: 'center',

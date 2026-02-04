@@ -36,7 +36,6 @@ class ApiService {
       }
       return false;
     } catch (error) {
-      console.error('Error initializing API service:', error);
       return false;
     }
   }
@@ -93,7 +92,6 @@ class ApiService {
 
       return false;
     } catch (error) {
-      console.error('Error refreshing token:', error);
       return false;
     }
   }
@@ -140,7 +138,6 @@ class ApiService {
         return { success: false, error: data };
       }
     } catch (error) {
-      console.error('API request error:', error);
       return {
         success: false,
         error: { message: 'Network error', code: 'NETWORK_ERROR' },
@@ -196,7 +193,6 @@ class ApiService {
       // Call logout endpoint
       await this.post(API_ENDPOINTS.LOGOUT, {});
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       // Clear local data
       this.clearAuth();
