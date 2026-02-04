@@ -78,6 +78,7 @@ class Router {
         // Account Routes (Protected, Company-specific)
         $this->post('/account/cari-list', 'AccountController', 'getCariList');
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
+        $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
 
         // Company Routes (Protected, Super Admin only)

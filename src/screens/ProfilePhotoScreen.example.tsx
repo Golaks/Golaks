@@ -88,7 +88,6 @@ export default function ProfilePhotoScreen() {
         await uploadPhoto(result.assets[0].uri!);
       }
     } catch (error) {
-      console.error('Camera error:', error);
       Alert.alert('Hata', 'Kamera açılamadı');
     }
     */
@@ -125,7 +124,6 @@ export default function ProfilePhotoScreen() {
         await uploadPhoto(result.assets[0].uri!);
       }
     } catch (error) {
-      console.error('Gallery error:', error);
       Alert.alert('Hata', 'Galeri açılamadı');
     }
     */
@@ -153,7 +151,6 @@ export default function ProfilePhotoScreen() {
         Alert.alert('Hata', result.error || 'Fotoğraf yüklenemedi');
       }
     } catch (error) {
-      console.error('Upload error:', error);
       Alert.alert('Hata', 'Fotoğraf yüklenirken bir hata oluştu');
     } finally {
       setIsUploading(false);

@@ -73,7 +73,6 @@ class AuthService {
 
       return data;
     } catch (error) {
-      console.error('Login error:', error);
       return {
         success: false,
         error: {
@@ -98,7 +97,6 @@ class AuthService {
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(storedAuth));
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     } catch (error) {
-      console.error('Error storing auth data:', error);
     }
   }
 
@@ -113,7 +111,6 @@ class AuthService {
       }
       return null;
     } catch (error) {
-      console.error('Error getting stored auth:', error);
       return null;
     }
   }
@@ -134,7 +131,6 @@ class AuthService {
       }
       return null;
     } catch (error) {
-      console.error('Error getting stored user:', error);
       return null;
     }
   }
@@ -147,7 +143,6 @@ class AuthService {
       const auth = await this.getStoredAuth();
       return auth?.token || null;
     } catch (error) {
-      console.error('Error getting token:', error);
       return null;
     }
   }
@@ -195,7 +190,6 @@ class AuthService {
       //   });
       // }
     } catch (error) {
-      console.error('Error during logout:', error);
     }
   }
 
@@ -211,7 +205,6 @@ class AuthService {
         await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
       }
     } catch (error) {
-      console.error('Error updating user:', error);
     }
   }
 }

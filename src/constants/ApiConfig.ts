@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
   // Account endpoints (muhasebe)
   ACCOUNT_CARI_LIST: `${BASE_API_URL}/account/cari-list`,
   ACCOUNT_CARI_BALANCE: `${BASE_API_URL}/account/cari-balance`,
+  ACCOUNT_CARI_EKSTRE: `${BASE_API_URL}/account/cari-ekstre`,
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
   ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
 

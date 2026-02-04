@@ -68,7 +68,6 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
   };
 
   const handleBarcodeScanned = (barcode: string) => {
-    console.log('Scanned barcode:', barcode);
     setInputValue(barcode);
   };
 
@@ -87,7 +86,6 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const handleQuery = (value?: string) => {
     const queryValue = value || inputValue;
-    console.log(`Query ${scanMode}:`, queryValue);
     // TODO: Implement query logic
   };
 
@@ -98,7 +96,6 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 

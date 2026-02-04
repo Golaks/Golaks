@@ -121,7 +121,6 @@ export default function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordSc
         showError(data.error?.message || 'Bir hata oluştu');
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
@@ -168,7 +167,6 @@ export default function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordSc
         }, 500);
       }
     } catch (error) {
-      console.error('Verify code error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
       // Alert kapandıktan sonra focus geri ilk kutuya
       setTimeout(() => {
@@ -228,7 +226,6 @@ export default function ForgotPasswordScreen({ onBackToLogin }: ForgotPasswordSc
         showError(data.error?.message || 'Kod geçersiz veya süresi dolmuş');
       }
     } catch (error) {
-      console.error('Reset password error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);

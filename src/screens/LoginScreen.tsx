@@ -130,7 +130,6 @@ export default function LoginScreen({ onLoginSuccess, onForgotPassword }: LoginS
         showError(result.message || 'Giriş başarısız');
       }
     } catch (error) {
-      console.error('Login error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);

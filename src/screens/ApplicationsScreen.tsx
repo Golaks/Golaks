@@ -103,7 +103,6 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
     if (onTabChange) {
       onTabChange(tab);
     }
-    console.log('Active tab:', tab);
   };
 
   const handleAppPress = (app: Application) => {
@@ -128,7 +127,6 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 

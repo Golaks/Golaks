@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,6 +8,7 @@ import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
 import NotificationDetailModal from '../components/NotificationDetailModal';
 import notificationService, { Notification } from '../services/notification.service';
 import { authService } from '../services/auth.service';
@@ -48,7 +49,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
         setNotifications(response.data);
       }
     } catch (error: any) {
-      console.error('Load notifications error:', error);
       showAlert('error', 'Hata', error.message || 'Bildirimler yüklenemedi');
     } finally {
       setLoading(false);
@@ -67,7 +67,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
         setNotifications(response.data);
       }
     } catch (error: any) {
-      console.error('Refresh notifications error:', error);
     } finally {
       setRefreshing(false);
     }
@@ -78,7 +77,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
     if (onTabChange) {
       onTabChange(tab);
     }
-    console.log('Active tab:', tab);
   };
 
   const handleNotificationPress = async (notification: Notification) => {
@@ -100,7 +98,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
       setSelectedNotification(notification);
       setDetailModalVisible(true);
     } catch (error: any) {
-      console.error('Mark as read error:', error);
       // Hata olsa bile modal'ı aç
       setSelectedNotification(notification);
       setDetailModalVisible(true);
@@ -127,7 +124,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
       showAlert('success', 'Başarılı', 'Tüm bildirimler okundu olarak işaretlendi');
     } catch (error: any) {
-      console.error('Mark all as read error:', error);
       showAlert('error', 'Hata', error.message || 'Bildirimler güncellenemedi');
     }
   };
@@ -139,7 +135,6 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -178,8 +173,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
             onLogout={handleLogout}
           />
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Bildirimler yükleniyor...</Text>
+            <LoadingSpinner />
           </View>
           <TabBar
             activeTab={activeTab}
@@ -310,14 +304,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
           {/* Empty State */}
           {filteredNotifications.length === 0 && (
-            <EmptyState
-              icon="notifications-off-outline"
-              title={filterTab === 'unread' ? 'Okunmamış Bildirim Yok' : 'Okunmuş Bildirim Yok'}
-              subtitle={filterTab === 'unread'
-                ? 'Tüm bildirimleriniz okundu.'
-                : 'Henüz okunmuş bildiriminiz bulunmuyor.'}
-              iconSize={64}
-            />
+            <EmptyState />
           )}
         </ScrollView>
 
@@ -507,10 +494,5 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
       paddingBottom: 100,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 14,
-      color: colors.textSecondary,
     },
   });

@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
 import Tab, { TabOption } from '../components/Tab';
+import MenuCard from '../components/MenuCard';
 
 interface ConfectionScreenProps {
   onBack?: () => void;
@@ -44,7 +45,6 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout }: Conf
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -81,6 +81,26 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout }: Conf
             activeTab={confectionTab}
             onTabChange={setConfectionTab}
           />
+
+          {/* Tab Content */}
+          {confectionTab === 'reports' && (
+            <>
+              <MenuCard
+                name="Hammadde Stoklar"
+                icon="cube-outline"
+                color="#3B82F6"
+                description="Hammadde stok durumu raporu"
+                onPress={() => {}}
+              />
+              <MenuCard
+                name="Ürün Stoklar"
+                icon="shirt-outline"
+                color="#8B5CF6"
+                description="Ürün stok durumu raporu"
+                onPress={() => {}}
+              />
+            </>
+          )}
         </ScrollView>
 
         {/* Bottom TabBar */}

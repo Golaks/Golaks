@@ -277,7 +277,7 @@ export default function BarcodeScanner({
                           torch={torchOn ? 'on' : 'off'}
                           format={format}
                           onInitialized={handleCameraInitialized}
-                          onError={(error) => console.log('Camera error:', error)}
+                          onError={() => {}}
                           enableZoomGesture={false}
                           exposure={0}
                           videoStabilizationMode="off"

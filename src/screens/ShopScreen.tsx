@@ -44,7 +44,6 @@ export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreen
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 

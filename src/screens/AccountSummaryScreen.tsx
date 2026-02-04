@@ -43,7 +43,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('all');
+  const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('customers');
   const [cariList, setCariList] = useState<CariAccount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,6 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
         throw new Error(response.message || 'Cari listesi alınamadı');
       }
     } catch (err: any) {
-      console.error('Load cari list error:', err);
       setError(err.message || 'Bir hata oluştu');
     } finally {
       setIsLoading(false);
@@ -106,13 +105,11 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
   const handleFilterPress = (filterId: AccountFilterType) => {
     setSelectedFilter(filterId);
-    console.log('Filter changed to:', filterId);
   };
 
   const handleToggleSearch = () => {
@@ -151,7 +148,6 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
         );
       }
     } catch (err: any) {
-      console.error('Load balance error:', err);
     } finally {
       setLoadingBalances(prev => {
         const newSet = new Set(prev);
@@ -243,7 +239,6 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
             {isLoading ? (
               <View style={styles.centerContainer}>
                 <LoadingSpinner />
-                <Text style={styles.loadingText}>Veriler Analiz Ediliyor...</Text>
               </View>
             ) : error ? (
               <EmptyState
@@ -252,11 +247,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
                 description={error}
               />
             ) : cariList.length === 0 ? (
-              <EmptyState
-                icon="people-outline"
-                title="Cari Bulunamadı"
-                description="Bu filtre için cari hesap bulunamadı"
-              />
+              <EmptyState />
             ) : (
               cariList.map((cari) => (
                 <CariCard
@@ -342,13 +333,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: 400,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 14,
-      fontWeight: '500',
-      color: colors.text,
-      opacity: 0.6,
     },
     searchContainer: {
       paddingTop: 0,

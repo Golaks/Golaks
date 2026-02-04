@@ -1,5 +1,7 @@
 # Golaks Mobile
 
+GROQ_API_KEY_REMOVED GROQ API KEY
+
 Modern React Native mobil uygulama ve PHP backend API.
 
 ## 📱 Proje Yapısı

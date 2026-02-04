@@ -17,6 +17,8 @@ interface AccountScreenProps {
   onLogout?: () => void;
   onAccountSummary?: () => void;
   onCashBank?: () => void;
+  onCariDetay?: () => void;
+  onCheckBill?: () => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -26,7 +28,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -85,13 +87,11 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
   const handleReportGenerate = (values: Record<string, any>) => {
-    console.log('Rapor oluşturuluyor:', values);
-    // Buradan API'ye istek gönderilecek
+    // TODO: Buradan API'ye istek gönderilecek
   };
 
   return (
@@ -158,7 +158,11 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 icon="document-text-outline"
                 color="#10B981"
                 description="Cari hesap hareketleri detay raporu"
-                onPress={() => setShowParameterModal(true)}
+                onPress={() => {
+                  if (onCariDetay) {
+                    onCariDetay();
+                  }
+                }}
               />
               <MenuCard
                 name="Çek & Senet"
@@ -166,8 +170,9 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 color="#F59E0B"
                 description="Çek ve senet durumu raporu"
                 onPress={() => {
-                  console.log('Çek & Senet raporu oluşturuluyor...');
-                  // Direkt rapor oluşturulacak, parametre yok
+                  if (onCheckBill) {
+                    onCheckBill();
+                  }
                 }}
               />
             </>
@@ -179,7 +184,7 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
               icon="add-circle-outline"
               color="#10B981"
               description="Gelir veya gider işlemi ekle"
-              onPress={() => console.log('Yeni İşlem pressed')}
+              onPress={() => {}}
             />
           )}
         </ScrollView>

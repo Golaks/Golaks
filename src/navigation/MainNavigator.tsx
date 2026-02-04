@@ -11,12 +11,14 @@ import NotificationSendScreen from '../screens/NotificationSendScreen';
 import CompanyManagementScreen from '../screens/CompanyManagementScreen';
 import AccountScreen from '../screens/AccountScreen';
 import AccountSummaryScreen from '../screens/AccountSummaryScreen';
+import CariDetayScreen from '../screens/CariDetayScreen';
 import CashBankScreen from '../screens/CashBankScreen';
+import CheckBillScreen from '../screens/CheckBillScreen';
 import TanneryScreen from '../screens/TanneryScreen';
 import ConfectionScreen from '../screens/ConfectionScreen';
 import ShopScreen from '../screens/ShopScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cashBank' | 'tannery' | 'confection' | 'shop';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'tannery' | 'confection' | 'shop';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -76,12 +78,18 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
             onLogout={onLogout}
             onAccountSummary={() => setActiveScreen('accountSummary')}
             onCashBank={() => setActiveScreen('cashBank')}
+            onCariDetay={() => setActiveScreen('cariDetay')}
+            onCheckBill={() => setActiveScreen('checkBill')}
           />
         );
       case 'accountSummary':
         return <AccountSummaryScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'cariDetay':
+        return <CariDetayScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'cashBank':
         return <CashBankScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'checkBill':
+        return <CheckBillScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'tannery':
         return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confection':

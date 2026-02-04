@@ -5,14 +5,14 @@ import { useTheme } from '../contexts/ThemeContext';
 
 interface EmptyStateProps {
   icon?: string;
-  title: string;
+  title?: string;
   subtitle?: string;
   iconSize?: number;
 }
 
 export default function EmptyState({
-  icon = 'file-tray-outline',
-  title,
+  icon = 'document-text-outline',
+  title = 'Listelenecek Kayıt Bulunamadı.',
   subtitle,
   iconSize = 80,
 }: EmptyStateProps) {

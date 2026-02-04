@@ -52,8 +52,39 @@ interface UserManagementScreenProps {
 
 export default function UserManagementScreen({ onTabChange, onLogout }: UserManagementScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
   const { showSuccess, showError } = useAlert();
+
+  // Get available programs from firma_ayarlar
+  const getAvailablePrograms = () => {
+    try {
+      const firmaAyarlar = authUser?.firmaAyarlar;
+      if (firmaAyarlar && typeof firmaAyarlar === 'object' && firmaAyarlar.programlar) {
+        return {
+          muhasebe: firmaAyarlar.programlar.muhasebe?.aktif || false,
+          tabakhane: firmaAyarlar.programlar.tabakhane?.aktif || false,
+          konfeksiyon: firmaAyarlar.programlar.konfeksiyon?.aktif || false,
+          magaza: firmaAyarlar.programlar.magaza?.aktif || false,
+        };
+      }
+      // Default: all programs available if no firma_ayarlar
+      return {
+        muhasebe: true,
+        tabakhane: true,
+        konfeksiyon: true,
+        magaza: true,
+      };
+    } catch (error) {
+      return {
+        muhasebe: true,
+        tabakhane: true,
+        konfeksiyon: true,
+        magaza: true,
+      };
+    }
+  };
+
+  const availablePrograms = getAvailablePrograms();
   const [activeTab, setActiveTab] = useState<TabName>('profile');
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -108,8 +139,6 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setIsLoading(true);
     try {
       const token = await getToken();
-      console.log('Fetching users from:', API_ENDPOINTS.USER_LIST);
-      console.log('Token available:', !!token);
 
       const response = await fetch(API_ENDPOINTS.USER_LIST, {
         method: 'GET',
@@ -119,9 +148,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         },
       });
 
-      console.log('Response status:', response.status);
       const data = await response.json();
-      console.log('Response data:', JSON.stringify(data, null, 2));
 
       if (data.success && data.data?.users) {
         setUsers(data.data.users);
@@ -135,11 +162,9 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           errorMessage = 'Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.';
         }
 
-        console.error('API Error:', errorMessage, data);
         showError(errorMessage);
       }
     } catch (error) {
-      console.error('Fetch users error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
@@ -171,7 +196,6 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
@@ -311,7 +335,6 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         showError(data.error?.message || 'İşlem başarısız');
       }
     } catch (error) {
-      console.error('Save user error:', error);
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsSaving(false);
@@ -427,7 +450,6 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
 
   const handlePermissions = (user: User) => {
     // TODO: Yetkiler modalını aç
-    console.log('Kullanıcı yetkileri:', user.permissions);
   };
 
   const getInitials = (name: string) => {
@@ -492,7 +514,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
               <Image
                 source={{ uri: getAvatarUrl(user.avatar)! }}
                 style={styles.avatarImage}
-                onError={() => console.log('Avatar yükleme hatası:', user.avatar)}
+                onError={() => {}}
               />
             ) : (
               <Text style={styles.avatarText}>{getInitials(user.name)}</Text>
@@ -568,12 +590,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   );
 
   const renderEmptyState = () => (
-    <EmptyState
-      icon="people-outline"
-      title="Kullanıcı Bulunamadı"
-      subtitle="Henüz kullanıcı eklenmemiş veya arama kriterlerine uygun kullanıcı bulunamadı"
-      iconSize={64}
-    />
+    <EmptyState />
   );
 
   return (
@@ -663,6 +680,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             formDefaultScreen={formDefaultScreen}
             formPermissions={formPermissions}
             isEditMode={isEditMode}
+            availablePrograms={availablePrograms}
             onNameChange={setFormName}
             onEmailChange={setFormEmail}
             onPhoneChange={setFormPhone}

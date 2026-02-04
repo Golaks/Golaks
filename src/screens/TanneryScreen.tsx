@@ -44,7 +44,6 @@ export default function TanneryScreen({ onBack, onTabChange, onLogout }: Tannery
         onLogout();
       }
     } catch (error) {
-      console.error('Logout error:', error);
     }
   };
 
