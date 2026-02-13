@@ -49,7 +49,7 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
       case 'dashboard':
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
       case 'aiChat':
-        return <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return null;
       case 'qrScan':
         return <QRScanScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'profile':
@@ -101,11 +101,25 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
     }
   };
 
-  return <View style={styles.container}>{renderScreen()}</View>;
+  const isAiChat = activeScreen === 'aiChat';
+
+  return (
+    <View style={styles.container}>
+      {/* AI Chat her zaman mount kalır, tab değişince gizlenir */}
+      <View style={[styles.persistentScreen, { display: isAiChat ? 'flex' : 'none' }]}>
+        <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} />
+      </View>
+      {!isAiChat && renderScreen()}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  persistentScreen: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
 });
