@@ -88,6 +88,27 @@ class AuthController extends BaseController {
             // Parse firma_ayarlar JSON
             $firmaAyarlar = json_decode($user['firma_ayarlar'], true) ?? [];
 
+            // Şirket DB'den ERP firma_id'yi al
+            $erpFirmaId = null;
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            if (!empty($veritabani['sunucu']) && !empty($veritabani['veriAdi'])) {
+                try {
+                    $dsn = "mysql:host={$veritabani['sunucu']};port=" . ($veritabani['port'] ?? 3306) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
+                    $companyPdo = new PDO($dsn, $veritabani['kullanici'] ?? '', $veritabani['sifre'] ?? '', [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                    ]);
+                    $erpStmt = $companyPdo->prepare("SELECT firma_id FROM kullanicilar WHERE kullanici_adi = :kullaniciAdi LIMIT 1");
+                    $erpStmt->execute([':kullaniciAdi' => $user['kullanici_adi']]);
+                    $erpUser = $erpStmt->fetch();
+                    if ($erpUser) {
+                        $erpFirmaId = (int)$erpUser['firma_id'];
+                    }
+                } catch (Exception $e) {
+                    error_log("ERP firma_id fetch error: " . $e->getMessage());
+                }
+            }
+
             // Prepare response
             $response = [
                 'token' => $token,
@@ -104,6 +125,7 @@ class AuthController extends BaseController {
                     'yetkiler' => json_decode($user['kullanici_yetkiler'], true) ?? [],
                     'kullanici_rol' => $user['kullanici_rol'],
                     'role' => $user['kullanici_rol'], // Frontend mapping yapacak
+                    'erp_firma_id' => $erpFirmaId,
                     'firmaAyarlar' => $firmaAyarlar,
                     'mobilDataVersiyon' => '1.0.0',
                     'mobilResim' => $user['resim_yolu'],

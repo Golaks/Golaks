@@ -17,6 +17,7 @@ export interface CariAccount {
   unvan: string;
   kisaUnvan: string;
   doviz: string;
+  subeId: string;
   sube: string;
   bakiyeler?: CariBalance[]; // Optional, lazy loaded
 }
@@ -82,6 +83,24 @@ export interface CariEkstreResponse {
   message?: string;
 }
 
+export interface CreateCariRequest {
+  dataName: string;
+  subeId: string;
+  hesapKodu: string;
+  unvan: string;
+  kisaUnvan?: string;
+  doviz: string;
+}
+
+export interface CreateCariResponse {
+  success: boolean;
+  data: {
+    cari: CariAccount;
+    message: string;
+  };
+  message?: string;
+}
+
 class AccountService {
   private getAuthHeader(token: string) {
     return {
@@ -97,7 +116,8 @@ class AccountService {
     token: string,
     dataName: string,
     filterType: 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' = 'all',
-    search: string = ''
+    search: string = '',
+    subeId: string = ''
   ): Promise<CariListResponse> {
     try {
       const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_LIST, {
@@ -107,6 +127,7 @@ class AccountService {
           dataName,
           filterType,
           search,
+          subeId,
         }),
       });
 
@@ -179,6 +200,32 @@ class AccountService {
       return data;
     } catch (error: any) {
       throw new Error(error.message || 'Kasa-Banka raporu alınamadı');
+    }
+  }
+
+  /**
+   * Yeni cari hesap oluşturur
+   */
+  async createCari(
+    token: string,
+    data: CreateCariRequest
+  ): Promise<CreateCariResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_CREATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error?.message || result.message || 'Cari hesap oluşturulamadı');
+      }
+
+      return result;
+    } catch (error: any) {
+      throw new Error(error.message || 'Cari hesap oluşturulamadı');
     }
   }
 

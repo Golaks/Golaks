@@ -539,9 +539,10 @@ const createStyles = (colors: any, isDark: boolean) =>
       opacity: 0.6,
     },
     centerContainer: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 400,
+      minHeight: 500,
     },
     listSection: {
       marginTop: 4,

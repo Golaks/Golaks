@@ -7,7 +7,10 @@ import {
   ScrollView,
   RefreshControl,
   Image,
+  Dimensions,
 } from 'react-native';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -23,9 +26,14 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import BackButton from '../components/BackButton';
 import IconButton from '../components/IconButton';
-import ActionFormModal from '../components/ActionFormModal';
 import UserForm from '../components/UserForm';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BottomSheet from '../components/BottomSheet';
+
+interface Sube {
+  id: string;
+  name: string;
+}
 
 interface User {
   id: string;
@@ -43,6 +51,7 @@ interface User {
     konfeksiyon?: boolean;
     magaza?: boolean;
   };
+  subeYetkileri?: string[];
 }
 
 interface UserManagementScreenProps {
@@ -112,6 +121,14 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     konfeksiyon: false,
     magaza: false,
   });
+
+  // Şube Yetkileri
+  const [showBranchSheet, setShowBranchSheet] = useState(false);
+  const [branchUser, setBranchUser] = useState<User | null>(null);
+  const [subeler, setSubeler] = useState<Sube[]>([]);
+  const [selectedSubeler, setSelectedSubeler] = useState<Set<string>>(new Set());
+  const [isLoadingSubeler, setIsLoadingSubeler] = useState(false);
+  const [isSavingBranch, setIsSavingBranch] = useState(false);
 
   const styles = createStyles(colors, isDark);
 
@@ -452,6 +469,101 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     // TODO: Yetkiler modalını aç
   };
 
+  const handleBranchPermissions = async (user: User) => {
+    setBranchUser(user);
+    setSelectedSubeler(new Set(user.subeYetkileri || []));
+    setShowBranchSheet(true);
+    await fetchSubeler();
+  };
+
+  const fetchSubeler = async () => {
+    setIsLoadingSubeler(true);
+    try {
+      const token = await getToken();
+      const dataName = authUser?.firmaAyarlar?.veritabani?.veriAdi;
+
+      if (!dataName) {
+        showError('Firma bilgisi bulunamadı');
+        return;
+      }
+
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_SUBELER, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ dataName }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data?.subeler) {
+        setSubeler(data.data.subeler);
+      } else {
+        showError(data.error?.message || 'Şubeler yüklenemedi');
+      }
+    } catch {
+      showError('Şubeler yüklenirken bağlantı hatası oluştu');
+    } finally {
+      setIsLoadingSubeler(false);
+    }
+  };
+
+  const toggleSube = (subeId: string) => {
+    setSelectedSubeler(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(subeId)) {
+        newSet.delete(subeId);
+      } else {
+        newSet.add(subeId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSaveBranchPermissions = async () => {
+    if (!branchUser) return;
+
+    setIsSavingBranch(true);
+    try {
+      const token = await getToken();
+
+      const response = await fetch(API_ENDPOINTS.USER_BRANCH_PERMISSIONS, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: branchUser.id,
+          subeler: Array.from(selectedSubeler),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showSuccess('Şube yetkileri güncellendi');
+        setShowBranchSheet(false);
+        // Update local user data
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === branchUser.id
+              ? { ...u, subeYetkileri: Array.from(selectedSubeler) }
+              : u
+          )
+        );
+      } else {
+        showError(data.error?.message || 'Şube yetkileri güncellenemedi');
+      }
+    } catch {
+      showError('Bağlantı hatası. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSavingBranch(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -569,6 +681,15 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             iconSize={20}
           />
           <IconButton
+            icon="business-outline"
+            onPress={() => handleBranchPermissions(user)}
+            size={40}
+            iconSize={20}
+            color={colors.orange}
+            backgroundColor={`${colors.orange}15`}
+            badge={(user.subeYetkileri?.length ?? 0)}
+          />
+          <IconButton
             icon="lock-closed-outline"
             onPress={() => handlePermissions(user)}
             size={40}
@@ -660,16 +781,17 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         <TabBar activeTab={activeTab} onTabPress={handleTabPress} />
 
         {/* User Modal */}
-        <ActionFormModal
+        <BottomSheet
           visible={showUserModal}
           title={isEditMode ? 'Kullanıcı Düzenle' : 'Yeni Kullanıcı'}
           icon={isEditMode ? 'create-outline' : 'person-add-outline'}
           iconColor={colors.primary}
           onClose={() => setShowUserModal(false)}
           onSave={handleSaveUser}
-          saveButtonText="Kaydet"
-          cancelButtonText="İptal"
+          saveText="Kaydet"
+          cancelText="İptal"
           saveDisabled={isSaving}
+          height={SCREEN_HEIGHT * 0.9}
         >
           <UserForm
             formName={formName}
@@ -689,7 +811,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             onDefaultScreenChange={setFormDefaultScreen}
             onPermissionsChange={setFormPermissions}
           />
-        </ActionFormModal>
+        </BottomSheet>
 
         {/* Delete Confirmation */}
         <ConfirmDialog
@@ -716,6 +838,93 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           onConfirm={handleActiveConfirm}
           onCancel={() => setShowActiveConfirm(false)}
         />
+
+        {/* Şube Yetkileri Bottom Sheet */}
+        <BottomSheet
+          visible={showBranchSheet}
+          title={`Şube Yetkileri${branchUser ? ` - ${branchUser.name}` : ''}`}
+          icon="business-outline"
+          iconColor={colors.orange}
+          onClose={() => {
+            setShowBranchSheet(false);
+            setBranchUser(null);
+          }}
+          onSave={handleSaveBranchPermissions}
+          saveText="Kaydet"
+          saveDisabled={isSavingBranch}
+        >
+          {isLoadingSubeler ? (
+            <View style={styles.branchLoading}>
+              <LoadingSpinner size={50} />
+            </View>
+          ) : subeler.length === 0 ? (
+            <View style={styles.branchEmpty}>
+              <Icon name="business-outline" size={48} color={colors.textTertiary} />
+              <Text style={styles.branchEmptyText}>Şube bulunamadı</Text>
+            </View>
+          ) : (
+            <View style={styles.branchList}>
+              {/* Tümünü Seç */}
+              <Pressable
+                style={styles.branchSelectAll}
+                onPress={() => {
+                  if (selectedSubeler.size === subeler.length) {
+                    setSelectedSubeler(new Set());
+                  } else {
+                    setSelectedSubeler(new Set(subeler.map(s => s.id)));
+                  }
+                }}
+              >
+                <View style={styles.branchSelectAllLeft}>
+                  <Icon
+                    name={selectedSubeler.size === subeler.length ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={selectedSubeler.size === subeler.length ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={styles.branchSelectAllText}>Tümünü Seç</Text>
+                </View>
+                <Text style={styles.branchCount}>
+                  {selectedSubeler.size}/{subeler.length}
+                </Text>
+              </Pressable>
+
+              {/* Şube Listesi */}
+              {subeler.map((sube) => {
+                const isSelected = selectedSubeler.has(sube.id);
+                return (
+                  <Pressable
+                    key={sube.id}
+                    style={[styles.branchItem, isSelected && styles.branchItemSelected]}
+                    onPress={() => toggleSube(sube.id)}
+                  >
+                    <View style={styles.branchItemLeft}>
+                      <View style={[
+                        styles.branchIcon,
+                        { backgroundColor: isSelected ? colors.orange + '15' : colors.card }
+                      ]}>
+                        <Icon
+                          name="location-outline"
+                          size={20}
+                          color={isSelected ? colors.orange : colors.textSecondary}
+                        />
+                      </View>
+                      <Text style={[
+                        styles.branchName,
+                        isSelected && { color: colors.text, fontWeight: '600' }
+                      ]}>
+                        {sube.name}
+                      </Text>
+                    </View>
+                    <IOSSwitch
+                      value={isSelected}
+                      onValueChange={() => toggleSube(sube.id)}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </BottomSheet>
       </View>
     </SafeAreaProvider>
   );
@@ -872,5 +1081,84 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 60,
+    },
+    // Branch permissions styles
+    branchLoading: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 300,
+    },
+    branchEmpty: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 300,
+      gap: 12,
+    },
+    branchEmptyText: {
+      fontSize: 15,
+      color: colors.textSecondary,
+    },
+    branchList: {
+      gap: 8,
+    },
+    branchSelectAll: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      marginBottom: 4,
+    },
+    branchSelectAllLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    branchSelectAllText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    branchCount: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    branchItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    branchItemSelected: {
+      borderColor: colors.orange + '40',
+      backgroundColor: colors.orange + '08',
+    },
+    branchItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    branchIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    branchName: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      flex: 1,
     },
   });

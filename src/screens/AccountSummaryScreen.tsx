@@ -330,9 +330,10 @@ const createStyles = (colors: any, isDark: boolean) =>
       marginTop: 16,
     },
     centerContainer: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 400,
+      minHeight: 500,
     },
     searchContainer: {
       paddingTop: 0,

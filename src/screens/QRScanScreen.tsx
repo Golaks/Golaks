@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,7 @@ import {
   Text,
   Pressable,
   Animated,
-  Dimensions,
+  Easing,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -14,20 +14,24 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
-import Button from '../components/Button';
+import Tab, { TabOption } from '../components/Tab';
 import Input from '../components/Input';
 import BarcodeScanner from '../components/BarcodeScanner';
 
-const { width } = Dimensions.get('window');
-
 type ScanMode = 'barcode' | 'model';
+
+const SCAN_TABS: TabOption<ScanMode>[] = [
+  { id: 'barcode', label: 'Barkod', icon: 'barcode-outline' },
+  { id: 'model', label: 'Model', icon: 'shirt-outline' },
+];
 
 interface QRScanScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onBarcodeQuery?: (barcode: string, queryType: 'barcode' | 'model') => void;
 }
 
-export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProps) {
+export default function QRScanScreen({ onTabChange, onLogout, onBarcodeQuery }: QRScanScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
@@ -36,8 +40,33 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
 
-  // Animation values
-  const modeSlideAnim = useRef(new Animated.Value(0)).current;
+  // Pulse animation for scan icon
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (scanMode === 'barcode') {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [scanMode]);
 
   const styles = createStyles(colors, isDark);
 
@@ -50,17 +79,9 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const handleModeChange = (mode: ScanMode) => {
     if (mode === scanMode) return;
-
     setScanMode(mode);
     setInputValue('');
-
-    // Animate mode change
-    Animated.spring(modeSlideAnim, {
-      toValue: mode === 'barcode' ? 0 : 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
+    setShowSuggestions(false);
   };
 
   const handleScanPress = () => {
@@ -69,6 +90,11 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const handleBarcodeScanned = (barcode: string) => {
     setInputValue(barcode);
+    setScannerVisible(false);
+    // Modal kapanmasını bekle, sonra navigasyon yap
+    setTimeout(() => {
+      handleQuery(barcode);
+    }, 400);
   };
 
   const handleQuickNumber = (prefix: string) => {
@@ -86,7 +112,10 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const handleQuery = (value?: string) => {
     const queryValue = value || inputValue;
-    // TODO: Implement query logic
+    if (!queryValue.trim()) return;
+    if (onBarcodeQuery) {
+      onBarcodeQuery(queryValue, scanMode);
+    }
   };
 
   const handleLogout = async () => {
@@ -101,38 +130,15 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const quickNumbers = ['7', '8', '9', '38'];
 
-  const getScanModeInfo = () => {
-    switch (scanMode) {
-      case 'barcode':
-        return {
-          icon: 'qr-code-outline',
-          title: 'Barkod & QR Tarama',
-          subtitle: 'Barkod veya QR kod okutun, 12 haneli kod girin',
-          placeholder: '12 haneli barkod',
-          inputLabel: 'Barkod',
-          color: '#3B82F6',
-        };
-      case 'model':
-        return {
-          icon: 'shirt-outline',
-          title: 'Model Sorgulama',
-          subtitle: 'Kamera tarama model için kullanılamaz',
-          placeholder: 'Model kodu ara...',
-          inputLabel: 'Model',
-          color: '#10B981',
-        };
-    }
-  };
-
-  const modeInfo = getScanModeInfo();
+  const modeColor = scanMode === 'barcode' ? '#3B82F6' : '#10B981';
   const isQueryDisabled = scanMode === 'barcode'
     ? inputValue.length !== 12
     : !inputValue.trim();
+  const barcodeProgress = scanMode === 'barcode' ? inputValue.length / 12 : 0;
 
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
-        {/* Header */}
         <Header
           title="Tarama & Sorgulama"
           showMenu={true}
@@ -145,84 +151,101 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Mode Selector Tabs */}
-          <View style={styles.modeSelectorContainer}>
-            <Pressable
-              style={[
-                styles.modeTab,
-                scanMode === 'barcode' && [styles.modeTabActive, { backgroundColor: '#3B82F6' }],
-              ]}
-              onPress={() => handleModeChange('barcode')}
-            >
-              <Icon
-                name="qr-code"
-                size={18}
-                color={scanMode === 'barcode' ? '#FFFFFF' : colors.textSecondary}
-              />
-              <Text style={[
-                styles.modeTabText,
-                { color: scanMode === 'barcode' ? '#FFFFFF' : colors.textSecondary }
-              ]}>
-                Barkod
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[
-                styles.modeTab,
-                scanMode === 'model' && [styles.modeTabActive, { backgroundColor: '#10B981' }],
-              ]}
-              onPress={() => handleModeChange('model')}
-            >
-              <Icon
-                name="shirt"
-                size={18}
-                color={scanMode === 'model' ? '#FFFFFF' : colors.textSecondary}
-              />
-              <Text style={[
-                styles.modeTabText,
-                { color: scanMode === 'model' ? '#FFFFFF' : colors.textSecondary }
-              ]}>
-                Model
-              </Text>
-            </Pressable>
+          {/* Page Title */}
+          <View style={styles.pageHeader}>
+            <View style={styles.pageTitleContainer}>
+              <View style={[styles.pageTitleIcon, { backgroundColor: modeColor + '15' }]}>
+                <Icon name="scan" size={18} color={modeColor} />
+              </View>
+              <Text style={styles.pageTitle}>Tarama</Text>
+            </View>
           </View>
 
-          {/* Scan Area - Always visible */}
-          <View style={[
-            styles.scanAreaContainer,
-            { backgroundColor: modeInfo.color + '15' },
-            scanMode === 'model' && styles.scanAreaDisabled
-          ]}>
-            <Icon name={modeInfo.icon} size={48} color={modeInfo.color} style={scanMode === 'model' && { opacity: 0.5 }} />
-            <Text style={[styles.scanAreaTitle, scanMode === 'model' && { opacity: 0.5 }]}>
-              {modeInfo.title}
+          {/* Mode Selector */}
+          <Tab
+            options={SCAN_TABS}
+            activeTab={scanMode}
+            onTabChange={handleModeChange}
+          />
+
+          {/* Scan Hero Card */}
+          <View style={[styles.heroCard, { borderColor: modeColor + '25' }]}>
+            {/* Scan Icon with Pulse */}
+            <Animated.View style={[
+              styles.heroIconOuter,
+              { backgroundColor: modeColor + '08', transform: [{ scale: pulseAnim }] },
+            ]}>
+              <View style={[styles.heroIconInner, { backgroundColor: modeColor + '15' }]}>
+                <Icon
+                  name={scanMode === 'barcode' ? 'scan-outline' : 'shirt-outline'}
+                  size={32}
+                  color={modeColor}
+                />
+              </View>
+            </Animated.View>
+
+            <Text style={[styles.heroTitle, { color: colors.text }]}>
+              {scanMode === 'barcode' ? 'Barkod & QR Tarama' : 'Model Sorgulama'}
             </Text>
-            <Text style={[styles.scanAreaSubtitle, { color: colors.textSecondary }, scanMode === 'model' && { opacity: 0.5 }]}>
-              {modeInfo.subtitle}
+            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+              {scanMode === 'barcode'
+                ? 'Kamera ile tarayın veya manuel olarak girin'
+                : 'Model adını girerek sorgulayın'}
             </Text>
 
-            {/* Camera Scan Button */}
-            <Button
-              text="Kamerayı Aç"
-              icon="camera"
+            {/* Camera Button */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.cameraButton,
+                { backgroundColor: modeColor },
+                scanMode === 'model' && styles.cameraButtonDisabled,
+                pressed && scanMode !== 'model' && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
               onPress={handleScanPress}
-              fullWidth={false}
               disabled={scanMode === 'model'}
-              style={{ backgroundColor: modeInfo.color }}
-            />
+            >
+              <View style={styles.cameraButtonIconWrap}>
+                <Icon name="camera" size={20} color="#FFFFFF" />
+              </View>
+              <Text style={styles.cameraButtonText}>Kamerayı Aç</Text>
+              <Icon name="chevron-forward" size={16} color="rgba(255,255,255,0.6)" />
+            </Pressable>
+
+            {/* Supported Formats */}
+            {scanMode === 'barcode' && (
+              <View style={styles.formatsRow}>
+                {['QR', 'EAN-13', 'Code-128', 'UPC'].map((fmt) => (
+                  <View key={fmt} style={[styles.formatChip, { backgroundColor: modeColor + '10' }]}>
+                    <Text style={[styles.formatChipText, { color: modeColor }]}>{fmt}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
 
-          {/* Input Section */}
-          <View style={styles.inputContainer}>
+          {/* Manual Input Section */}
+          <View style={styles.inputCard}>
+            {/* Section Header */}
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, { backgroundColor: modeColor + '15' }]}>
+                <Icon name={scanMode === 'barcode' ? 'keypad-outline' : 'search-outline'} size={16} color={modeColor} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {scanMode === 'barcode' ? 'Barkod Giriş' : 'Model Ara'}
+              </Text>
+            </View>
+
             <Input
-              label={modeInfo.inputLabel}
-              icon={modeInfo.icon}
+              label={scanMode === 'barcode' ? 'Barkod' : 'Model Adı'}
+              icon={scanMode === 'barcode' ? 'barcode-outline' : 'shirt-outline'}
               value={inputValue}
               onChangeText={(text) => {
                 if (scanMode === 'barcode') {
                   const numericOnly = text.replace(/[^0-9]/g, '');
                   setInputValue(numericOnly);
+                  if (numericOnly.length === 12) {
+                    handleQuery(numericOnly);
+                  }
                 } else {
                   setInputValue(text);
                   if (scanMode === 'model' && text.length >= 2) {
@@ -232,7 +255,7 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
                   }
                 }
               }}
-              placeholder={modeInfo.placeholder}
+              placeholder={scanMode === 'barcode' ? '12 haneli barkod girin' : 'Model adı ara...'}
               keyboardType={scanMode === 'barcode' ? 'number-pad' : 'default'}
               maxLength={scanMode === 'barcode' ? 12 : undefined}
               clearable
@@ -240,51 +263,108 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
               containerStyle={{ marginBottom: 0 }}
             />
 
-            {/* Character Counter for Barcode */}
+            {/* Progress Bar for Barcode */}
             {scanMode === 'barcode' && (
-              <View style={styles.characterCounter}>
+              <View style={styles.progressSection}>
+                <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+                  <View style={[
+                    styles.progressFill,
+                    {
+                      width: `${barcodeProgress * 100}%`,
+                      backgroundColor: inputValue.length === 12 ? '#10B981' : modeColor,
+                    },
+                  ]} />
+                </View>
                 <Text style={[
-                  styles.characterCounterText,
-                  { color: inputValue.length === 12 ? '#10B981' : colors.textSecondary }
+                  styles.progressText,
+                  { color: inputValue.length === 12 ? '#10B981' : colors.textSecondary },
                 ]}>
-                  {inputValue.length} / 12 karakter
+                  {inputValue.length === 12 ? (
+                    'Hazır'
+                  ) : (
+                    `${inputValue.length}/12`
+                  )}
                 </Text>
               </View>
             )}
 
-            {/* Quick Numbers for Barcode */}
+            {/* Quick Number Chips for Barcode */}
             {scanMode === 'barcode' && (
-              <View style={styles.quickNumbersSection}>
-                <View style={styles.quickNumbersRow}>
-                  {quickNumbers.map((num) => (
-                    <Button
-                      key={num}
-                      text={num}
-                      onPress={() => handleQuickNumber(num)}
-                      disabled={inputValue.trim().length === 0}
-                      style={[
-                        styles.quickNumberButton,
-                        { backgroundColor: modeInfo.color }
-                      ]}
-                    />
-                  ))}
+              <View style={styles.quickSection}>
+                <Text style={[styles.quickLabel, { color: colors.textSecondary }]}>Hızlı Tamamla</Text>
+                <View style={styles.quickChipsRow}>
+                  {quickNumbers.map((num) => {
+                    const disabled = inputValue.trim().length === 0;
+                    return (
+                      <Pressable
+                        key={num}
+                        style={({ pressed }) => [
+                          styles.quickChip,
+                          {
+                            backgroundColor: disabled ? colors.border + '60' : modeColor + '12',
+                            borderColor: disabled ? colors.border : modeColor + '30',
+                          },
+                          pressed && !disabled && { backgroundColor: modeColor + '25' },
+                        ]}
+                        onPress={() => handleQuickNumber(num)}
+                        disabled={disabled}
+                      >
+                        <Text style={[
+                          styles.quickChipText,
+                          { color: disabled ? colors.textSecondary : modeColor },
+                        ]}>
+                          {num}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             )}
 
             {/* Query Button */}
-            <Button
-              text="Sorgula"
-              icon="search"
+            <Pressable
+              style={({ pressed }) => [
+                styles.queryButton,
+                {
+                  backgroundColor: isQueryDisabled ? colors.border : modeColor,
+                  opacity: isQueryDisabled ? 0.5 : pressed ? 0.85 : 1,
+                },
+                pressed && !isQueryDisabled && { transform: [{ scale: 0.98 }] },
+              ]}
               onPress={() => handleQuery()}
               disabled={isQueryDisabled}
-              style={[
-                !isQueryDisabled ? { backgroundColor: modeInfo.color } : undefined,
-                scanMode === 'model' && { marginTop: 16 }
-              ]}
-            />
+            >
+              <Icon name="search" size={20} color="#FFFFFF" />
+              <Text style={styles.queryButtonText}>Sorgula</Text>
+            </Pressable>
           </View>
 
+          {/* Tips Card */}
+          <View style={[styles.tipsCard, { borderColor: colors.border }]}>
+            <View style={styles.tipsHeader}>
+              <View style={[styles.sectionIcon, { backgroundColor: '#F59E0B15' }]}>
+                <Icon name="bulb-outline" size={16} color="#F59E0B" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>İpuçları</Text>
+            </View>
+            <View style={styles.tipsContent}>
+              {(scanMode === 'barcode' ? [
+                { icon: 'sunny-outline', text: 'İyi aydınlatılmış ortamda tarayın' },
+                { icon: 'hand-left-outline', text: 'Barkodu sabit tutun, odaklansın' },
+                { icon: 'keypad-outline', text: 'Hızlı tamamla ile prefix ekleyin' },
+              ] : [
+                { icon: 'search-outline', text: 'Model adının bir kısmını yazarak arayın' },
+                { icon: 'text-outline', text: 'Büyük/küçük harf duyarlı değildir' },
+                { icon: 'pricetag-outline', text: 'Sonuçlarda fiyat ve stok bilgisi görüntülenir' },
+              ]).map((tip, i) => (
+                <View key={i} style={styles.tipRow}>
+                  <Icon name={tip.icon} size={14} color={colors.textSecondary} />
+                  <Text style={[styles.tipText, { color: colors.textSecondary }]}>{tip.text}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         </ScrollView>
 
         {/* Barcode Scanner Modal */}
@@ -319,94 +399,234 @@ const createStyles = (colors: any, isDark: boolean) =>
       padding: 16,
       paddingBottom: 120,
     },
-    // Mode Selector
-    modeSelectorContainer: {
-      flexDirection: 'row',
-      gap: 8,
-      marginBottom: 20,
-      backgroundColor: colors.card,
-      padding: 4,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.border,
+
+    // Page Header
+    pageHeader: {
+      marginBottom: 16,
     },
-    modeTab: {
-      flex: 1,
+    pageTitleContainer: {
       flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    pageTitleIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 10,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      backgroundColor: 'transparent',
     },
-    modeTabActive: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    modeTabText: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    // Scan Area
-    scanAreaContainer: {
-      borderRadius: 20,
-      overflow: 'hidden',
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: 32,
-      alignItems: 'center',
-    },
-    scanAreaDisabled: {
-      opacity: 0.6,
-    },
-    scanAreaTitle: {
-      fontSize: 18,
+    pageTitle: {
+      fontSize: 20,
       fontWeight: '700',
       color: colors.text,
-      marginTop: 16,
-      marginBottom: 4,
+      opacity: 0.6,
     },
-    scanAreaSubtitle: {
-      fontSize: 14,
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    // Input Section
-    inputContainer: {
+
+    // Hero Card
+    heroCard: {
       backgroundColor: colors.card,
       borderRadius: 16,
-      padding: 18,
-      marginBottom: 20,
       borderWidth: 1,
-      borderColor: colors.border,
+      padding: 24,
+      alignItems: 'center',
+      marginBottom: 16,
     },
-    characterCounter: {
-      alignItems: 'flex-end',
-      marginTop: 8,
+    heroIconOuter: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
     },
-    characterCounterText: {
-      fontSize: 12,
+    heroIconInner: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    heroTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+    heroSubtitle: {
+      fontSize: 13,
+      textAlign: 'center',
+      marginBottom: 20,
+      lineHeight: 18,
+    },
+
+    // Camera Button
+    cameraButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderRadius: 14,
+      gap: 10,
+      width: '100%',
+    },
+    cameraButtonDisabled: {
+      opacity: 0.35,
+    },
+    cameraButtonIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cameraButtonText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+
+    // Format Chips
+    formatsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 16,
+      justifyContent: 'center',
+    },
+    formatChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    formatChipText: {
+      fontSize: 11,
       fontWeight: '600',
     },
-    // Quick Numbers
-    quickNumbersSection: {
-      marginTop: 16,
+
+    // Input Card
+    inputCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
       marginBottom: 16,
+    },
+
+    // Section Header
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 16,
+    },
+    sectionIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+    },
+
+    // Progress Bar
+    progressSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 10,
+    },
+    progressTrack: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 2,
+    },
+    progressText: {
+      fontSize: 12,
+      fontWeight: '700',
+      minWidth: 32,
+      textAlign: 'right',
+    },
+
+    // Quick Numbers
+    quickSection: {
+      marginTop: 16,
       paddingTop: 16,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    quickNumbersRow: {
+    quickLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginBottom: 10,
+    },
+    quickChipsRow: {
       flexDirection: 'row',
       gap: 8,
     },
-    quickNumberButton: {
+    quickChip: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+    },
+    quickChipText: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+
+    // Query Button
+    queryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 16,
+      borderRadius: 14,
+      marginTop: 16,
+    },
+    queryButtonText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+
+    // Tips Card
+    tipsCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      padding: 18,
+      marginBottom: 16,
+    },
+    tipsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 14,
+    },
+    tipsContent: {
+      gap: 10,
+    },
+    tipRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    tipText: {
+      fontSize: 13,
       flex: 1,
     },
   });

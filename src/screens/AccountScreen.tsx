@@ -19,6 +19,9 @@ interface AccountScreenProps {
   onCashBank?: () => void;
   onCariDetay?: () => void;
   onCheckBill?: () => void;
+  onCariList?: () => void;
+  accountTab?: AccountTab;
+  onAccountTabChange?: (tab: AccountTab) => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -28,11 +31,12 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onCariList, accountTab: externalTab, onAccountTabChange }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [accountTab, setAccountTab] = useState<AccountTab>('reports');
+  const accountTab = externalTab ?? 'reports';
+  const setAccountTab = (tab: AccountTab) => onAccountTabChange?.(tab);
   const [showParameterModal, setShowParameterModal] = useState(false);
 
   const styles = createStyles(colors, isDark);
@@ -180,11 +184,11 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
 
           {accountTab === 'transactions' && (
             <MenuCard
-              name="Yeni İşlem"
-              icon="add-circle-outline"
-              color="#10B981"
-              description="Gelir veya gider işlemi ekle"
-              onPress={() => {}}
+              name="Cari Hesaplar"
+              icon="people-outline"
+              color="#3B82F6"
+              description="Cari hesap listesi"
+              onPress={() => onCariList?.()}
             />
           )}
         </ScrollView>

@@ -177,8 +177,19 @@ export default function BarcodeScanner({
     setTorchOn(prev => !prev);
   };
 
+  const hasScannedRef = useRef(false);
+
+  // Reset scan guard when modal opens
+  useEffect(() => {
+    if (visible) {
+      hasScannedRef.current = false;
+    }
+  }, [visible]);
+
   const handleCodeScanned = useRef((codes: any[]) => {
+    if (hasScannedRef.current) return;
     if (codes.length > 0 && codes[0].value) {
+      hasScannedRef.current = true;
       setIsActive(false);
       onBarcodeScanned(codes[0].value);
       onClose();

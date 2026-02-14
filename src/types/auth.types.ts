@@ -30,6 +30,7 @@ export type UserRole = 'user' | 'admin' | 'superAdmin';
 export interface UserInfo {
   id: string;
   firma_id: string;
+  erp_firma_id: number | null;
   firma_unvani: string;
   name: string;
   email: string;
@@ -44,7 +45,24 @@ export interface UserInfo {
   mobilDataVersiyon: string;
   mobilResim: string;
   resimDomain: string;
-  firmaAyarlar: Record<string, any>;
+  firmaAyarlar: FirmaAyarlar;
+}
+
+// Fiyat hesaplama algoritması ayarları (firmaAyarlar.fiyatHesaplama altında)
+export interface FiyatHesaplamaAyar {
+  tip: number;   // 0: yüzde, 1: sabit
+  deger: number;
+}
+
+export interface FiyatHesaplama {
+  giris: FiyatHesaplamaAyar;
+  maliyet: FiyatHesaplamaAyar;
+  etiket: FiyatHesaplamaAyar;
+}
+
+export interface FirmaAyarlar {
+  fiyatHesaplama?: FiyatHesaplama;
+  [key: string]: any;
 }
 
 export interface LoginResponse {

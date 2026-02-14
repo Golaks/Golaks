@@ -62,6 +62,7 @@ class Router {
         $this->post('/user/create', 'UserController', 'create');
         $this->put('/user/update', 'UserController', 'update');
         $this->delete('/user/delete', 'UserController', 'delete');
+        $this->put('/user/branch-permissions', 'UserController', 'updateBranchPermissions');
 
         // Notification Routes (Protected)
         $this->get('/notifications', 'NotificationController', 'getNotifications');
@@ -80,6 +81,12 @@ class Router {
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
+        $this->post('/account/subeler', 'AccountController', 'getSubeler');
+        $this->post('/account/cari-create', 'AccountController', 'createCari');
+        $this->post('/account/doviz-tipleri', 'AccountController', 'getDovizTipleri');
+
+        // Settings Routes (Protected)
+        $this->post('/settings', 'SettingsController', 'update');
 
         // Company Routes (Protected, Super Admin only)
         $this->get('/company/list', 'CompanyController', 'getList');

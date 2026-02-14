@@ -13,6 +13,8 @@ interface ShopScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  shopTab?: ShopTab;
+  onShopTabChange?: (tab: ShopTab) => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -22,11 +24,12 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, shopTab: externalTab, onShopTabChange }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [shopTab, setShopTab] = useState<ShopTab>('reports');
+  const shopTab = externalTab ?? 'reports';
+  const setShopTab = (tab: ShopTab) => onShopTabChange?.(tab);
 
   const styles = createStyles(colors, isDark);
 

@@ -62,6 +62,8 @@ class UserController {
                     $permissions = new stdClass();
                 }
 
+                $subeYetkileri = $yetkiler['sube_yetkileri'] ?? [];
+
                 return [
                     'id' => (string)$user['id'],
                     'name' => $user['ad_soyad'],
@@ -72,6 +74,7 @@ class UserController {
                     'avatar' => $user['resim_yolu'] ?? null,
                     'lastLogin' => $user['son_giris_tarihi'] ?? null,
                     'permissions' => $permissions,
+                    'subeYetkileri' => $subeYetkileri,
                 ];
             }, $users);
 
@@ -338,6 +341,78 @@ class UserController {
 
         } catch (Exception $e) {
             error_log('User delete error: ' . $e->getMessage());
+            Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * PUT /user/branch-permissions
+     * Kullanıcının şube yetkilerini güncelle (Admin/SuperAdmin)
+     */
+    public function updateBranchPermissions() {
+        $payload = Auth::requireAuth();
+        $userId = $payload['user_id'] ?? null;
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        try {
+            $db = Database::getInstance();
+
+            // Yetki kontrolü
+            $currentUser = $db->fetchOne(
+                "SELECT kullanici_rol, mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || $currentUser['kullanici_rol'] < 1) {
+                Response::error('Bu işlem için yetkiniz yok', 'UNAUTHORIZED', 403);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+            $targetUserId = $data['userId'] ?? '';
+            $subeler = $data['subeler'] ?? [];
+
+            if (empty($targetUserId)) {
+                Response::error('Kullanıcı ID gerekli', 'VALIDATION_ERROR', 400);
+            }
+
+            // Hedef kullanıcının aynı firmada olduğunu kontrol et
+            $targetUser = $db->fetchOne(
+                "SELECT id, kullanici_yetkiler FROM mobil_kullanici WHERE id = ? AND mobil_firmalar_id = ?",
+                [$targetUserId, $firmaId]
+            );
+
+            if (!$targetUser) {
+                Response::error('Kullanıcı bulunamadı', 'USER_NOT_FOUND', 404);
+            }
+
+            // Mevcut yetkileri decode et
+            $yetkiler = [];
+            if (!empty($targetUser['kullanici_yetkiler'])) {
+                $yetkiler = json_decode($targetUser['kullanici_yetkiler'], true) ?? [];
+            }
+
+            // Şube yetkilerini güncelle
+            $yetkiler['sube_yetkileri'] = $subeler;
+
+            // JSON'a encode et ve kaydet
+            $yetkilerJson = json_encode($yetkiler, JSON_UNESCAPED_UNICODE);
+
+            $db->execute(
+                "UPDATE mobil_kullanici
+                 SET kullanici_yetkiler = ?
+                 WHERE id = ?",
+                [$yetkilerJson, $targetUserId]
+            );
+
+            Response::success([
+                'message' => 'Şube yetkileri başarıyla güncellendi',
+                'subeYetkileri' => $subeler
+            ]);
+
+        } catch (Exception $e) {
+            error_log('Update branch permissions error: ' . $e->getMessage());
             Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
         }
     }

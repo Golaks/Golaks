@@ -541,9 +541,10 @@ const createStyles = (colors: any, isDark: boolean) =>
       backgroundColor: colors.background,
     },
     centerContainer: {
+      flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 400,
+      minHeight: 500,
     },
     errorContainer: {
       flex: 1,

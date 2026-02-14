@@ -13,6 +13,8 @@ interface TanneryScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  tanneryTab?: TanneryTab;
+  onTanneryTabChange?: (tab: TanneryTab) => void;
 }
 
 type TanneryTab = 'reports' | 'transactions';
@@ -22,11 +24,12 @@ const TANNERY_TABS: TabOption<TanneryTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function TanneryScreen({ onBack, onTabChange, onLogout }: TanneryScreenProps) {
+export default function TanneryScreen({ onBack, onTabChange, onLogout, tanneryTab: externalTab, onTanneryTabChange }: TanneryScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [tanneryTab, setTanneryTab] = useState<TanneryTab>('reports');
+  const tanneryTab = externalTab ?? 'reports';
+  const setTanneryTab = (tab: TanneryTab) => onTanneryTabChange?.(tab);
 
   const styles = createStyles(colors, isDark);
 

@@ -62,6 +62,15 @@ export const API_ENDPOINTS = {
   ACCOUNT_CARI_EKSTRE: `${BASE_API_URL}/account/cari-ekstre`,
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
   ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
+  ACCOUNT_SUBELER: `${BASE_API_URL}/account/subeler`,
+  ACCOUNT_CARI_CREATE: `${BASE_API_URL}/account/cari-create`,
+  ACCOUNT_DOVIZ_TIPLERI: `${BASE_API_URL}/account/doviz-tipleri`,
+
+  // Settings
+  SETTINGS: `${BASE_API_URL}/settings`,
+
+  // Branch Permissions
+  USER_BRANCH_PERMISSIONS: `${BASE_API_URL}/user/branch-permissions`,
 
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak

@@ -14,6 +14,8 @@ interface ConfectionScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  confectionTab?: ConfectionTab;
+  onConfectionTabChange?: (tab: ConfectionTab) => void;
 }
 
 type ConfectionTab = 'reports' | 'transactions';
@@ -23,11 +25,12 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, confectionTab: externalTab, onConfectionTabChange }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [confectionTab, setConfectionTab] = useState<ConfectionTab>('reports');
+  const confectionTab = externalTab ?? 'reports';
+  const setConfectionTab = (tab: ConfectionTab) => onConfectionTabChange?.(tab);
 
   const styles = createStyles(colors, isDark);
 

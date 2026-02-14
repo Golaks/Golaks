@@ -17,8 +17,10 @@ import CheckBillScreen from '../screens/CheckBillScreen';
 import TanneryScreen from '../screens/TanneryScreen';
 import ConfectionScreen from '../screens/ConfectionScreen';
 import ShopScreen from '../screens/ShopScreen';
+import CariListScreen from '../screens/CariListScreen';
+import BarcodeResultScreen from '../screens/BarcodeResultScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'tannery' | 'confection' | 'shop';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cariList' | 'cashBank' | 'checkBill' | 'tannery' | 'confection' | 'shop' | 'barcodeResult';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -26,6 +28,20 @@ interface MainNavigatorProps {
 
 export default function MainNavigator({ onLogout }: MainNavigatorProps) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
+
+  // Persistent internal tab states (survive sub-screen navigation)
+  const [accountTab, setAccountTab] = useState<'reports' | 'transactions'>('reports');
+  const [tanneryTab, setTanneryTab] = useState<'reports' | 'transactions'>('reports');
+  const [confectionTab, setConfectionTab] = useState<'reports' | 'transactions'>('reports');
+  const [shopTab, setShopTab] = useState<'reports' | 'transactions'>('reports');
+
+  // Barcode result screen state
+  const [barcodeQuery, setBarcodeQuery] = useState<{ barcode: string; queryType: 'barcode' | 'model' }>({ barcode: '', queryType: 'barcode' });
+
+  const handleBarcodeQuery = (barcode: string, queryType: 'barcode' | 'model') => {
+    setBarcodeQuery({ barcode, queryType });
+    setActiveScreen('barcodeResult');
+  };
 
   const handleAppNavigation = (appId: string) => {
     switch (appId) {
@@ -51,7 +67,17 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
       case 'aiChat':
         return null;
       case 'qrScan':
-        return <QRScanScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return <QRScanScreen onTabChange={setActiveScreen} onLogout={onLogout} onBarcodeQuery={handleBarcodeQuery} />;
+      case 'barcodeResult':
+        return (
+          <BarcodeResultScreen
+            barcode={barcodeQuery.barcode}
+            queryType={barcodeQuery.queryType}
+            onGoBack={() => setActiveScreen('qrScan')}
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+          />
+        );
       case 'profile':
         return (
           <ProfileScreen
@@ -79,23 +105,28 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
             onAccountSummary={() => setActiveScreen('accountSummary')}
             onCashBank={() => setActiveScreen('cashBank')}
             onCariDetay={() => setActiveScreen('cariDetay')}
+            onCariList={() => setActiveScreen('cariList')}
             onCheckBill={() => setActiveScreen('checkBill')}
+            accountTab={accountTab}
+            onAccountTabChange={setAccountTab}
           />
         );
       case 'accountSummary':
         return <AccountSummaryScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'cariDetay':
         return <CariDetayScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'cariList':
+        return <CariListScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'cashBank':
         return <CashBankScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'checkBill':
         return <CheckBillScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'tannery':
-        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} tanneryTab={tanneryTab} onTanneryTabChange={setTanneryTab} />;
       case 'confection':
-        return <ConfectionScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return <ConfectionScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} confectionTab={confectionTab} onConfectionTabChange={setConfectionTab} />;
       case 'shop':
-        return <ShopScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return <ShopScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} shopTab={shopTab} onShopTabChange={setShopTab} />;
       default:
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
     }
