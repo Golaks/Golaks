@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,11 +8,13 @@ import {
   Platform,
   Animated,
   Image,
+  Linking,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
-import { Camera, useCameraDevice, useCodeScanner, useCameraFormat } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
-import PermissionModal from './PermissionModal';
 
 interface BarcodeScannerProps {
   visible: boolean;
@@ -28,95 +30,43 @@ export default function BarcodeScanner({
   title = 'Barkod Tara',
 }: BarcodeScannerProps) {
   const { colors } = useTheme();
-  const [hasPermission, setHasPermission] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [torchOn, setTorchOn] = useState(false);
+  const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
-  const cameraRef = useRef<Camera>(null);
+  const [scanned, setScanned] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
-  const [isCameraReady, setIsCameraReady] = useState(false);
 
-  // Select optimal format for barcode scanning (higher resolution for better recognition)
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1920, height: 1080 } },
-    { fps: 30 },
-  ]);
+  const { height: screenHeight } = Dimensions.get('window');
+  const headerHeight = Platform.OS === 'ios' ? 90 : 56;
+  const scanRowHeight = 280;
+  const topSpace = Math.max(0, (screenHeight / 2) - (scanRowHeight / 2) - headerHeight);
+  const bottomSpace = Math.max(0, screenHeight - headerHeight - scanRowHeight - topSpace);
 
-  // Focus function
-  const triggerFocus = async () => {
-    if (cameraRef.current && device?.supportsFocus && isCameraReady) {
-      try {
-        await cameraRef.current.focus({ x: 0.5, y: 0.5 });
-      } catch (e) {
-        // Focus failed, ignore
-      }
-    }
-  };
+  const styles = createStyles(colors, topSpace, bottomSpace);
 
-  // Camera initialized callback
-  const handleCameraInitialized = () => {
-    setIsCameraReady(true);
-    // Initial focus after camera is ready
-    setTimeout(triggerFocus, 300);
-  };
-
-  // Auto focus interval - only when camera is ready
-  useEffect(() => {
-    let focusInterval: NodeJS.Timeout | null = null;
-
-    if (isActive && isCameraReady && device?.supportsFocus) {
-      // Periodic auto focus every 1.5 seconds for better responsiveness
-      focusInterval = setInterval(triggerFocus, 1500);
-    }
-
-    return () => {
-      if (focusInterval) {
-        clearInterval(focusInterval);
-      }
-    };
-  }, [isActive, isCameraReady, device]);
-
-  // Reset camera ready state when modal closes
-  useEffect(() => {
-    if (!visible) {
-      setIsCameraReady(false);
-    }
-  }, [visible]);
-
-  const styles = createStyles(colors);
-
+  // Visibility effect - exactly like GolaksMobile
   useEffect(() => {
     if (visible) {
-      checkCameraPermission();
+      setIsActive(true);
+      setScanned(false);
       startScanAnimation();
     } else {
-      // Stop animation and reset states
+      setIsActive(false);
+      setTorchOn(false);
       if (animationRef.current) {
         animationRef.current.stop();
         animationRef.current = null;
       }
-      setIsActive(false);
-      setShowPermissionModal(false);
-      setTorchOn(false);
-      setHasPermission(false);
       scanLineAnim.setValue(0);
     }
-
-    return () => {
-      if (animationRef.current) {
-        animationRef.current.stop();
-        animationRef.current = null;
-      }
-    };
-  }, [visible, scanLineAnim]);
+  }, [visible]);
 
   const startScanAnimation = () => {
     if (animationRef.current) {
       animationRef.current.stop();
     }
-
     scanLineAnim.setValue(0);
     animationRef.current = Animated.loop(
       Animated.sequence([
@@ -135,67 +85,21 @@ export default function BarcodeScanner({
     animationRef.current.start();
   };
 
-  const checkCameraPermission = () => {
-    try {
-      const cameraPermission = Camera.getCameraPermissionStatus();
-
-      if (cameraPermission === 'granted') {
-        setHasPermission(true);
-        setIsActive(true);
-        setShowPermissionModal(false);
-      } else if (cameraPermission === 'not-determined') {
-        setHasPermission(false);
-        setShowPermissionModal(true);
-      } else {
-        setHasPermission(false);
-        setIsActive(false);
-        setShowPermissionModal(true);
-      }
-    } catch (error) {
-      setHasPermission(false);
-      setShowPermissionModal(false);
-    }
-  };
-
-  const handleRequestPermission = async () => {
-    setShowPermissionModal(false);
-    const newPermission = await Camera.requestCameraPermission();
-    setHasPermission(newPermission === 'granted');
-    setIsActive(newPermission === 'granted');
-
-    if (newPermission !== 'granted') {
-      setShowPermissionModal(true);
-    }
-  };
-
-  const handleCancelPermission = () => {
-    setShowPermissionModal(false);
+  const handleClose = () => {
+    setScanned(false);
+    setTorchOn(false);
+    setIsActive(false);
     onClose();
   };
 
-  const toggleTorch = () => {
-    setTorchOn(prev => !prev);
+  const handleRequestPermission = async () => {
+    const granted = await requestPermission();
+    if (!granted) {
+      Linking.openSettings();
+    }
   };
 
-  const hasScannedRef = useRef(false);
-
-  // Reset scan guard when modal opens
-  useEffect(() => {
-    if (visible) {
-      hasScannedRef.current = false;
-    }
-  }, [visible]);
-
-  const handleCodeScanned = useRef((codes: any[]) => {
-    if (hasScannedRef.current) return;
-    if (codes.length > 0 && codes[0].value) {
-      hasScannedRef.current = true;
-      setIsActive(false);
-      onBarcodeScanned(codes[0].value);
-      onClose();
-    }
-  }).current;
-
+  // Code scanner - exactly like GolaksMobile
   const codeScanner = useCodeScanner({
     codeTypes: [
       'qr',
@@ -209,121 +113,139 @@ export default function BarcodeScanner({
       'upc-a',
       'upc-e',
     ],
-    onCodeScanned: handleCodeScanned,
+    onCodeScanned: useCallback((codes: any[]) => {
+      if (scanned || codes.length === 0) return;
+
+      const code = codes[0];
+      if (code.value) {
+        setScanned(true);
+        onBarcodeScanned(code.value);
+        setTimeout(() => setScanned(false), 2000);
+      }
+    }, [scanned, onBarcodeScanned]),
   });
 
-  // Don't render anything if not visible
-  if (!visible) return null;
-
-  // If showing permission modal, only show that
-  if (showPermissionModal) {
+  // No permission - show permission UI inside Modal (no separate PermissionModal)
+  if (!hasPermission) {
     return (
-      <PermissionModal
-        visible={showPermissionModal}
-        permissions={['camera']}
-        onRequestPermissions={handleRequestPermission}
-        onCancel={handleCancelPermission}
-        title="Kamera İzni Gerekli"
-        subtitle="Barkod taramak için kamera erişimine ihtiyacımız var."
-      />
+      <Modal visible={visible} animationType="slide" transparent={false}>
+        <View style={styles.permissionContainer}>
+          <View style={styles.permissionIconWrap}>
+            <Icon name="camera-outline" size={48} color={colors.primary} />
+          </View>
+          <Text style={styles.permissionTitle}>Kamera İzni Gerekli</Text>
+          <Text style={styles.permissionMessage}>
+            Barkod taramak için kamera erişimine ihtiyacımız var.
+          </Text>
+          <Pressable style={[styles.permissionButton, { backgroundColor: colors.primary }]} onPress={handleRequestPermission}>
+            <Icon name="shield-checkmark-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.permissionButtonText}>İzin Ver</Text>
+          </Pressable>
+          <Pressable style={styles.permissionCloseButton} onPress={handleClose}>
+            <Icon name="close-outline" size={18} color={colors.textSecondary} />
+            <Text style={[styles.permissionCloseText, { color: colors.textSecondary }]}>Kapat</Text>
+          </Pressable>
+        </View>
+      </Modal>
     );
   }
 
+  // No device - show loading inside Modal
+  if (!device) {
+    return (
+      <Modal visible={visible} animationType="slide" transparent={false}>
+        <View style={styles.permissionContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.permissionMessage, { marginTop: 16 }]}>
+            Kamera başlatılıyor...
+          </Text>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Camera ready - show scanner
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Pressable onPress={toggleTorch} style={styles.torchButton}>
-                <Icon
-                  name={torchOn ? "flash" : "flash-off"}
-                  size={24}
-                  color={torchOn ? colors.primary : "#FFFFFF"}
-                />
-              </Pressable>
-            </View>
+    <Modal visible={visible} animationType="slide" transparent={false}>
+      <View style={styles.container}>
+        {/* Full screen camera - like GolaksMobile */}
+        <Camera
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={isActive && visible}
+          codeScanner={codeScanner}
+          torch={torchOn ? 'on' : 'off'}
+        />
 
-            <Text style={styles.headerTitle}>{title}</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Pressable onPress={() => setTorchOn(!torchOn)} style={styles.torchButton}>
+              <Icon
+                name={torchOn ? "flash" : "flash-off"}
+                size={24}
+                color={torchOn ? colors.primary : "#FFFFFF"}
+              />
+            </Pressable>
+          </View>
 
-            <View style={styles.headerRight}>
-              <Pressable onPress={onClose} style={styles.closeButton}>
-                <Icon name="close" size={24} color="#FFFFFF" />
-              </Pressable>
+          <Text style={styles.headerTitle}>{title}</Text>
+
+          <View style={styles.headerRight}>
+            <Pressable onPress={handleClose} style={styles.closeButton}>
+              <Icon name="close" size={24} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Overlay */}
+        <View style={styles.scanArea}>
+          {/* Dark overlay top */}
+          <View style={styles.overlayTop}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require('../assets/images/golaks-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
           </View>
 
-          {/* Camera View */}
-          <View style={styles.cameraContainer}>
-            {/* Overlay with camera in the middle */}
-            <View style={styles.overlay}>
-                <View style={styles.overlayTop}>
-                  {/* Logo above scan frame */}
-                  <View style={styles.logoContainer}>
-                    <Image
-                      source={require('../assets/images/golaks-logo.png')}
-                      style={styles.logo}
-                      resizeMode="contain"
-                    />
-                  </View>
-                </View>
-                <View style={styles.overlayMiddle}>
-                  <View style={styles.overlaySide} />
-                  <View style={styles.scanFrameContainer}>
-                    {/* Scanning Frame with Camera inside */}
-                    <Pressable style={styles.scanFrame} onPress={triggerFocus}>
-                      {/* Camera only in scan frame */}
-                      {hasPermission && device && (
-                        <Camera
-                          ref={cameraRef}
-                          style={StyleSheet.absoluteFill}
-                          device={device}
-                          isActive={isActive}
-                          codeScanner={codeScanner}
-                          torch={torchOn ? 'on' : 'off'}
-                          format={format}
-                          onInitialized={handleCameraInitialized}
-                          onError={() => {}}
-                          enableZoomGesture={false}
-                          exposure={0}
-                          videoStabilizationMode="off"
-                        />
-                      )}
+          {/* Middle row: dark left - scan frame - dark right */}
+          <View style={styles.scanRow}>
+            <View style={styles.overlaySide} />
+            <View style={styles.scanFrame}>
+              {/* Corner brackets */}
+              <View style={[styles.cornerBracket, { top: -6, left: -6, borderTopWidth: 6, borderLeftWidth: 6, borderTopLeftRadius: 12 }]} />
+              <View style={[styles.cornerBracket, { top: -6, right: -6, borderTopWidth: 6, borderRightWidth: 6, borderTopRightRadius: 12 }]} />
+              <View style={[styles.cornerBracket, { bottom: -6, left: -6, borderBottomWidth: 6, borderLeftWidth: 6, borderBottomLeftRadius: 12 }]} />
+              <View style={[styles.cornerBracket, { bottom: -6, right: -6, borderBottomWidth: 6, borderRightWidth: 6, borderBottomRightRadius: 12 }]} />
+              <Animated.View
+                style={[
+                  styles.scanLine,
+                  {
+                    transform: [
+                      {
+                        translateY: scanLineAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [10, 268],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.overlaySide} />
+          </View>
 
-                      {/* Animated scan line */}
-                      <Animated.View
-                        style={[
-                          styles.scanLine,
-                          {
-                            transform: [
-                              {
-                                translateY: scanLineAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0, 290],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    </Pressable>
-                  </View>
-                  <View style={styles.overlaySide} />
-                </View>
-                <View style={styles.overlayBottom} />
-              </View>
-
-            {/* Instructions */}
+          {/* Dark overlay bottom + Instructions */}
+          <View style={styles.overlayBottom}>
             <View style={styles.instructionsContainer}>
               <View style={styles.instructionsBadge}>
                 <Icon name="scan-outline" size={20} color="#FFFFFF" />
                 <Text style={styles.instructionsText}>
-                  Barkodu kare içine yerleştirin{'\n'}Odaklamak için dokunun
+                  Barkodu kare içine yerleştirin
                 </Text>
               </View>
 
@@ -336,16 +258,78 @@ export default function BarcodeScanner({
             </View>
           </View>
         </View>
-      </Modal>
+      </View>
+    </Modal>
   );
 }
 
-const createStyles = (colors: any) =>
+const createStyles = (colors: any, topSpace: number, bottomSpace: number) =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: '#000000',
     },
+    // Permission screen
+    permissionContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+    },
+    permissionIconWrap: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: colors.primary + '15',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
+    permissionTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    permissionMessage: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      paddingHorizontal: 16,
+    },
+    permissionButton: {
+      marginTop: 32,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: 32,
+      paddingVertical: 16,
+      borderRadius: 12,
+      width: '100%',
+    },
+    permissionButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    permissionCloseButton: {
+      marginTop: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+    },
+    permissionCloseText: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    // Header
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -353,7 +337,7 @@ const createStyles = (colors: any) =>
       paddingHorizontal: 16,
       paddingTop: Platform.OS === 'ios' ? 50 : 16,
       paddingBottom: 16,
-      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
     },
     headerLeft: {
       flex: 1,
@@ -375,7 +359,7 @@ const createStyles = (colors: any) =>
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 22,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     closeButton: {
       width: 44,
@@ -383,108 +367,71 @@ const createStyles = (colors: any) =>
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: 22,
-      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
-    cameraContainer: {
+    // Scan area
+    scanArea: {
       flex: 1,
-      backgroundColor: '#000000',
-    },
-    mockCameraInFrame: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: '#1a1a1a',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    mockCameraTextSmall: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: 'rgba(255, 255, 255, 0.5)',
-      marginTop: 8,
-    },
-    overlay: {
-      ...StyleSheet.absoluteFillObject,
     },
     overlayTop: {
-      flex: 0.35,
-      backgroundColor: '#000000',
-      justifyContent: 'flex-end',
       alignItems: 'center',
-      paddingBottom: 40,
+      justifyContent: 'flex-end',
+      paddingBottom: 24,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      height: topSpace,
+    },
+    scanRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    overlaySide: {
+      flex: 1,
+      height: 280,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    },
+    overlayBottom: {
+      height: bottomSpace,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
     },
     logoContainer: {
       alignItems: 'center',
       justifyContent: 'center',
     },
     logo: {
-      width: 180,
-      height: 75,
-      opacity: 0.9,
-    },
-    overlayMiddle: {
-      flexDirection: 'row',
-    },
-    overlaySide: {
-      flex: 1,
-      backgroundColor: '#000000',
-    },
-    overlayBottom: {
-      flex: 1,
-      backgroundColor: '#000000',
-    },
-    scanFrameContainer: {
-      width: 340,
-      height: 340,
-      padding: 20,
+      width: 160,
+      height: 65,
+      opacity: 0.85,
     },
     scanFrame: {
-      flex: 1,
-      borderWidth: 3,
+      width: 280,
+      height: 280,
+      position: 'relative',
+      overflow: 'visible',
+      zIndex: 10,
+    },
+    cornerBracket: {
+      position: 'absolute',
+      width: 40,
+      height: 40,
       borderColor: colors.primary,
-      borderRadius: 32,
-      overflow: 'hidden',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 0.5,
-      shadowRadius: 20,
-      elevation: 10,
     },
     scanLine: {
       position: 'absolute',
-      left: 0,
-      right: 0,
-      height: 2,
+      left: 8,
+      right: 8,
+      height: 3,
       backgroundColor: colors.primary,
       shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 1,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.8,
+      shadowRadius: 8,
       elevation: 8,
-      zIndex: 2,
-    },
-    scanLineGlow: {
-      position: 'absolute',
-      left: -10,
-      right: -10,
-      height: 30,
-      backgroundColor: colors.primary,
-      opacity: 0.2,
-      borderRadius: 15,
-      zIndex: 1,
     },
     instructionsContainer: {
-      position: 'absolute',
-      bottom: 80,
-      left: 0,
-      right: 0,
       alignItems: 'center',
+      marginTop: 40,
     },
     instructionsBadge: {
       flexDirection: 'row',

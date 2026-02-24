@@ -12,6 +12,8 @@ import SearchInput from '../components/SearchInput';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import CariCard from '../components/CariCard';
+import AnimatedFilterBar from '../components/AnimatedFilterBar';
+import { ACCOUNT_FILTER_OPTIONS, AccountFilterType } from '../constants/FilterOptions';
 import accountService, { CariAccount, CariTransaction } from '../services/account.service';
 import { authService } from '../services/auth.service';
 
@@ -20,24 +22,6 @@ interface CariDetayScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
 }
-
-type AccountFilterType = 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel';
-
-interface FilterOption {
-  id: AccountFilterType;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'all', label: 'Tümü', icon: 'grid-outline', color: '#6B7280' },
-  { id: 'customers', label: 'Müşteriler', icon: 'person-outline', color: '#3B82F6' },
-  { id: 'suppliers', label: 'Tedarikçiler', icon: 'business-outline', color: '#8B5CF6' },
-  { id: 'safes', label: 'Kasalar', icon: 'wallet-outline', color: '#10B981' },
-  { id: 'banks', label: 'Bankalar', icon: 'card-outline', color: '#F59E0B' },
-  { id: 'personnel', label: 'Personeller', icon: 'people-outline', color: '#EF4444' },
-];
 
 export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariDetayScreenProps) {
   const { colors, isDark } = useTheme();
@@ -338,43 +322,12 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
               </View>
             </View>
 
-            {/* Filter Chips */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterContainer}
-            >
-              {FILTER_OPTIONS.map((filter) => {
-                const isSelected = selectedFilter === filter.id;
-                return (
-                  <Pressable
-                    key={filter.id}
-                    style={[
-                      styles.filterChip,
-                      {
-                        backgroundColor: isSelected ? filter.color : colors.card,
-                        borderColor: isSelected ? filter.color : colors.border,
-                      },
-                    ]}
-                    onPress={() => handleFilterPress(filter.id)}
-                  >
-                    <Icon
-                      name={filter.icon}
-                      size={16}
-                      color={isSelected ? '#FFFFFF' : colors.text}
-                    />
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        { color: isSelected ? '#FFFFFF' : colors.text },
-                      ]}
-                    >
-                      {filter.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            {/* Filter */}
+            <AnimatedFilterBar
+              options={ACCOUNT_FILTER_OPTIONS}
+              selectedId={selectedFilter}
+              onSelect={handleFilterPress}
+            />
 
             {/* Account List */}
             <View style={styles.listContainer}>
@@ -513,24 +466,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,
-    },
-    filterContainer: {
-      paddingVertical: 4,
-      gap: 4,
-    },
-    filterChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 20,
-      borderWidth: 1,
-      gap: 6,
-      marginRight: 4,
-    },
-    filterChipText: {
-      fontSize: 14,
-      fontWeight: '600',
     },
     listContainer: {
       marginTop: 16,

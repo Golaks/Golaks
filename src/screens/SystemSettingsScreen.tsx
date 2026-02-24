@@ -173,13 +173,13 @@ export default function PriceSettingsSheet({
           await authService.updateUser(currentUser);
         }
         await refreshUser();
-        showSuccess('', 'Fiyat hesaplama ayarları kaydedildi');
+        showSuccess('Fiyat hesaplama ayarları kaydedildi');
         onClose();
       } else {
-        showError('Hata', data.message || 'Ayarlar kaydedilemedi');
+        showError(data.message || 'Ayarlar kaydedilemedi');
       }
     } catch (error: any) {
-      showError('Hata', error?.message || 'Ayarlar kaydedilemedi');
+      showError(error?.message || 'Ayarlar kaydedilemedi');
     } finally {
       setIsSaving(false);
     }

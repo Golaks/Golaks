@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   USER_CREATE: `${BASE_API_URL}/user/create`,
   USER_UPDATE: `${BASE_API_URL}/user/update`,
   USER_DELETE: `${BASE_API_URL}/user/delete`,
+  USER_PERMISSIONS: `${BASE_API_URL}/user/permissions`,
 
   // Company Management (Super Admin)
   COMPANY_LIST: `${BASE_API_URL}/company/list`,
@@ -97,6 +98,7 @@ export const API_ENDPOINTS = {
   CONFECTION_REPORT_DETAIL: (id: string) => `${BASE_API_URL}/apps/confection/reports/${id}`,
   CONFECTION_TRANSACTIONS: `${BASE_API_URL}/apps/confection/transactions`,
   CONFECTION_TRANSACTION_DETAIL: (id: string) => `${BASE_API_URL}/apps/confection/transactions/${id}`,
+  CONFECTION_BARCODE_QUERY: `${BASE_API_URL}/apps/confection/barcode-query`,
 
   // Shop App (Mağaza)
   SHOP_REPORTS: `${BASE_API_URL}/apps/shop/reports`,

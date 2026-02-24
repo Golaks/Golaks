@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,10 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import { useAuth } from '../contexts/AuthContext';
 import ImageUploadModal, { ImageUploadResult } from '../components/ImageUploadModal';
+import LoadingSpinner from '../components/LoadingSpinner';
+import EmptyState from '../components/EmptyState';
+import barcodeService from '../services/barcode.service';
+import { authService } from '../services/auth.service';
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -61,47 +65,6 @@ interface ProductionDistribution {
   quantity: number;
   status: 'stock' | 'process';
 }
-
-// ─── Mock Data ──────────────────────────────────────────
-
-const MOCK_PRODUCT_INFO: ProductInfo = {
-  barcode: '869456789012',
-  model: 'GK-2024-PRO',
-  size: '42',
-  color: 'Siyah',
-  branch: 'Merkez',
-  warehouse: 'Ana Depo',
-  manufacturer: 'Golaks Üretim',
-  year: '2024',
-  info: 'Premium kalite, ithal kumaş',
-  entryPrice: '245.50',
-  costPrice: '189.90',
-  labelPrice: '499.90',
-  entryCostCurrency: 'TRY',
-  labelCurrency: 'TRY',
-};
-
-const MOCK_DISTRIBUTION: ProductDistribution[] = [
-  { id: '1', branch: 'Merkez', warehouse: 'Ana Depo', type: 'Normal', color: 'Siyah', size: '40', quantity: 12 },
-  { id: '2', branch: 'Merkez', warehouse: 'Ana Depo', type: 'Normal', color: 'Siyah', size: '42', quantity: 8 },
-  { id: '3', branch: 'Kadıköy', warehouse: 'Mağaza', type: 'Normal', color: 'Siyah', size: '42', quantity: 5 },
-  { id: '4', branch: 'Kadıköy', warehouse: 'Mağaza', type: 'İade', color: 'Lacivert', size: '44', quantity: 2 },
-  { id: '5', branch: 'Bakırköy', warehouse: 'Depo', type: 'Normal', color: 'Beyaz', size: '38', quantity: 15 },
-  { id: '6', branch: 'Ankara', warehouse: 'Showroom', type: 'Normal', color: 'Siyah', size: '40', quantity: 3 },
-];
-
-const MOCK_IMAGES: ProductImage[] = [
-  { id: '1', url: 'https://picsum.photos/seed/golaks1/400/600' },
-  { id: '2', url: 'https://picsum.photos/seed/golaks2/400/600' },
-  { id: '3', url: 'https://picsum.photos/seed/golaks3/400/600' },
-];
-
-const MOCK_PRODUCTION: ProductionDistribution[] = [
-  { id: '1', branchWarehouse: 'Üretim Merkezi', type: 'Kesim', color: 'Siyah', size: '42', quantity: 50, status: 'process' },
-  { id: '2', branchWarehouse: 'Üretim Merkezi', type: 'Dikim', color: 'Siyah', size: '40', quantity: 30, status: 'process' },
-  { id: '3', branchWarehouse: 'Kalite Kontrol', type: 'Kontrol', color: 'Lacivert', size: '44', quantity: 20, status: 'stock' },
-  { id: '4', branchWarehouse: 'Paketleme', type: 'Paket', color: 'Beyaz', size: '38', quantity: 45, status: 'stock' },
-];
 
 // ─── Props ──────────────────────────────────────────────
 
@@ -174,8 +137,18 @@ export default function BarcodeResultScreen({
   onLogout,
 }: BarcodeResultScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout, notificationCount } = useAuth();
+  const { user, logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
+
+  // Loading & error
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Data state
+  const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
+  const [productDistribution, setProductDistribution] = useState<ProductDistribution[]>([]);
+  const [productionDistribution, setProductionDistribution] = useState<ProductionDistribution[]>([]);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
 
   // Image gallery
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -196,14 +169,63 @@ export default function BarcodeResultScreen({
   const [selectedItem, setSelectedItem] = useState<ProductDistribution | ProductionDistribution | null>(null);
   const [selectedItemType, setSelectedItemType] = useState<'store' | 'production'>('store');
 
-  // Mock data
-  const productInfo = MOCK_PRODUCT_INFO;
-  const productDistribution = MOCK_DISTRIBUTION;
-  const productionDistribution = MOCK_PRODUCTION;
-
-  const productImages = MOCK_IMAGES;
-
   const styles = createStyles(colors, isDark);
+
+  // ─── API Fetch ──────────────────────────────────────
+
+  useEffect(() => {
+    fetchBarcodeData();
+  }, [barcode, queryType]);
+
+  const fetchBarcodeData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const token = await authService.getToken();
+      if (!token) {
+        setError('Oturum bulunamadı');
+        return;
+      }
+
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || 'golaks_demo';
+
+      const response = await barcodeService.queryStock(
+        token,
+        dataName,
+        queryType,
+        barcode
+      );
+
+      if (response.success && response.data) {
+        if (response.data.productInfo) {
+          setProductInfo(response.data.productInfo);
+        }
+
+        // Map items to ProductDistribution
+        const distribution: ProductDistribution[] = response.data.items.map(
+          (item, index) => ({
+            id: String(index + 1),
+            branch: '',
+            warehouse: '',
+            type: item.tip,
+            color: item.renk,
+            size: item.beden,
+            quantity: item.adet,
+          })
+        );
+        setProductDistribution(distribution);
+
+        setProductImages(response.data.images || []);
+      } else {
+        setError(response.message || 'Veri alınamadı');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Bir hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const formatPrice = (price: string | undefined): string => {
     if (!price || price === '-') return '0.00';
@@ -335,6 +357,23 @@ export default function BarcodeResultScreen({
           }
         />
 
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <LoadingSpinner />
+          </View>
+        ) : error ? (
+          <View style={styles.centerContainer}>
+            <EmptyState
+              icon="alert-circle-outline"
+              title="Hata"
+              subtitle={error}
+            />
+            <Pressable style={styles.retryButton} onPress={fetchBarcodeData}>
+              <Icon name="refresh-outline" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+            </Pressable>
+          </View>
+        ) : (
         <ScrollView
           style={styles.content}
           showsVerticalScrollIndicator={false}
@@ -475,6 +514,7 @@ export default function BarcodeResultScreen({
           )}
 
           {/* Product Info Section */}
+          {productInfo && (
           <View style={styles.infoSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
@@ -493,9 +533,15 @@ export default function BarcodeResultScreen({
                   <InfoRow icon="color-palette-outline" label="Renk" value={productInfo.color} colors={colors} />
                   <InfoRow icon="business-outline" label="Şube" value={productInfo.branch} colors={colors} />
                   <InfoRow icon="archive-outline" label="Depo" value={productInfo.warehouse} colors={colors} />
-                  <InfoRow icon="construct-outline" label="Üretici" value={productInfo.manufacturer} colors={colors} />
-                  <InfoRow icon="calendar-outline" label="Yıl" value={productInfo.year} colors={colors} />
-                  <InfoRow icon="document-text-outline" label="Bilgi" value={productInfo.info} isLast colors={colors} />
+                  {user?.barcodePermissions?.manufacturer && (
+                    <InfoRow icon="construct-outline" label="Üretici" value={productInfo.manufacturer} colors={colors} />
+                  )}
+                  {user?.barcodePermissions?.year && (
+                    <InfoRow icon="calendar-outline" label="Yıl" value={productInfo.year} colors={colors} />
+                  )}
+                  {user?.barcodePermissions?.info && (
+                    <InfoRow icon="document-text-outline" label="Bilgi" value={productInfo.info} isLast colors={colors} />
+                  )}
                 </>
               )}
               {queryType === 'model' && (
@@ -503,8 +549,10 @@ export default function BarcodeResultScreen({
               )}
             </View>
           </View>
+          )}
 
           {/* Price Section */}
+          {productInfo && (
           <View style={styles.priceSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
@@ -514,6 +562,7 @@ export default function BarcodeResultScreen({
             </View>
             <View style={styles.priceCardsContainer}>
               {/* Entry Price */}
+              {user?.barcodePermissions?.entryPrice && (
               <View style={[styles.priceCard, styles.priceCardEntry]}>
                 <View style={styles.priceCardIcon}>
                   <Icon name="enter-outline" size={24} color={isDark ? '#94A3B8' : '#64748B'} />
@@ -522,8 +571,10 @@ export default function BarcodeResultScreen({
                 <Text style={styles.priceCardValue}>{formatPrice(productInfo.entryPrice)}</Text>
                 <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || 'TRY'}</Text>
               </View>
+              )}
 
               {/* Cost Price */}
+              {user?.barcodePermissions?.costPrice && (
               <View style={[styles.priceCard, styles.priceCardCost]}>
                 <View style={styles.priceCardIcon}>
                   <Icon name="calculator-outline" size={24} color={isDark ? '#F87171' : '#EF4444'} />
@@ -532,8 +583,10 @@ export default function BarcodeResultScreen({
                 <Text style={styles.priceCardValue}>{formatPrice(productInfo.costPrice)}</Text>
                 <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || 'TRY'}</Text>
               </View>
+              )}
 
               {/* Label Price */}
+              {user?.barcodePermissions?.labelPrice && (
               <View style={[styles.priceCard, styles.priceCardLabel]}>
                 <View style={styles.priceCardIcon}>
                   <Icon name="pricetag-outline" size={24} color={isDark ? '#4ADE80' : '#22C55E'} />
@@ -542,8 +595,10 @@ export default function BarcodeResultScreen({
                 <Text style={styles.priceCardValue}>{formatPrice(productInfo.labelPrice)}</Text>
                 <Text style={styles.priceCardCurrency}>{productInfo.labelCurrency || 'TRY'}</Text>
               </View>
+              )}
             </View>
           </View>
+          )}
 
           {/* Store Distribution Table */}
           <View style={styles.distributionSection}>
@@ -661,6 +716,7 @@ export default function BarcodeResultScreen({
             )}
           </View>
         </ScrollView>
+        )}
 
         {/* Full Screen Image Modal */}
         <Modal
@@ -877,6 +933,26 @@ const createStyles = (colors: any, isDark: boolean) =>
       backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#F1F5F9',
       borderRadius: 12,
     },
+    centerContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+    },
+    retryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 12,
+      marginTop: 16,
+    },
+    retryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
 
     // Image Gallery
     galleryWrapper: {
@@ -996,13 +1072,13 @@ const createStyles = (colors: any, isDark: boolean) =>
       width: '100%',
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: Platform.OS === 'ios' ? 100 : 80,
+      paddingHorizontal: 8,
+      paddingTop: Platform.OS === 'ios' ? 60 : 40,
     },
     fullScreenImageFrame: {
       width: '100%',
-      height: '85%',
-      borderRadius: 20,
+      height: '95%',
+      borderRadius: 16,
       overflow: 'hidden',
       backgroundColor: '#000',
     },

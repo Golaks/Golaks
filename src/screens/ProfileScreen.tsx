@@ -617,122 +617,161 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           })() && (
             <View style={styles.section}>
               <SectionTitle title="Süper Admin" />
-              <MenuCard
-                name="Firma Yönetimi"
-                icon="business-outline"
-                color={colors.primary}
-                description="Firma ayarlarını yönet"
-                onPress={onCompanyManagement || (() => {})}
-              />
-              <MenuCard
-                name="Bildirim İşlemleri"
-                icon="mail-outline"
-                color={colors.primary}
-                description="Toplu bildirim gönder"
-                onPress={onNotificationSend || (() => {})}
-              />
+              <View style={styles.sectionCard}>
+                <MenuCard
+                  name="Firma Yönetimi"
+                  icon="business-outline"
+                  color={colors.primary}
+                  description="Firma ayarlarını yönet"
+                  onPress={onCompanyManagement || (() => {})}
+                  style={styles.sectionCardItem}
+                />
+                <View style={styles.sectionCardDivider} />
+                <MenuCard
+                  name="Bildirim İşlemleri"
+                  icon="mail-outline"
+                  color={colors.primary}
+                  description="Toplu bildirim gönder"
+                  onPress={onNotificationSend || (() => {})}
+                  style={styles.sectionCardItemLast}
+                />
+              </View>
             </View>
           )}
 
           {/* Account Section */}
           <View style={styles.section}>
             <SectionTitle title="Hesap Bilgileri" />
-            <MenuCard
-              name="Profil Bilgileri"
-              icon="person-outline"
-              color={colors.primary}
-              description="Kişisel bilgilerinizi düzenleyin"
-              onPress={() => setShowProfileModal(true)}
-            />
-            <MenuCard
-              name="Şifre Değiştir"
-              icon="lock-closed-outline"
-              color={colors.primary}
-              description="Şifrenizi güncelleyin"
-              onPress={() => setShowPasswordModal(true)}
-            />
-            <MenuCard
-              name="Bildirim Ayarları"
-              icon="notifications-outline"
-              color={colors.primary}
-              description="Bildirim tercihlerinizi yönetin"
-              onPress={() => setShowNotificationModal(true)}
-            />
-            <MenuCard
-              name="Önbellek Temizle"
-              icon="trash-outline"
-              color={colors.primary}
-              description="Uygulama önbelleğini temizle"
-              onPress={() => setShowClearCacheModal(true)}
-            />
+            <View style={styles.sectionCard}>
+              <MenuCard
+                name="Profil Bilgileri"
+                icon="person-outline"
+                color={colors.primary}
+                description="Kişisel bilgilerinizi düzenleyin"
+                onPress={() => setShowProfileModal(true)}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Şifre Değiştir"
+                icon="lock-closed-outline"
+                color={colors.primary}
+                description="Şifrenizi güncelleyin"
+                onPress={() => setShowPasswordModal(true)}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Bildirim Ayarları"
+                icon="notifications-outline"
+                color={colors.primary}
+                description="Bildirim tercihlerinizi yönetin"
+                onPress={() => setShowNotificationModal(true)}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Önbellek Temizle"
+                icon="trash-outline"
+                color={colors.primary}
+                description="Uygulama önbelleğini temizle"
+                onPress={() => setShowClearCacheModal(true)}
+                style={styles.sectionCardItemLast}
+              />
+            </View>
           </View>
 
           {/* System Settings Section */}
           <View style={styles.section}>
             <SectionTitle title="Sistem Ayarları" />
-            <MenuCard
-              name="Kullanıcı Yönetimi"
-              icon="people-outline"
-              color={colors.primary}
-              description="Kullanıcıları ve yetkileri yönet"
-              onPress={onUserManagement || (() => {})}
-              disabled={user?.role === 'user' || user?.kullanici_rol === 0}
-            />
-            <MenuCard
-              name="Fiyat Hesaplama Algoritması"
-              icon="calculator-outline"
-              color={colors.primary}
-              description="Fiyat hesaplama yöntemlerini yapılandır"
-              onPress={() => setShowPriceSettings(true)}
-              disabled={user?.role === 'user' || user?.kullanici_rol === 0}
-            />
+            <View style={styles.sectionCard}>
+              <MenuCard
+                name="Kullanıcı Yönetimi"
+                icon="people-outline"
+                color={colors.primary}
+                description="Kullanıcıları ve yetkileri yönet"
+                onPress={onUserManagement || (() => {})}
+                disabled={user?.role === 'user' || user?.kullanici_rol === 0}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Fiyat Hesaplama Algoritması"
+                icon="calculator-outline"
+                color={colors.primary}
+                description="Fiyat hesaplama yöntemlerini yapılandır"
+                onPress={() => setShowPriceSettings(true)}
+                disabled={user?.role === 'user' || user?.kullanici_rol === 0}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="SMS Ayarları"
+                icon="chatbubble-ellipses-outline"
+                color="#8B5CF6"
+                description="SMS gönderim ayarlarını yapılandır"
+                onPress={() => {}}
+                disabled={user?.role === 'user' || user?.kullanici_rol === 0}
+                style={styles.sectionCardItemLast}
+              />
+            </View>
           </View>
 
           {/* About Section */}
           <View style={styles.section}>
             <SectionTitle title="Hakkında & Yasal" />
-            <MenuCard
-              name="Kullanım Sözleşmesi"
-              icon="document-text-outline"
-              color={colors.primary}
-              description="Kullanım koşullarını inceleyin"
-              onPress={() => setShowTermsModal(true)}
-            />
-            <MenuCard
-              name="Gizlilik Politikası"
-              icon="shield-checkmark-outline"
-              color={colors.primary}
-              description="Gizlilik koşullarını inceleyin"
-              onPress={() => setShowPrivacyModal(true)}
-            />
-            <MenuCard
-              name="Hakkımızda"
-              icon="information-circle-outline"
-              color={colors.primary}
-              description={versionString}
-              onPress={() => setShowAboutModal(true)}
-            />
+            <View style={styles.sectionCard}>
+              <MenuCard
+                name="Kullanım Sözleşmesi"
+                icon="document-text-outline"
+                color={colors.primary}
+                description="Kullanım koşullarını inceleyin"
+                onPress={() => setShowTermsModal(true)}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Gizlilik Politikası"
+                icon="shield-checkmark-outline"
+                color={colors.primary}
+                description="Gizlilik koşullarını inceleyin"
+                onPress={() => setShowPrivacyModal(true)}
+                style={styles.sectionCardItem}
+              />
+              <View style={styles.sectionCardDivider} />
+              <MenuCard
+                name="Hakkımızda"
+                icon="information-circle-outline"
+                color={colors.primary}
+                description={versionString}
+                onPress={() => setShowAboutModal(true)}
+                style={styles.sectionCardItemLast}
+              />
+            </View>
           </View>
 
           {/* Account Actions Section */}
           <View style={styles.section}>
             <SectionTitle title="Hesap İşlemleri" />
-            <MenuCard
-              name="Güvenli Çıkış"
-              icon="log-out-outline"
-              color={colors.danger}
-              description="Hesaptan güvenli çıkış yap"
-              onPress={handleLogoutPress}
-              style={{ backgroundColor: colors.dangerBackground + '40', borderColor: colors.danger + '30' }}
-            />
-            <MenuCard
-              name="Hesabımı Kapat"
-              icon="close-circle-outline"
-              color={colors.danger}
-              description="Hesabınızı kalıcı olarak silin"
-              onPress={() => setShowDeleteAccountConfirm(true)}
-              style={{ backgroundColor: colors.dangerBackground + '40', borderColor: colors.danger + '30' }}
-            />
+            <View style={[styles.sectionCard, { backgroundColor: colors.dangerBackground + '20' , borderColor: colors.danger + '20' }]}>
+              <MenuCard
+                name="Güvenli Çıkış"
+                icon="log-out-outline"
+                color={colors.danger}
+                description="Hesaptan güvenli çıkış yap"
+                onPress={handleLogoutPress}
+                style={styles.sectionCardItem}
+              />
+              <View style={[styles.sectionCardDivider, { backgroundColor: colors.danger + '15' }]} />
+              <MenuCard
+                name="Hesabımı Kapat"
+                icon="close-circle-outline"
+                color={colors.danger}
+                description="Hesabınızı kalıcı olarak silin"
+                onPress={() => setShowDeleteAccountConfirm(true)}
+                style={styles.sectionCardItemLast}
+              />
+            </View>
           </View>
         </ScrollView>
 
@@ -1177,7 +1216,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
             <Text style={{ fontSize: 12, color: colors.textSecondary }}>Polaris Dış Ticaret Ltd. Şti.</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.primary + '10', gap: 4 }}>
               <Icon name="calendar-outline" size={12} color={colors.primary} />
-              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary }}>Son Güncelleme: Aralık 2025</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary }}>Son Güncelleme: Şubat 2026</Text>
             </View>
           </View>
 
@@ -1346,7 +1385,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
             <Text style={{ fontSize: 12, color: colors.textSecondary }}>Polaris Dış Ticaret Ltd. Şti.</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: colors.primary + '10', gap: 4 }}>
               <Icon name="calendar-outline" size={12} color={colors.primary} />
-              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary }}>Son Güncelleme: Aralık 2025</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary }}>Son Güncelleme: Şubat 2026</Text>
             </View>
           </View>
 
@@ -1392,6 +1431,18 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               color: '#EC4899',
               title: '5. Üçüncü Taraf Paylaşımı',
               items: ['Yasal zorunluluklar dışında paylaşılmaz', 'Veriler hiçbir koşulda satılmaz', 'Hizmet sağlayıcılarıyla gizlilik sözleşmesi', 'Açık rızanız olmadan aktarılmaz'],
+            },
+            {
+              icon: 'sparkles-outline',
+              color: '#8B5CF6',
+              title: '6. Yapay Zeka Hizmetleri',
+              items: [
+                'GolaksIQ asistan, üçüncü taraf AI servis sağlayıcıları kullanır',
+                'Gönderilen veriler: mesajlarınız ve sohbet geçmişi',
+                'Kişisel bilgileriniz (ad, e-posta, telefon) doğrudan AI servisine iletilmez',
+                'Sohbet verileri sunucuda kalıcı olarak saklanmaz',
+                'AI hizmeti kullanımı için açık onayınız alınır',
+              ],
             },
           ].map((section, index) => (
             <View
@@ -1800,6 +1851,34 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     section: {
       marginBottom: 24,
+    },
+    sectionCard: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    sectionCardItem: {
+      borderWidth: 0,
+      borderRadius: 0,
+      marginBottom: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+      backgroundColor: 'transparent',
+    },
+    sectionCardItemLast: {
+      borderWidth: 0,
+      borderRadius: 0,
+      marginBottom: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+      backgroundColor: 'transparent',
+    },
+    sectionCardDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: 14,
     },
     modalOverlay: {
       flex: 1,

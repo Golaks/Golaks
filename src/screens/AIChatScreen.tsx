@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput, Keyboard, Platform, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput, Keyboard, Platform, Animated, Modal, Linking, Dimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,10 +11,17 @@ import { aiService, ChatMessage } from '../services/ai.service';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Button from '../components/Button';
+import BottomSheet from '../components/BottomSheet';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const AI_CONSENT_KEY = '@golaks_ai_consent';
 
 interface AIChatScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  isVisible?: boolean;
 }
 
 interface Message {
@@ -24,16 +32,44 @@ interface Message {
   isLoading?: boolean;
 }
 
-export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProps) {
+export default function AIChatScreen({ onTabChange, onLogout, isVisible }: AIChatScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount, user } = useAuth();
   const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('aiChat');
   const [message, setMessage] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [hasConsent, setHasConsent] = useState<boolean | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Check AI consent on mount
+  useEffect(() => {
+    AsyncStorage.getItem(AI_CONSENT_KEY).then(value => {
+      setHasConsent(value === 'true');
+    });
+  }, []);
+
+  // Reset activeTab when screen becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      setActiveTab('aiChat');
+    }
+  }, [isVisible]);
+
+  const handleAcceptConsent = async () => {
+    await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+    setHasConsent(true);
+  };
+
+  const handleDeclineConsent = () => {
+    setHasConsent(false);
+    if (onTabChange) {
+      onTabChange('apps');
+    }
+  };
 
   // Klavye listener
   useEffect(() => {
@@ -255,6 +291,215 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
     } catch (error) {
     }
   };
+
+  // Show consent screen if not yet accepted
+  if (hasConsent === null) {
+    // Loading consent state
+    return (
+      <SafeAreaProvider>
+        <View style={styles.container}>
+          <Header title="GolaksIQ" showMenu={true} onLogout={handleLogout} />
+          <View style={styles.consentLoading} />
+          <TabBar activeTab={activeTab} onTabPress={handleTabPress} notificationCount={notificationCount} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (!hasConsent) {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.container}>
+          <Header title="GolaksIQ" showMenu={true} onLogout={handleLogout} />
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.consentScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.consentContainer}>
+              {/* Icon */}
+              <View style={styles.consentIconWrap}>
+                <Icon name="shield-checkmark" size={40} color={colors.primary} />
+              </View>
+
+              <Text style={styles.consentTitle}>Veri Kullanım İzni</Text>
+              <Text style={styles.consentSubtitle}>
+                GolaksIQ yapay zeka asistanını kullanmadan önce lütfen aşağıdaki bilgileri okuyun.
+              </Text>
+
+              {/* Data Info Cards */}
+              <View style={styles.consentCard}>
+                <View style={styles.consentCardHeader}>
+                  <Icon name="cloud-upload-outline" size={20} color="#3B82F6" />
+                  <Text style={styles.consentCardTitle}>Gönderilen Veriler</Text>
+                </View>
+                <Text style={styles.consentCardText}>
+                  • Yazdığınız mesajlar ve sohbet geçmişi{'\n'}
+                  • Dil tercihiniz (Türkçe)
+                </Text>
+              </View>
+
+              <View style={styles.consentCard}>
+                <View style={styles.consentCardHeader}>
+                  <Icon name="business-outline" size={20} color="#F59E0B" />
+                  <Text style={styles.consentCardTitle}>Veri Alıcısı</Text>
+                </View>
+                <Text style={styles.consentCardText}>
+                  Mesajlarınız, yanıt üretmek için GolaksIQ sunucuları üzerinden işlenir. Sunucuların yanıt verememesi veya gecikmesi durumunda, hizmet sürekliliğini sağlamak amacıyla diğer AI servis sağlayıcılarına kısmen yönlendirilebilir. Kişisel bilgileriniz hiçbir şekilde paylaşılmaz; yalnızca sohbet mesajlarınız AI sunucularına iletilir.
+                </Text>
+              </View>
+
+              <View style={styles.consentCard}>
+                <View style={styles.consentCardHeader}>
+                  <Icon name="lock-closed-outline" size={20} color="#10B981" />
+                  <Text style={styles.consentCardTitle}>Veri Güvenliği</Text>
+                </View>
+                <Text style={styles.consentCardText}>
+                  • Veriler SSL/TLS ile şifrelenerek iletilir{'\n'}
+                  • Kişisel bilgileriniz (ad, e-posta, telefon) doğrudan AI servisine gönderilmez{'\n'}
+                  • Sohbet geçmişi cihazınızda saklanır, sunucuda kalıcı olarak tutulmaz
+                </Text>
+              </View>
+
+              <View style={styles.consentCard}>
+                <View style={styles.consentCardHeader}>
+                  <Icon name="alert-circle-outline" size={20} color="#EF4444" />
+                  <Text style={styles.consentCardTitle}>Önemli Uyarılar</Text>
+                </View>
+                <Text style={styles.consentCardText}>
+                  • Hassas kişisel bilgilerinizi (TC kimlik, kredi kartı vb.) sohbette paylaşmayın{'\n'}
+                  • AI yanıtları her zaman doğru olmayabilir, önemli kararlar için doğrulayın
+                </Text>
+              </View>
+
+              {/* Privacy Policy Link */}
+              <Pressable
+                style={styles.consentPolicyLink}
+                onPress={() => setShowPrivacyModal(true)}
+              >
+                <Icon name="document-text-outline" size={16} color={colors.primary} />
+                <Text style={styles.consentPolicyText}>Gizlilik Politikasını Oku</Text>
+                <Icon name="chevron-forward" size={14} color={colors.primary} />
+              </Pressable>
+
+              {/* Buttons */}
+              <View style={styles.consentButtons}>
+                <Button
+                  text="Kabul Et ve Devam Et"
+                  icon="checkmark-circle"
+                  onPress={handleAcceptConsent}
+                  style={styles.consentAcceptButton}
+                />
+                <Button
+                  text="Şimdilik Vazgeç"
+                  icon="close-circle-outline"
+                  onPress={handleDeclineConsent}
+                  variant="secondary"
+                  style={styles.consentDeclineButton}
+                />
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Privacy Policy Bottom Sheet */}
+          <BottomSheet
+            visible={showPrivacyModal}
+            title="Gizlilik Politikası"
+            icon="shield-checkmark-outline"
+            iconColor="#10B981"
+            onClose={() => setShowPrivacyModal(false)}
+            showFooter={false}
+            height={SCREEN_HEIGHT * 0.85}
+          >
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: '#10B98115', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                <Icon name="shield-checkmark" size={28} color="#10B981" />
+              </View>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 }}>Gizlilik Politikası</Text>
+              <Text style={{ fontSize: 12, color: colors.textSecondary }}>Polaris Dış Ticaret Ltd. Şti.</Text>
+            </View>
+
+            {[
+              { icon: 'finger-print-outline', color: '#654BE9', title: '1. Toplanan Veriler', items: ['Ad, soyad, kullanıcı adı', 'E-posta ve telefon', 'Hesap ve işlem verileri', 'IP adresi ve cihaz bilgileri'] },
+              { icon: 'analytics-outline', color: '#F59E0B', title: '2. İşleme Amaçları', items: ['Hizmet sunumu ve yönetimi', 'Hesap oluşturma ve yönetimi', 'Müşteri desteği ve iletişim', 'Güvenlik ve dolandırıcılık önleme'] },
+              { icon: 'lock-closed-outline', color: '#10B981', title: '3. Veri Güvenliği', items: ['SSL/TLS ve AES-256 şifreleme', 'Tier-3 veri merkezi barındırma', 'Düzenli güvenlik denetimleri', 'Erişim kontrolü ve yetkilendirme'] },
+              { icon: 'time-outline', color: '#3B82F6', title: '4. Saklama Süresi', items: ['Hesap bilgileri: Aktif olduğu sürece', 'İşlem kayıtları: 10 yıl', 'Teknik loglar: 2 yıl', 'Pazarlama verileri: Onay geçerliyken'] },
+              { icon: 'people-outline', color: '#EC4899', title: '5. Üçüncü Taraf Paylaşımı', items: ['Yasal zorunluluklar dışında paylaşılmaz', 'Veriler hiçbir koşulda satılmaz', 'Hizmet sağlayıcılarıyla gizlilik sözleşmesi', 'Açık rızanız olmadan aktarılmaz'] },
+              { icon: 'sparkles-outline', color: '#8B5CF6', title: '6. Yapay Zeka Hizmetleri', items: ['GolaksIQ asistan, üçüncü taraf AI servis sağlayıcıları kullanır', 'Gönderilen veriler: mesajlarınız ve sohbet geçmişi', 'Kişisel bilgileriniz (ad, e-posta, telefon) doğrudan AI servisine iletilmez', 'Sohbet verileri sunucuda kalıcı olarak saklanmaz', 'AI hizmeti kullanımı için açık onayınız alınır'] },
+            ].map((section, index) => (
+              <View key={index} style={{ borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, borderColor: colors.border, padding: 16, marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: section.color + '15', justifyContent: 'center', alignItems: 'center' }}>
+                    <Icon name={section.icon} size={18} color={section.color} />
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>{section.title}</Text>
+                </View>
+                <View style={{ gap: 8, paddingLeft: 4 }}>
+                  {section.items.map((item, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: section.color }} />
+                      <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ))}
+
+            {/* KVKK Rights */}
+            <View style={{ borderRadius: 12, borderWidth: 1, backgroundColor: '#654BE910', borderColor: '#654BE920', padding: 16, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#654BE915', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="document-text-outline" size={18} color="#654BE9" />
+                </View>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>KVKK Haklarınız</Text>
+              </View>
+              <View style={{ gap: 8, paddingLeft: 4 }}>
+                {['Verilerinizin işlenip işlenmediğini öğrenme', 'İşleme amacını ve uygunluğunu sorgulama', 'Eksik/yanlış verilerin düzeltilmesini isteme', 'Verilerin silinmesini talep etme', 'Otomatik analiz sonuçlarına itiraz etme'].map((right, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Icon name="checkmark-circle" size={16} color="#654BE9" />
+                    <Text style={{ fontSize: 13, color: colors.textSecondary, flex: 1 }}>{right}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Contact */}
+            <View style={{ borderRadius: 12, borderWidth: 1, backgroundColor: colors.card, borderColor: colors.border, padding: 16, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primary + '15', justifyContent: 'center', alignItems: 'center' }}>
+                  <Icon name="mail-outline" size={18} color={colors.primary} />
+                </View>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>İletişim</Text>
+              </View>
+              <View style={{ gap: 10 }}>
+                <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} onPress={() => Linking.openURL('mailto:destek@golaks.com')}>
+                  <Icon name="mail-outline" size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500' }}>destek@golaks.com</Text>
+                </Pressable>
+                <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} onPress={() => Linking.openURL('tel:+908504664664')}>
+                  <Icon name="call-outline" size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500' }}>+90 850 466 4 664</Text>
+                </Pressable>
+                <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} onPress={() => Linking.openURL('https://www.golaks.com')}>
+                  <Icon name="globe-outline" size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500' }}>www.golaks.com</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 2 }}>Veri Sorumlusu: Polaris Dış Ticaret Ltd. Şti.</Text>
+              <Text style={{ fontSize: 11, color: colors.textTertiary }}>
+                © 1995-{new Date().getFullYear()} Golaks. Tüm Hakları Saklıdır.
+              </Text>
+            </View>
+          </BottomSheet>
+
+          <TabBar activeTab={activeTab} onTabPress={handleTabPress} notificationCount={notificationCount} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -528,5 +773,94 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 4,
       backgroundColor: colors.textTertiary,
       opacity: 0.6,
+    },
+    // Consent styles
+    consentLoading: {
+      flex: 1,
+    },
+    consentScrollContent: {
+      padding: 20,
+      paddingBottom: 120,
+    },
+    consentContainer: {
+      alignItems: 'center',
+    },
+    consentIconWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: `${colors.primary}12`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+      marginTop: 8,
+    },
+    consentTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    consentSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginBottom: 20,
+      paddingHorizontal: 10,
+    },
+    consentCard: {
+      width: '100%',
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      marginBottom: 12,
+    },
+    consentCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+    },
+    consentCardTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    consentCardText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      textAlign: 'justify',
+    },
+    consentPolicyLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      marginBottom: 16,
+    },
+    consentPolicyText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    consentButtons: {
+      width: '100%',
+      gap: 10,
+      marginBottom: 16,
+    },
+    consentAcceptButton: {
+      backgroundColor: colors.primary,
+    },
+    consentDeclineButton: {},
+    consentFooterText: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      textAlign: 'center',
+      lineHeight: 16,
     },
   });

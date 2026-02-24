@@ -138,7 +138,7 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
     <View style={styles.container}>
       {/* AI Chat her zaman mount kalır, tab değişince gizlenir */}
       <View style={[styles.persistentScreen, { display: isAiChat ? 'flex' : 'none' }]}>
-        <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} />
+        <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} isVisible={isAiChat} />
       </View>
       {!isAiChat && renderScreen()}
     </View>

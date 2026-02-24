@@ -52,6 +52,11 @@ interface User {
     magaza?: boolean;
   };
   subeYetkileri?: string[];
+  barcodePermissions?: {
+    entryPrice?: boolean;
+    costPrice?: boolean;
+    labelPrice?: boolean;
+  };
 }
 
 interface UserManagementScreenProps {
@@ -104,6 +109,10 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   const [showUserModal, setShowUserModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showActiveConfirm, setShowActiveConfirm] = useState(false);
+  const [showPermissionsSheet, setShowPermissionsSheet] = useState(false);
+  const [permissionsUser, setPermissionsUser] = useState<User | null>(null);
+  const [permPrices, setPermPrices] = useState({ entryPrice: false, costPrice: false, labelPrice: false });
+  const [isSavingPerms, setIsSavingPerms] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -466,7 +475,62 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   };
 
   const handlePermissions = (user: User) => {
-    // TODO: Yetkiler modalını aç
+    setPermissionsUser(user);
+    setPermPrices({
+      entryPrice: user.barcodePermissions?.entryPrice ?? false,
+      costPrice: user.barcodePermissions?.costPrice ?? false,
+      labelPrice: user.barcodePermissions?.labelPrice ?? false,
+    });
+    setShowPermissionsSheet(true);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permissionsUser) return;
+
+    setIsSavingPerms(true);
+    try {
+      const token = await getToken();
+
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: permissionsUser.id,
+          name: permissionsUser.name,
+          email: permissionsUser.email,
+          phone: permissionsUser.phone,
+          role: permissionsUser.role,
+          active: permissionsUser.active,
+          permissions: permissionsUser.permissions,
+          barcodePermissions: permPrices,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showSuccess('Yetkiler güncellendi');
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === permissionsUser.id
+              ? { ...u, barcodePermissions: { ...permPrices } }
+              : u
+          )
+        );
+        setShowPermissionsSheet(false);
+        setPermissionsUser(null);
+      } else {
+        showError(data.message || data.error?.message || 'Yetkiler güncellenemedi');
+      }
+    } catch (error: any) {
+      console.error('Permissions kaydetme hatası:', error);
+      showError(error?.message || 'Bağlantı hatası');
+    } finally {
+      setIsSavingPerms(false);
+    }
   };
 
   const handleBranchPermissions = async (user: User) => {
@@ -925,6 +989,59 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             </View>
           )}
         </BottomSheet>
+
+        {/* Kullanıcı Yetkileri Bottom Sheet */}
+        <BottomSheet
+          visible={showPermissionsSheet}
+          title={`Yetkiler${permissionsUser ? ` - ${permissionsUser.name}` : ''}`}
+          icon="lock-closed-outline"
+          iconColor={colors.green}
+          onClose={() => {
+            setShowPermissionsSheet(false);
+            setPermissionsUser(null);
+          }}
+          onSave={handleSavePermissions}
+          saveText="Kaydet"
+          saveDisabled={isSavingPerms}
+        >
+          {/* Fiyat Görüntüleme Yetkileri */}
+          <View style={styles.permSectionHeader}>
+            <View style={[styles.permSectionIcon, { backgroundColor: '#22C55E15' }]}>
+              <Icon name="cash-outline" size={18} color="#22C55E" />
+            </View>
+            <View>
+              <Text style={styles.permSectionTitle}>Fiyat Görüntüleme Yetkileri</Text>
+              <Text style={styles.permSectionDesc}>Barkod sorgusunda görüntülenecek fiyatlar</Text>
+            </View>
+          </View>
+
+          <View style={styles.permCard}>
+            {([
+              { key: 'entryPrice' as const, label: 'Giriş Fiyatı', icon: 'enter-outline', color: '#3B82F6' },
+              { key: 'costPrice' as const, label: 'Maliyet Fiyatı', icon: 'calculator-outline', color: '#F59E0B' },
+              { key: 'labelPrice' as const, label: 'Etiket Fiyatı', icon: 'pricetag-outline', color: '#22C55E' },
+            ]).map((item, index, arr) => (
+              <React.Fragment key={item.key}>
+                <Pressable
+                  style={styles.permRow}
+                  onPress={() => setPermPrices(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                >
+                  <View style={styles.permRowLeft}>
+                    <View style={[styles.permRowIcon, { backgroundColor: item.color + '15' }]}>
+                      <Icon name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <Text style={styles.permRowLabel}>{item.label}</Text>
+                  </View>
+                  <IOSSwitch
+                    value={permPrices[item.key]}
+                    onValueChange={(val) => setPermPrices(prev => ({ ...prev, [item.key]: val }))}
+                  />
+                </Pressable>
+                {index < arr.length - 1 && <View style={styles.permDivider} />}
+              </React.Fragment>
+            ))}
+          </View>
+        </BottomSheet>
       </View>
     </SafeAreaProvider>
   );
@@ -1160,5 +1277,65 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 15,
       color: colors.textSecondary,
       flex: 1,
+    },
+    permSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 14,
+    },
+    permSectionIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    permSectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    permSectionDesc: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    permCard: {
+      backgroundColor: colors.card,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    permRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+    },
+    permRowLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      flex: 1,
+    },
+    permRowIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    permRowLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    permDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: 14,
     },
   });

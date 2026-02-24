@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, RefreshControl, Animated, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, RefreshControl, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,6 +14,8 @@ import EmptyState from '../components/EmptyState';
 import BottomSheet from '../components/BottomSheet';
 import Input from '../components/Input';
 import DovizSelect from '../components/DovizSelect';
+import AnimatedFilterBar from '../components/AnimatedFilterBar';
+import { ACCOUNT_FILTER_OPTIONS, AccountFilterType } from '../constants/FilterOptions';
 import accountService, { CariAccount, CariBalance } from '../services/account.service';
 import { authService } from '../services/auth.service';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
@@ -30,24 +32,6 @@ interface CariListScreenProps {
   onLogout?: () => void;
   onCariSelect?: (cari: CariAccount) => void;
 }
-
-type AccountFilterType = 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel';
-
-interface FilterOption {
-  id: AccountFilterType;
-  label: string;
-  icon: string;
-  color: string;
-}
-
-const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'all', label: 'Tümü', icon: 'grid-outline', color: '#3B82F6' },
-  { id: 'customers', label: 'Müşteriler', icon: 'person-outline', color: '#3B82F6' },
-  { id: 'suppliers', label: 'Tedarikçiler', icon: 'business-outline', color: '#8B5CF6' },
-  { id: 'safes', label: 'Kasalar', icon: 'wallet-outline', color: '#10B981' },
-  { id: 'banks', label: 'Bankalar', icon: 'card-outline', color: '#F59E0B' },
-  { id: 'personnel', label: 'Personeller', icon: 'people-outline', color: '#EF4444' },
-];
 
 export default function CariListScreen({ onBack, onTabChange, onLogout, onCariSelect }: CariListScreenProps) {
   const { colors, isDark } = useTheme();
@@ -315,88 +299,30 @@ export default function CariListScreen({ onBack, onTabChange, onLogout, onCariSe
             </View>
           )}
 
-          {/* Filter Chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterContainer}
-          >
-            {FILTER_OPTIONS.map((filter) => {
-              const isSelected = selectedFilter === filter.id;
-              return (
-                <Pressable
-                  key={filter.id}
-                  style={[
-                    styles.filterChip,
-                    {
-                      backgroundColor: isSelected ? filter.color : colors.card,
-                      borderColor: isSelected ? filter.color : colors.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedFilter(filter.id)}
-                >
-                  <Icon
-                    name={filter.icon}
-                    size={16}
-                    color={isSelected ? '#FFFFFF' : colors.text}
-                  />
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { color: isSelected ? '#FFFFFF' : colors.text },
-                    ]}
-                  >
-                    {filter.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          {/* Account Type Filter */}
+          <AnimatedFilterBar
+            options={ACCOUNT_FILTER_OPTIONS}
+            selectedId={selectedFilter}
+            onSelect={setSelectedFilter}
+          />
 
-          {/* Branch Filter Chips */}
+          {/* Branch Filter */}
           {subeler.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.branchFilterContainer}
-            >
-              <Pressable
-                style={[
-                  styles.branchChip,
-                  {
-                    backgroundColor: selectedSube === '' ? colors.primary : colors.card,
-                    borderColor: selectedSube === '' ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => setSelectedSube('')}
-              >
-                <Icon name="layers-outline" size={14} color={selectedSube === '' ? '#FFFFFF' : colors.textSecondary} />
-                <Text style={[styles.branchChipText, { color: selectedSube === '' ? '#FFFFFF' : colors.textSecondary }]}>
-                  Tüm Şubeler
-                </Text>
-              </Pressable>
-              {subeler.map((sube) => {
-                const isSelected = selectedSube === sube.id;
-                return (
-                  <Pressable
-                    key={sube.id}
-                    style={[
-                      styles.branchChip,
-                      {
-                        backgroundColor: isSelected ? colors.primary : colors.card,
-                        borderColor: isSelected ? colors.primary : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedSube(sube.id)}
-                  >
-                    <Icon name="business-outline" size={14} color={isSelected ? '#FFFFFF' : colors.textSecondary} />
-                    <Text style={[styles.branchChipText, { color: isSelected ? '#FFFFFF' : colors.textSecondary }]}>
-                      {sube.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <AnimatedFilterBar
+              options={[
+                { id: '', label: 'Tüm Şubeler', icon: 'layers-outline', color: colors.primary },
+                ...subeler.map(s => ({
+                  id: s.id,
+                  label: s.name,
+                  icon: 'business-outline',
+                  color: colors.primary,
+                })),
+              ]}
+              selectedId={selectedSube}
+              onSelect={setSelectedSube}
+              size="compact"
+              style={{ marginTop: 8 }}
+            />
           )}
 
           {/* Cari List */}
@@ -600,43 +526,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     searchContainer: {
       paddingBottom: 12,
-    },
-    filterContainer: {
-      paddingVertical: 4,
-      gap: 4,
-    },
-    filterChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 20,
-      borderWidth: 1,
-      gap: 6,
-      marginRight: 4,
-    },
-    filterChipText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    branchFilterContainer: {
-      paddingVertical: 4,
-      paddingTop: 8,
-      gap: 4,
-    },
-    branchChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 16,
-      borderWidth: 1,
-      gap: 5,
-      marginRight: 4,
-    },
-    branchChipText: {
-      fontSize: 12,
-      fontWeight: '500',
     },
     listContainer: {
       marginTop: 12,
