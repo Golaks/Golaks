@@ -85,3 +85,6 @@ api/composer.lock
 
 # Environment Config
 src/config/env.ts
+
+# Docs (may contain sensitive keys)
+docs/

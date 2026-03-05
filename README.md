@@ -1,7 +1,5 @@
 # Golaks Mobile
 
-
-
 Modern React Native mobil uygulama ve PHP backend API.
 
 ## 📱 Proje Yapısı
