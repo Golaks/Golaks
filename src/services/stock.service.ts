@@ -48,6 +48,29 @@ export interface StockListResponse {
   message?: string;
 }
 
+export interface CreateStockData {
+  stockCode: string;
+  stockName: string;
+  barcode?: string;
+  barcodeType?: 'tekil' | 'seri' | 'cogul';
+  module?: string;
+  subModule?: string;
+  currency?: string;
+  size?: string;
+  vatRate?: number;
+  description?: string;
+}
+
+export interface CreateStockResponse {
+  success: boolean;
+  data?: {
+    id: string;
+    stockCode: string;
+    stockName: string;
+  };
+  message?: string;
+}
+
 class StockService {
   private getAuthHeader(token: string) {
     return {
@@ -86,6 +109,29 @@ class StockService {
       return data;
     } catch (error: any) {
       throw new Error(error.message || 'Stok listesi alınamadı');
+    }
+  }
+  async createStock(
+    token: string,
+    dataName: string,
+    stockData: CreateStockData,
+  ): Promise<CreateStockResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.STOCK_CREATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, stockData }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Stok kartı oluşturulamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Stok kartı oluşturulamadı');
     }
   }
 }

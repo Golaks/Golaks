@@ -84,6 +84,7 @@ class Router {
 
         // Stock Routes (Global - tüm modüller için)
         $this->post('/stock/list', 'StockController', 'getList');
+        $this->post('/stock/create', 'StockController', 'create');
         $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
 
         // Company Routes (Protected, Super Admin only)

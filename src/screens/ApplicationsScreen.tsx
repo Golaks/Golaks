@@ -35,7 +35,6 @@ const APPLICATIONS: Application[] = [
     icon: 'business-outline',
     color: '#10B981',
     description: 'Üretim Yönetimi',
-    comingSoon: true,
   },
   {
     id: '3',

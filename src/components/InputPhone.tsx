@@ -29,7 +29,7 @@ export default function InputPhone({
   icon = 'call-outline',
   value,
   onChangeText,
-  placeholder = '0 5__ ___ ____',
+  placeholder = '(05__) ___-____',
   error,
   shake,
   clearable,
@@ -60,8 +60,8 @@ export default function InputPhone({
     }
   }, [shake, error]);
 
-  // Phone mask: 0 999 999 9999
-  const phoneMask = [/0/, ' ', /\d/, /\d/, /\d/, ' ', /\d/, /\d/, /\d/, ' ', /\d/, /\d/, /\d/, /\d/];
+  // Phone mask: (0532)274-2233
+  const phoneMask = ['(', /0/, /\d/, /\d/, /\d/, ')', /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/];
 
   const handleMaskedChange = (masked: string, unmasked: string) => {
     // Pass only unmasked value (digits only) to parent

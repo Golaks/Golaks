@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, Modal, Image, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import DeviceInfo from 'react-native-device-info';
@@ -16,10 +16,12 @@ import MenuCard from '../components/MenuCard';
 import SectionTitle from '../components/SectionTitle';
 import ActionFormModal, { FormField } from '../components/ActionFormModal';
 import ImagePickerModal from '../components/ImagePickerModal';
-import XButton from '../components/XButton';
 import Button from '../components/Button';
 import IOSSwitch from '../components/IOSSwitch';
 import ConfirmDialog from '../components/ConfirmDialog';
+import BottomSheet from '../components/BottomSheet';
+import LegalBottomSheet, { LegalType } from '../components/LegalBottomSheet';
+import AboutBottomSheet from '../components/AboutBottomSheet';
 
 interface ProfileScreenProps {
   onTabChange?: (tab: TabName) => void;
@@ -43,9 +45,8 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showClearCacheModal, setShowClearCacheModal] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [legalType, setLegalType] = useState<LegalType | null>(null);
+  const [showAboutSheet, setShowAboutSheet] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(
     user?.avatar ? `${BASE_API_URL}/${user.avatar}` : undefined
   );
@@ -751,21 +752,28 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               icon="document-text-outline"
               color={colors.primary}
               description="Kullanım koşullarını inceleyin"
-              onPress={() => setShowTermsModal(true)}
+              onPress={() => setLegalType('terms')}
             />
             <MenuCard
               name="Gizlilik Politikası"
               icon="shield-checkmark-outline"
               color={colors.primary}
               description="Gizlilik koşullarını inceleyin"
-              onPress={() => setShowPrivacyModal(true)}
+              onPress={() => setLegalType('privacy')}
+            />
+            <MenuCard
+              name="Çerez Politikası"
+              icon="finger-print-outline"
+              color={colors.primary}
+              description="Çerez kullanım politikamız"
+              onPress={() => setLegalType('cookies')}
             />
             <MenuCard
               name="Uygulama Hakkında"
               icon="information-circle-outline"
               color={colors.primary}
               description={versionString}
-              onPress={() => setShowAboutModal(true)}
+              onPress={() => setShowAboutSheet(true)}
             />
           </View>
 
@@ -824,331 +832,283 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           saveButtonText="Kaydet"
         />
 
-        {/* Clear Cache Modal */}
-        <Modal
+        {/* Clear Cache Bottom Sheet */}
+        <BottomSheet
           visible={showClearCacheModal}
-          transparent={false}
-          animationType="slide"
-          onRequestClose={() => setShowClearCacheModal(false)}
-        >
-          <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: colors.card }]} edges={['top', 'bottom']}>
-              {/* Header */}
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationHeaderLeft}>
-                  <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon name="trash-outline" size={20} color={colors.primary} />
+          onClose={() => setShowClearCacheModal(false)}
+          title="Önbellek Temizle"
+          icon="trash-outline"
+          iconColor={colors.primary}
+          footer={
+            <>
+              <Button
+                text="İptal"
+                variant="secondary"
+                onPress={() => setShowClearCacheModal(false)}
+                icon="close-outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                text="Temizle"
+                variant="primary"
+                onPress={handleClearCache}
+                icon="trash-outline"
+                loading={isClearingCache}
+                style={{ flex: 1 }}
+              />
+            </>
+          }>
+          {isCalculatingSize ? (
+            <View style={styles.calculatingSizeContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.calculatingSizeText}>Önbellek boyutu hesaplanıyor...</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Icon name="document-outline" size={20} color={colors.primary} />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>Geçici Dosyalar</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {cacheSizes.tempFiles > 0 ? `${cacheSizes.tempFiles} MB` : 'Temiz'}
+                    </Text>
                   </View>
-                  <Text style={styles.notificationTitle}>Önbellek Temizle</Text>
                 </View>
-                <XButton onPress={() => setShowClearCacheModal(false)} size={36} iconSize={20} />
+                <IOSSwitch
+                  value={cacheSettings.tempFiles}
+                  onValueChange={(value) =>
+                    setCacheSettings({ ...cacheSettings, tempFiles: value })
+                  }
+                />
               </View>
 
-              {/* Cache Types List */}
-              <ScrollView
-                style={styles.notificationScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                {isCalculatingSize ? (
-                  <View style={styles.calculatingSizeContainer}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={styles.calculatingSizeText}>Önbellek boyutu hesaplanıyor...</Text>
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Icon name="image-outline" size={20} color={colors.primary} />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>Görsel Önbelleği</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {cacheSizes.imageCache > 0 ? `${cacheSizes.imageCache} MB` : 'Temiz'}
+                    </Text>
                   </View>
-                ) : (
-                  <>
-                    {/* Temp Files */}
-                    <View style={styles.settingItem}>
-                      <View style={styles.settingLeft}>
-                        <Icon name="document-outline" size={20} color={colors.primary} />
-                        <View style={styles.settingTextContainer}>
-                          <Text style={styles.settingTitle}>Geçici Dosyalar</Text>
-                          <Text style={styles.settingSubtitle}>
-                            {cacheSizes.tempFiles > 0 ? `${cacheSizes.tempFiles} MB` : 'Temiz'}
-                          </Text>
-                        </View>
-                      </View>
-                      <IOSSwitch
-                        value={cacheSettings.tempFiles}
-                        onValueChange={(value) =>
-                          setCacheSettings({ ...cacheSettings, tempFiles: value })
-                        }
-                      />
-                    </View>
-
-                    {/* Image Cache */}
-                    <View style={styles.settingItem}>
-                      <View style={styles.settingLeft}>
-                        <Icon name="image-outline" size={20} color={colors.primary} />
-                        <View style={styles.settingTextContainer}>
-                          <Text style={styles.settingTitle}>Görsel Önbelleği</Text>
-                          <Text style={styles.settingSubtitle}>
-                            {cacheSizes.imageCache > 0 ? `${cacheSizes.imageCache} MB` : 'Temiz'}
-                          </Text>
-                        </View>
-                      </View>
-                      <IOSSwitch
-                        value={cacheSettings.imageCache}
-                        onValueChange={(value) =>
-                          setCacheSettings({ ...cacheSettings, imageCache: value })
-                        }
-                      />
-                    </View>
-
-                    {/* API Cache */}
-                    <View style={styles.settingItem}>
-                      <View style={styles.settingLeft}>
-                        <Icon name="cloud-outline" size={20} color={colors.primary} />
-                        <View style={styles.settingTextContainer}>
-                          <Text style={styles.settingTitle}>API Yanıtları</Text>
-                          <Text style={styles.settingSubtitle}>
-                            {cacheSizes.apiCache > 0 ? `${cacheSizes.apiCache} MB` : 'Temiz'}
-                          </Text>
-                        </View>
-                      </View>
-                      <IOSSwitch
-                        value={cacheSettings.apiCache}
-                        onValueChange={(value) =>
-                          setCacheSettings({ ...cacheSettings, apiCache: value })
-                        }
-                      />
-                    </View>
-
-                    <View style={styles.settingDivider} />
-
-                    {/* App Data (Dangerous) */}
-                    <View style={styles.settingItem}>
-                      <View style={styles.settingLeft}>
-                        <Icon name="warning-outline" size={20} color="#F59E0B" />
-                        <View style={styles.settingTextContainer}>
-                          <Text style={styles.settingTitle}>Uygulama Verileri</Text>
-                          <Text style={[styles.settingSubtitle, { color: cacheSizes.appData > 0 ? '#F59E0B' : colors.textSecondary }]}>
-                            {cacheSizes.appData > 0
-                              ? `Dikkat! Oturum açık kalır (${cacheSizes.appData} MB)`
-                              : 'Temiz - Oturum açık kalır'
-                            }
-                          </Text>
-                        </View>
-                      </View>
-                      <IOSSwitch
-                        value={cacheSettings.appData}
-                        onValueChange={(value) =>
-                          setCacheSettings({ ...cacheSettings, appData: value })
-                        }
-                      />
-                    </View>
-
-                    {/* Session Data (Very Dangerous - Logout) */}
-                    <View style={styles.settingItem}>
-                      <View style={styles.settingLeft}>
-                        <Icon name="exit-outline" size={20} color="#EF4444" />
-                        <View style={styles.settingTextContainer}>
-                          <Text style={styles.settingTitle}>Oturum Bilgileri</Text>
-                          <Text style={[styles.settingSubtitle, { color: cacheSizes.sessionData > 0 ? '#EF4444' : colors.textSecondary }]}>
-                            {cacheSizes.sessionData > 0
-                              ? `Dikkat! Çıkış yapılacak (${cacheSizes.sessionData} MB)`
-                              : 'Temiz - Çıkış yapılır'
-                            }
-                          </Text>
-                        </View>
-                      </View>
-                      <IOSSwitch
-                        value={cacheSettings.sessionData}
-                        onValueChange={(value) =>
-                          setCacheSettings({ ...cacheSettings, sessionData: value })
-                        }
-                      />
-                    </View>
-
-                    {/* Info Box */}
-                    <View style={[styles.settingItem, {
-                      backgroundColor: cacheSettings.sessionData ? '#EF444408' : colors.primary + '08',
-                      borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: cacheSettings.sessionData ? '#EF444420' : colors.primary + '20',
-                      marginTop: 12,
-                      padding: 16,
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                    }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <Icon
-                          name={cacheSettings.sessionData ? "alert-circle-outline" : "information-circle-outline"}
-                          size={22}
-                          color={cacheSettings.sessionData ? '#EF4444' : colors.primary}
-                        />
-                        <Text style={[styles.settingTitle, {
-                          color: cacheSettings.sessionData ? '#EF4444' : colors.primary,
-                        }]}>
-                          Bilgi
-                        </Text>
-                      </View>
-                      <Text style={[styles.settingSubtitle, {
-                        color: colors.text,
-                        lineHeight: 20,
-                        textAlign: 'justify',
-                        width: '100%',
-                      }]}>
-                        {cacheSettings.sessionData
-                          ? 'Seçtiğiniz önbellek türleri kalıcı olarak silinecektir. Oturum Bilgileri seçeneği işaretlendiği için otomatik çıkış yapılacak ve tekrar giriş yapmanız gerekecektir.'
-                          : 'Seçtiğiniz önbellek türleri kalıcı olarak silinecektir. Oturum Bilgileri seçeneğini işaretlemediğiniz sürece oturumunuz açık kalacak ve kullanıcı bilgileriniz korunacaktır.'
-                        }
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
-
-              {/* Footer Buttons */}
-              <View style={styles.notificationFooter}>
-                <Button
-                  text="İptal"
-                  variant="secondary"
-                  onPress={() => setShowClearCacheModal(false)}
-                  icon="close-outline"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  text="Temizle"
-                  variant="primary"
-                  onPress={handleClearCache}
-                  icon="trash-outline"
-                  loading={isClearingCache}
-                  style={{ flex: 1 }}
+                </View>
+                <IOSSwitch
+                  value={cacheSettings.imageCache}
+                  onValueChange={(value) =>
+                    setCacheSettings({ ...cacheSettings, imageCache: value })
+                  }
                 />
               </View>
-          </SafeAreaView>
-        </Modal>
 
-        {/* Notification Settings Modal */}
-        <Modal
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Icon name="cloud-outline" size={20} color={colors.primary} />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>API Yanıtları</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {cacheSizes.apiCache > 0 ? `${cacheSizes.apiCache} MB` : 'Temiz'}
+                    </Text>
+                  </View>
+                </View>
+                <IOSSwitch
+                  value={cacheSettings.apiCache}
+                  onValueChange={(value) =>
+                    setCacheSettings({ ...cacheSettings, apiCache: value })
+                  }
+                />
+              </View>
+
+              <View style={styles.settingDivider} />
+
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Icon name="warning-outline" size={20} color="#F59E0B" />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>Uygulama Verileri</Text>
+                    <Text style={[styles.settingSubtitle, { color: cacheSizes.appData > 0 ? '#F59E0B' : colors.textSecondary }]}>
+                      {cacheSizes.appData > 0
+                        ? `Dikkat! Oturum açık kalır (${cacheSizes.appData} MB)`
+                        : 'Temiz - Oturum açık kalır'
+                      }
+                    </Text>
+                  </View>
+                </View>
+                <IOSSwitch
+                  value={cacheSettings.appData}
+                  onValueChange={(value) =>
+                    setCacheSettings({ ...cacheSettings, appData: value })
+                  }
+                />
+              </View>
+
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Icon name="exit-outline" size={20} color="#EF4444" />
+                  <View style={styles.settingTextContainer}>
+                    <Text style={styles.settingTitle}>Oturum Bilgileri</Text>
+                    <Text style={[styles.settingSubtitle, { color: cacheSizes.sessionData > 0 ? '#EF4444' : colors.textSecondary }]}>
+                      {cacheSizes.sessionData > 0
+                        ? `Dikkat! Çıkış yapılacak (${cacheSizes.sessionData} MB)`
+                        : 'Temiz - Çıkış yapılır'
+                      }
+                    </Text>
+                  </View>
+                </View>
+                <IOSSwitch
+                  value={cacheSettings.sessionData}
+                  onValueChange={(value) =>
+                    setCacheSettings({ ...cacheSettings, sessionData: value })
+                  }
+                />
+              </View>
+
+              {/* Info Box */}
+              <View style={[styles.settingItem, {
+                backgroundColor: cacheSettings.sessionData ? '#EF444408' : colors.primary + '08',
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: cacheSettings.sessionData ? '#EF444420' : colors.primary + '20',
+                marginTop: 12,
+                padding: 16,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+              }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Icon
+                    name={cacheSettings.sessionData ? "alert-circle-outline" : "information-circle-outline"}
+                    size={22}
+                    color={cacheSettings.sessionData ? '#EF4444' : colors.primary}
+                  />
+                  <Text style={[styles.settingTitle, {
+                    color: cacheSettings.sessionData ? '#EF4444' : colors.primary,
+                  }]}>
+                    Bilgi
+                  </Text>
+                </View>
+                <Text style={[styles.settingSubtitle, {
+                  color: colors.text,
+                  lineHeight: 20,
+                  textAlign: 'justify',
+                  width: '100%',
+                }]}>
+                  {cacheSettings.sessionData
+                    ? 'Seçtiğiniz önbellek türleri kalıcı olarak silinecektir. Oturum Bilgileri seçeneği işaretlendiği için otomatik çıkış yapılacak ve tekrar giriş yapmanız gerekecektir.'
+                    : 'Seçtiğiniz önbellek türleri kalıcı olarak silinecektir. Oturum Bilgileri seçeneğini işaretlemediğiniz sürece oturumunuz açık kalacak ve kullanıcı bilgileriniz korunacaktır.'
+                  }
+                </Text>
+              </View>
+            </>
+          )}
+        </BottomSheet>
+
+        {/* Notification Settings Bottom Sheet */}
+        <BottomSheet
           visible={showNotificationModal}
-          transparent={false}
-          animationType="slide"
-          onRequestClose={() => setShowNotificationModal(false)}
-        >
-          <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: colors.card }]} edges={['top', 'bottom']}>
-              {/* Header */}
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationHeaderLeft}>
-                  <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon name="notifications-outline" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.notificationTitle}>Bildirim Ayarları</Text>
-                </View>
-                <XButton onPress={() => setShowNotificationModal(false)} size={36} iconSize={20} />
+          onClose={() => setShowNotificationModal(false)}
+          title="Bildirim Ayarları"
+          icon="notifications-outline"
+          iconColor={colors.primary}
+          footer={
+            <>
+              <Button
+                text="İptal"
+                variant="secondary"
+                onPress={() => setShowNotificationModal(false)}
+                icon="close-outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                text="Kaydet"
+                variant="primary"
+                onPress={handleNotificationSettingSave}
+                icon="checkmark-outline"
+                style={{ flex: 1 }}
+              />
+            </>
+          }>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Icon name="phone-portrait" size={20} color={colors.primary} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>Anlık Bildirimler</Text>
+                <Text style={styles.settingSubtitle}>Uygulama bildirimleri</Text>
               </View>
+            </View>
+            <IOSSwitch
+              value={notificationSettings.pushNotifications}
+              onValueChange={(value) =>
+                setNotificationSettings({ ...notificationSettings, pushNotifications: value })
+              }
+            />
+          </View>
 
-              {/* Settings List */}
-              <ScrollView
-                style={styles.notificationScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Push Notifications */}
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Icon name="phone-portrait" size={20} color={colors.primary} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingTitle}>Anlık Bildirimler</Text>
-                      <Text style={styles.settingSubtitle}>Uygulama bildirimleri</Text>
-                    </View>
-                  </View>
-                  <IOSSwitch
-                    value={notificationSettings.pushNotifications}
-                    onValueChange={(value) =>
-                      setNotificationSettings({ ...notificationSettings, pushNotifications: value })
-                    }
-                  />
-                </View>
-
-                {/* Email Notifications */}
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Icon name="mail" size={20} color={colors.primary} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingTitle}>E-posta Bildirimleri</Text>
-                      <Text style={styles.settingSubtitle}>E-posta ile bildirim al</Text>
-                    </View>
-                  </View>
-                  <IOSSwitch
-                    value={notificationSettings.emailNotifications}
-                    onValueChange={(value) =>
-                      setNotificationSettings({ ...notificationSettings, emailNotifications: value })
-                    }
-                  />
-                </View>
-
-                {/* SMS Notifications */}
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Icon name="chatbubble" size={20} color={colors.primary} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingTitle}>SMS Bildirimleri</Text>
-                      <Text style={styles.settingSubtitle}>SMS ile bildirim al</Text>
-                    </View>
-                  </View>
-                  <IOSSwitch
-                    value={notificationSettings.smsNotifications}
-                    onValueChange={(value) =>
-                      setNotificationSettings({ ...notificationSettings, smsNotifications: value })
-                    }
-                  />
-                </View>
-
-                <View style={styles.settingDivider} />
-
-                {/* Promotions */}
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Icon name="pricetag" size={20} color={colors.primary} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingTitle}>Kampanyalar</Text>
-                      <Text style={styles.settingSubtitle}>Özel teklifler ve indirimler</Text>
-                    </View>
-                  </View>
-                  <IOSSwitch
-                    value={notificationSettings.promotions}
-                    onValueChange={(value) =>
-                      setNotificationSettings({ ...notificationSettings, promotions: value })
-                    }
-                  />
-                </View>
-
-                {/* System Alerts */}
-                <View style={styles.settingItem}>
-                  <View style={styles.settingLeft}>
-                    <Icon name="alert-circle" size={20} color={colors.primary} />
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingTitle}>Sistem Uyarıları</Text>
-                      <Text style={styles.settingSubtitle}>Önemli sistem bildirimleri</Text>
-                    </View>
-                  </View>
-                  <IOSSwitch
-                    value={notificationSettings.systemAlerts}
-                    onValueChange={(value) =>
-                      setNotificationSettings({ ...notificationSettings, systemAlerts: value })
-                    }
-                  />
-                </View>
-              </ScrollView>
-
-              {/* Footer Buttons */}
-              <View style={styles.notificationFooter}>
-                <Button
-                  text="İptal"
-                  variant="secondary"
-                  onPress={() => setShowNotificationModal(false)}
-                  icon="close-outline"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  text="Kaydet"
-                  variant="primary"
-                  onPress={handleNotificationSettingSave}
-                  icon="checkmark-outline"
-                  style={{ flex: 1 }}
-                />
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Icon name="mail" size={20} color={colors.primary} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>E-posta Bildirimleri</Text>
+                <Text style={styles.settingSubtitle}>E-posta ile bildirim al</Text>
               </View>
-          </SafeAreaView>
-        </Modal>
+            </View>
+            <IOSSwitch
+              value={notificationSettings.emailNotifications}
+              onValueChange={(value) =>
+                setNotificationSettings({ ...notificationSettings, emailNotifications: value })
+              }
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Icon name="chatbubble" size={20} color={colors.primary} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>SMS Bildirimleri</Text>
+                <Text style={styles.settingSubtitle}>SMS ile bildirim al</Text>
+              </View>
+            </View>
+            <IOSSwitch
+              value={notificationSettings.smsNotifications}
+              onValueChange={(value) =>
+                setNotificationSettings({ ...notificationSettings, smsNotifications: value })
+              }
+            />
+          </View>
+
+          <View style={styles.settingDivider} />
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Icon name="pricetag" size={20} color={colors.primary} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>Kampanyalar</Text>
+                <Text style={styles.settingSubtitle}>Özel teklifler ve indirimler</Text>
+              </View>
+            </View>
+            <IOSSwitch
+              value={notificationSettings.promotions}
+              onValueChange={(value) =>
+                setNotificationSettings({ ...notificationSettings, promotions: value })
+              }
+            />
+          </View>
+
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Icon name="alert-circle" size={20} color={colors.primary} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>Sistem Uyarıları</Text>
+                <Text style={styles.settingSubtitle}>Önemli sistem bildirimleri</Text>
+              </View>
+            </View>
+            <IOSSwitch
+              value={notificationSettings.systemAlerts}
+              onValueChange={(value) =>
+                setNotificationSettings({ ...notificationSettings, systemAlerts: value })
+              }
+            />
+          </View>
+        </BottomSheet>
 
         {/* Logout Confirmation Dialog */}
         <ConfirmDialog
@@ -1180,392 +1140,18 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           onCancel={() => setShowDeleteAccountConfirm(false)}
         />
 
-        {/* Terms of Service Modal */}
-        <Modal
-          visible={showTermsModal}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setShowTermsModal(false)}
-        >
-          <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: colors.card }]} edges={['top', 'bottom']}>
-              {/* Header */}
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationHeaderLeft}>
-                  <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon name="document-text-outline" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.notificationTitle}>Kullanım Sözleşmesi</Text>
-                </View>
-                <XButton onPress={() => setShowTermsModal(false)} size={36} iconSize={20} />
-              </View>
+        {/* Legal Bottom Sheet (Terms / Privacy) */}
+        <LegalBottomSheet
+          visible={legalType !== null}
+          type={legalType || 'terms'}
+          onClose={() => setLegalType(null)}
+        />
 
-              {/* Content */}
-              <ScrollView
-                style={styles.notificationScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={styles.legalContent}>
-{`KULLANIM KOŞULLARI
-Golaks Yazılım Hizmetleri
-
-1. GENEL HÜKÜMLER VE KAPSAM
-Bu Kullanım Koşulları ("Sözleşme"), Golaks Yazılım Hizmetleri ("Golaks", "biz", "bizim") tarafından sunulan mobil uygulama ve ilgili hizmetlerin kullanımına ilişkin şartları düzenlemektedir. Uygulamayı indirerek, kurarak veya kullanarak bu koşulları kabul etmiş sayılırsınız.
-
-Bu Sözleşme, 6098 sayılı Türk Borçlar Kanunu ve ilgili mevzuat çerçevesinde hazırlanmıştır.
-
-2. HİZMET TANIMI
-Golaks, işletmelere aşağıdaki alanlarda hizmet veren bulut tabanlı bir yazılım platformudur:
-• Deri sektörü için özelleştirilmiş ERP çözümleri
-• Muhasebe ve finans yönetimi
-• Stok ve envanter takibi
-• Sipariş ve üretim yönetimi
-• Raporlama ve iş analitiği
-• Fatura ve belge yönetimi
-
-Hizmetlerimiz, abonelik modeli çerçevesinde sunulmakta olup, farklı paketler ve özellikler içerebilir.
-
-3. HESAP OLUŞTURMA VE GÜVENLİK
-Hesap Oluşturma:
-• Hizmetlerimizi kullanmak için geçerli bir hesap oluşturmanız gerekmektedir
-• Kayıt sırasında doğru ve güncel bilgiler sağlamakla yükümlüsünüz
-• Her kullanıcı yalnızca bir hesap oluşturabilir
-
-Hesap Güvenliği:
-• Hesap bilgilerinizin ve şifrenizin gizliliğinden tamamen siz sorumlusunuz
-• Güçlü bir şifre kullanmanız ve düzenli olarak değiştirmeniz önerilir
-• Hesabınızda şüpheli bir aktivite fark ederseniz derhal destek@golaks.com adresine bildirin
-• Hesabınız üzerinden gerçekleştirilen tüm işlemlerden siz sorumlusunuz
-
-4. KULLANIM KURALLARI
-Kabul Edilebilir Kullanım:
-• Uygulama yalnızca yasal ve meşru iş amaçlarıyla kullanılabilir
-• Türkiye Cumhuriyeti yasalarına ve uluslararası hukuka uygun hareket etmelisiniz
-• Diğer kullanıcıların haklarına saygı göstermelisiniz
-
-Yasak Faaliyetler:
-• Uygulamaya yetkisiz erişim girişimleri
-• Kötü amaçlı yazılım veya virüs yayma
-• Hizmetin normal işleyişini engelleyen eylemler
-• Tersine mühendislik, kaynak kod çözümleme
-• Uygulamanın veya verilerinin izinsiz kopyalanması
-• Sahte veya yanıltıcı bilgi girişi
-• Spam veya istenmeyen toplu mesaj gönderimi
-
-5. FİKRİ MÜLKİYET HAKLARI
-Golaks'a Ait Haklar:
-• Golaks markası, logoları, tasarımları ve yazılımı Golaks'ın münhasır mülkiyetindedir
-• Uygulama ve içeriği 5846 sayılı Fikir ve Sanat Eserleri Kanunu ile korunmaktadır
-• Yazılımın kaynak kodu ticari sır niteliğindedir
-
-Lisans:
-• Size, bu Sözleşme şartlarına uygun olarak uygulamayı kullanmak için kişisel, devredilemez, münhasır olmayan bir lisans verilmektedir
-• Bu lisans, aboneliğiniz veya hesabınız aktif olduğu sürece geçerlidir
-
-6. ÖDEME VE ABONELİK
-Ücretlendirme:
-• Hizmet ücretleri, seçtiğiniz abonelik planına göre belirlenir
-• Fiyatlar, KDV dahil veya hariç olarak belirtilebilir
-• Ödeme koşulları, fatura döngüsü ve yenileme şartları ayrıca bildirilir
-
-İptal ve İade:
-• Abonelik iptali, cari dönem sonunda geçerli olur
-• İade politikası, yasal düzenlemeler çerçevesinde uygulanır
-• Ücretsiz deneme döneminde iptal halinde ücret alınmaz
-
-7. VERİ VE GİZLİLİK
-• Kişisel verilerinizin işlenmesi, Gizlilik Politikamız kapsamında gerçekleştirilir
-• İş verileriniz şifreli olarak saklanır ve korunur
-• Verilerinizi dışa aktarma hakkınız saklıdır
-• Hesap kapatma durumunda verileriniz yasal saklama süreleri sonunda silinir
-
-8. HİZMET SEVİYESİ VE DESTEK
-Hizmet Sürekliliği:
-• Yüksek erişilebilirlik hedeflenmekte olup, planlı bakımlar önceden duyurulur
-• Beklenmedik kesintilerde en kısa sürede müdahale edilir
-
-Müşteri Desteği:
-• Teknik destek, çalışma saatleri içinde sağlanmaktadır
-• Destek kanalları: E-posta, telefon ve uygulama içi destek
-• Acil durumlar için öncelikli destek mevcuttur
-
-9. SORUMLULUK SINIRLAMALARI
-Garanti Reddi:
-• Hizmet "olduğu gibi" ve "mevcut haliyle" sunulmaktadır
-• Golaks, hizmetin kesintisiz veya hatasız olacağını garanti etmez
-• Üçüncü taraf entegrasyonlardan kaynaklanan sorunlardan sorumlu değiliz
-
-Sorumluluk Sınırı:
-• Golaks'ın sorumluluğu, son 12 ayda ödediğiniz toplam ücretle sınırlıdır
-• Dolaylı, arızi veya cezai zararlardan sorumluluk kabul edilmez
-• Bu sınırlamalar, yasaların izin verdiği ölçüde geçerlidir
-
-10. SÖZLEŞME DEĞİŞİKLİKLERİ
-• Bu koşullar önceden bildirimle güncellenebilir
-• Önemli değişiklikler en az 30 gün önceden duyurulur
-• Değişiklikleri kabul etmemeniz halinde hesabınızı kapatabilirsiniz
-• Değişiklik sonrası hizmeti kullanmaya devam etmeniz, yeni koşulları kabul ettiğiniz anlamına gelir
-
-11. FESİH
-Kullanıcı Tarafından:
-• Hesabınızı istediğiniz zaman kapatabilirsiniz
-• Aktif abonelik döneminin sonuna kadar hizmet devam eder
-
-Golaks Tarafından:
-• Kullanım koşullarının ihlali halinde hesabınız askıya alınabilir veya kapatılabilir
-• Ağır ihlallerde önceden bildirim yapılmaksızın fesih hakkı saklıdır
-
-12. UYUŞMAZLIK ÇÖZÜMÜ
-• Bu Sözleşme, Türkiye Cumhuriyeti yasalarına tabidir
-• Uyuşmazlıklarda Tekirdağ Mahkemeleri ve İcra Daireleri yetkilidir
-• Taraflar, uyuşmazlıkları öncelikle sulh yoluyla çözmeye çalışacaktır
-
-13. İLETİŞİM
-Kullanım koşulları hakkındaki sorularınız için:
-E-posta: destek@golaks.com
-Telefon: +90 850 466 4 664
-Web: www.golaks.com
-
-Golaks Yazılım Hizmetleri
-Tekirdağ, Türkiye
-
-© 1995-${new Date().getFullYear()} Golaks. Tüm Hakları Saklıdır.
-Son Güncelleme: Aralık 2025`}
-                </Text>
-              </ScrollView>
-
-              {/* Footer */}
-              <View style={styles.notificationFooter}>
-                <Button
-                  text="Kapat"
-                  onPress={() => setShowTermsModal(false)}
-                  style={{ flex: 1 }}
-                />
-              </View>
-          </SafeAreaView>
-        </Modal>
-
-        {/* Privacy Policy Modal */}
-        <Modal
-          visible={showPrivacyModal}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setShowPrivacyModal(false)}
-        >
-          <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: colors.card }]} edges={['top', 'bottom']}>
-              {/* Header */}
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationHeaderLeft}>
-                  <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon name="shield-checkmark-outline" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.notificationTitle}>Gizlilik Politikası</Text>
-                </View>
-                <XButton onPress={() => setShowPrivacyModal(false)} size={36} iconSize={20} />
-              </View>
-
-              {/* Content */}
-              <ScrollView
-                style={styles.notificationScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={styles.legalContent}>
-{`GİZLİLİK POLİTİKASI
-Golaks Yazılım Hizmetleri
-
-1. GİRİŞ
-Bu Gizlilik Politikası, Golaks Yazılım Hizmetleri ("Golaks", "biz", "bizim") tarafından sunulan mobil uygulama ve hizmetler aracılığıyla kişisel verilerinizin nasıl toplandığını, işlendiğini, saklandığını ve korunduğunu açıklamaktadır. 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında veri sorumlusu sıfatıyla hareket etmekteyiz.
-
-2. TOPLANAN KİŞİSEL VERİLER
-Hizmetlerimizi kullanırken aşağıdaki kişisel verilerinizi toplayabiliriz:
-
-Kimlik Bilgileri:
-• Ad, soyad ve kullanıcı adı
-• T.C. kimlik numarası (gerekli hallerde)
-• Şirket/işletme bilgileri
-
-İletişim Bilgileri:
-• E-posta adresi
-• Telefon numarası
-• Adres bilgileri
-
-Hesap ve İşlem Verileri:
-• Kullanıcı hesabı bilgileri
-• Şifre (şifrelenmiş olarak)
-• İşlem geçmişi ve kayıtları
-• Fatura ve ödeme bilgileri
-
-Teknik Veriler:
-• IP adresi ve konum bilgileri
-• Cihaz türü, modeli ve işletim sistemi
-• Uygulama kullanım istatistikleri
-• Oturum bilgileri ve çerezler
-
-3. VERİ TOPLAMA YÖNTEMLERİ
-Kişisel verilerinizi aşağıdaki yöntemlerle toplamaktayız:
-• Uygulama üzerinden doğrudan sizin tarafınızdan sağlanan bilgiler
-• Otomatik toplama (çerezler, analitik araçlar)
-• Üçüncü taraf entegrasyonları (ödeme sistemleri vb.)
-
-4. VERİLERİN İŞLENME AMAÇLARI
-Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:
-• Hizmetlerimizin sunulması ve yönetilmesi
-• Kullanıcı hesaplarının oluşturulması ve yönetimi
-• Müşteri desteği ve iletişim
-• Faturalama ve ödeme işlemleri
-• Yasal yükümlülüklerin yerine getirilmesi
-• Hizmet kalitesinin iyileştirilmesi
-• Güvenlik ve dolandırıcılık önleme
-• İstatistiksel analizler ve raporlama
-
-5. VERİ GÜVENLİĞİ
-Verilerinizin güvenliğini sağlamak için aşağıdaki önlemleri almaktayız:
-• SSL/TLS şifreleme ile veri iletimi
-• AES-256 şifreleme ile veri depolama
-• Düzenli güvenlik denetimleri ve penetrasyon testleri
-• Erişim kontrolü ve yetkilendirme sistemleri
-• Güvenlik duvarları ve saldırı tespit sistemleri
-• İstanbul'daki Tier-3 sertifikalı veri merkezinde barındırma
-• Düzenli yedekleme ve felaket kurtarma planları
-
-6. VERİ SAKLAMA SÜRESİ
-Kişisel verileriniz, işleme amaçlarının gerektirdiği süre boyunca ve yasal saklama sürelerine uygun olarak muhafaza edilir:
-• Hesap bilgileri: Hesap aktif olduğu sürece
-• İşlem kayıtları: 10 yıl (yasal zorunluluk)
-• Teknik loglar: 2 yıl
-• Pazarlama verileri: Onay geri çekilene kadar
-
-7. ÜÇÜNCÜ TARAF PAYLAŞIMI
-Kişisel verileriniz aşağıdaki durumlar dışında üçüncü taraflarla paylaşılmaz:
-• Yasal zorunluluklar (mahkeme kararı, resmi kurum talepleri)
-• Ödeme işlemleri için banka ve ödeme kuruluşları
-• Hizmet sağlayıcılarımız (gizlilik sözleşmesi kapsamında)
-• Açık rızanızın bulunduğu durumlar
-
-Verileriniz hiçbir koşulda satılmaz veya pazarlama amacıyla üçüncü taraflara aktarılmaz.
-
-8. ÇEREZLER VE İZLEME TEKNOLOJİLERİ
-Uygulamamız aşağıdaki amaçlarla çerezler kullanabilir:
-• Oturum yönetimi ve kimlik doğrulama
-• Kullanıcı tercihlerinin hatırlanması
-• Performans analizi ve iyileştirme
-• Güvenlik amaçlı izleme
-
-Çerez tercihlerinizi uygulama ayarlarından yönetebilirsiniz.
-
-9. KVKK KAPSAMINDAKİ HAKLARINIZ
-6698 sayılı KVKK'nın 11. maddesi kapsamında aşağıdaki haklara sahipsiniz:
-• Kişisel verilerinizin işlenip işlenmediğini öğrenme
-• İşlenmişse buna ilişkin bilgi talep etme
-• İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme
-• Yurt içinde veya yurt dışında aktarıldığı üçüncü kişileri bilme
-• Eksik veya yanlış işlenmişse düzeltilmesini isteme
-• KVKK'nın 7. maddesindeki şartlar çerçevesinde silinmesini isteme
-• Düzeltme/silme işlemlerinin aktarıldığı üçüncü kişilere bildirilmesini isteme
-• İşlenen verilerin münhasıran otomatik sistemler vasıtasıyla analiz edilmesi suretiyle aleyhinize bir sonucun ortaya çıkmasına itiraz etme
-• Kanuna aykırı işleme nedeniyle zarara uğramanız halinde zararın giderilmesini talep etme
-
-10. ÇOCUKLARIN GİZLİLİĞİ
-Hizmetlerimiz 18 yaş altındaki kullanıcılara yönelik değildir. Bilerek 18 yaş altındaki kişilerden kişisel veri toplamıyoruz.
-
-11. POLİTİKA DEĞİŞİKLİKLERİ
-Bu Gizlilik Politikası zaman zaman güncellenebilir. Önemli değişiklikler uygulama içi bildirim veya e-posta yoluyla duyurulacaktır. Güncel politikayı düzenli olarak kontrol etmenizi öneririz.
-
-12. İLETİŞİM
-Gizlilik politikamız veya kişisel verilerinizle ilgili sorularınız için:
-E-posta: destek@golaks.com
-Telefon: +90 850 466 4 664
-
-Veri Sorumlusu: Golaks Yazılım Hizmetleri
-www.golaks.com
-
-© 1995-${new Date().getFullYear()} Golaks. Tüm Hakları Saklıdır.
-Son Güncelleme: Aralık 2025`}
-                </Text>
-              </ScrollView>
-
-              {/* Footer */}
-              <View style={styles.notificationFooter}>
-                <Button
-                  text="Kapat"
-                  onPress={() => setShowPrivacyModal(false)}
-                  style={{ flex: 1 }}
-                />
-              </View>
-          </SafeAreaView>
-        </Modal>
-
-        {/* About Modal */}
-        <Modal
-          visible={showAboutModal}
-          animationType="slide"
-          transparent={false}
-          onRequestClose={() => setShowAboutModal(false)}
-        >
-          <SafeAreaView style={[styles.legalModalContainer, { backgroundColor: colors.card }]} edges={['top', 'bottom']}>
-              {/* Header */}
-              <View style={styles.notificationHeader}>
-                <View style={styles.notificationHeaderLeft}>
-                  <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon name="information-circle-outline" size={20} color={colors.primary} />
-                  </View>
-                  <Text style={styles.notificationTitle}>Uygulama Hakkında</Text>
-                </View>
-                <XButton onPress={() => setShowAboutModal(false)} size={36} iconSize={20} />
-              </View>
-
-              {/* Content */}
-              <ScrollView
-                style={styles.notificationScrollView}
-                showsVerticalScrollIndicator={false}
-              >
-                <Text style={styles.legalContent}>
-{`GOLAKS
-1995'ten Bu Yana Üst Düzey Yazılım Çözümleri
-
-HAKKIMIZDA
-1995 yılında kurulan Golaks, Türkiye'nin deri yazılımları alanında hizmet veren ilk firması olma unvanına sahiptir. Bugün 300'ü aşkın firmaya hizmet vermenin gururunu yaşıyor, Türkiye'nin en büyük deri yazılım markası olarak sektöre yön veriyoruz.
-
-Tekirdağ merkezli ofisimiz ve İstanbul'daki dünya standartlarındaki veri merkezimizde, 10'dan fazla uzman personelimizle 1995'ten bu yana kazandığımız tecrübeyi müşterilerimizle paylaşıyoruz.
-
-UZMANLIK ALANLARIMIZ
-• Deri Yazılımları
-• Entegre Yönetim Sistemleri
-• Özel Yazılım Projeleri
-• Elektronik Tasarım ve Programlama
-
-HİZMETLERİMİZ
-• Yazılım Lisanslama ve Kurulum
-• Sunucu Kiralama ve Barındırma
-• Güvenlik Çözümleri
-• Müşteri Destek Servisleri
-
-MÜŞTERİ MEMNUNİYETİ
-Müşteri memnuniyeti önceliğimizdir. Ülkemizdeki diğer firmalardan farklı olarak, ilk iletişiminizde çözüme ulaşmanızı hedefliyoruz. Her müşterimize özel atanan destek uzmanlarımız, ilk temasta çözüm üretebilmeleri için özenle seçilmiş ve yetiştirilmiştir.
-
-VİZYONUMUZ
-Yenilenme ve teknolojiyi takip etme felsefesiyle yolumuza devam ediyoruz. Her geçen gün portföyümüze yeni ürünler ekliyor, mevcut çözümlerimizi teknolojiye uyumlu olarak geliştiriyoruz.
-
-"Siz işinize odaklanın, operasyon ve finansınızı yazılımlarımız yönetsin."
-
-İLETİŞİM
-Merkez: Tekirdağ • Veri Merkezi: İstanbul
-www.golaks.com • info@golaks.com
-
-${versionString}
-© 1995-${new Date().getFullYear()} Golaks • Tüm Hakları Saklıdır`}
-                </Text>
-              </ScrollView>
-
-              {/* Footer */}
-              <View style={styles.notificationFooter}>
-                <Button
-                  text="Kapat"
-                  onPress={() => setShowAboutModal(false)}
-                  style={{ flex: 1 }}
-                />
-              </View>
-          </SafeAreaView>
-        </Modal>
+        {/* About Bottom Sheet */}
+        <AboutBottomSheet
+          visible={showAboutSheet}
+          onClose={() => setShowAboutSheet(false)}
+        />
 
         <TabBar
           activeTab={activeTab}
@@ -1727,47 +1313,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     section: {
       marginBottom: 24,
     },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-    },
-    notificationModalContent: {
-      backgroundColor: colors.card,
-      paddingBottom: 40,
-      flex: 1,
-    },
-    notificationHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    notificationHeaderLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    notificationHeaderIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    notificationTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    notificationScrollView: {
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-    },
     settingItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1798,14 +1343,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       backgroundColor: colors.border,
       marginVertical: 12,
     },
-    notificationFooter: {
-      flexDirection: 'row',
-      gap: 12,
-      paddingHorizontal: 20,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
     calculatingSizeContainer: {
       paddingVertical: 40,
       alignItems: 'center',
@@ -1816,27 +1353,5 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 14,
       color: colors.textSecondary,
       textAlign: 'center',
-    },
-    notificationModalContainer: {
-      flex: 1,
-      justifyContent: 'center',
-    },
-    notificationModalBackdrop: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
-    legalContent: {
-      fontSize: 15,
-      lineHeight: 24,
-      color: colors.text,
-      textAlign: 'justify',
-      paddingBottom: 20,
-    },
-    legalModalContainer: {
-      flex: 1,
     },
   });

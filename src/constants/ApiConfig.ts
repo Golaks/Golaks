@@ -66,6 +66,7 @@ export const API_ENDPOINTS = {
 
   // Stock endpoints (global - tüm modüller)
   STOCK_LIST: `${BASE_API_URL}/stock/list`,
+  STOCK_CREATE: `${BASE_API_URL}/stock/create`,
   STOCK_BARCODE_QUERY: `${BASE_API_URL}/stock/barcode-query`,
 
   // Data endpoints (tenant-specific)
