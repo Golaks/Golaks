@@ -17,38 +17,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import BackButton from '../components/BackButton';
 import TabBar, { TabName } from '../components/TabBar';
-
-// Types
-interface CheckBillItem {
-  id: string;
-  documentNo: string;
-  documentType: 'check' | 'bill';
-  documentLocation: string;
-  customerName: string;
-  documentDate: string;
-  dueDate: string;
-  paymentDate?: string;
-  bank?: string;
-  bankBranch?: string;
-  bankAccount?: string;
-  currency: string;
-  amount: number;
-  paid: number;
-  remaining: number;
-  dueMonth?: string;
-  movements?: CheckBillMovement[];
-}
-
-interface CheckBillMovement {
-  id: string;
-  date: string;
-  location: string;
-  customer?: string;
-  description?: string;
-  amount: number;
-  currency: string;
-  type: 'in' | 'out';
-}
+import checkBillService, { CheckBillItem, CheckBillMovement } from '../services/checkbill.service';
+import { authService } from '../services/auth.service';
 
 interface CheckBillScreenProps {
   onGoBack: () => void;
@@ -81,7 +51,7 @@ const DOCUMENT_LOCATIONS = [
 
 export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: CheckBillScreenProps) {
   const { colors, isDark } = useTheme();
-  const { logout, notificationCount } = useAuth();
+  const { user, logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
@@ -332,11 +302,50 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
     }
   }, [filterVisible]);
 
-  // TODO: Implement API call
+  // Convert display date (dd.MM.yyyy) to API date (yyyy-MM-dd)
+  const toApiDate = (displayDate: string): string => {
+    const parts = displayDate.split('.');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return displayDate;
+  };
+
   const fetchData = useCallback(async () => {
-    // API call will be implemented later
-    setIsLoading(false);
-  }, []);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const token = await authService.getToken();
+      if (!token) {
+        setError('Oturum bilgisi bulunamadı');
+        return;
+      }
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      if (!dataName) {
+        setError('Firma veritabanı bilgisi bulunamadı');
+        return;
+      }
+      const response = await checkBillService.getList(token, dataName, {
+        startDate: toApiDate(startDate),
+        endDate: toApiDate(endDate),
+        documentType,
+        documentLocation,
+      });
+      if (response.success && response.data) {
+        setData(response.data.data || []);
+      } else {
+        setError(response.message || 'Veri alınamadı');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Çek/Senet listesi alınamadı');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, startDate, endDate, documentType, documentLocation]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleTabPress = (tab: TabName) => {
     setActiveTab(tab);
@@ -496,6 +505,13 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
       {/* Content */}
       {isLoading ? (
         <LoadingSpinner />
+      ) : error ? (
+        <View style={styles.emptyContainer}>
+          <EmptyState title={error} icon="alert-circle-outline" />
+          <Pressable style={[styles.retryButton, { backgroundColor: colors.primary }]} onPress={fetchData}>
+            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+          </Pressable>
+        </View>
       ) : filteredData.length === 0 ? (
         <View style={styles.emptyContainer}>
           <EmptyState />
@@ -816,6 +832,17 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600' as const,
   },
   content: {
     flex: 1,

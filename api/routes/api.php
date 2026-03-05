@@ -80,6 +80,11 @@ class Router {
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
+        $this->post('/account/check-bill-list', 'CheckBillController', 'getList');
+
+        // Stock Routes (Global - tüm modüller için)
+        $this->post('/stock/list', 'StockController', 'getList');
+        $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
 
         // Company Routes (Protected, Super Admin only)
         $this->get('/company/list', 'CompanyController', 'getList');

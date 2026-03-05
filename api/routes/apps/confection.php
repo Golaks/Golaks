@@ -18,3 +18,6 @@ $this->get('/apps/confection/transactions/:id', 'ConfectionTransactionsControlle
 $this->post('/apps/confection/transactions', 'ConfectionTransactionsController', 'create');
 $this->put('/apps/confection/transactions/:id', 'ConfectionTransactionsController', 'update');
 $this->delete('/apps/confection/transactions/:id', 'ConfectionTransactionsController', 'delete');
+
+// Barcode Query Routes
+$this->post('/apps/confection/barcode-query', 'ConfectionBarcodeQueryController', 'query');

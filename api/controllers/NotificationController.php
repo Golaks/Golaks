@@ -198,11 +198,15 @@ class NotificationController {
                 [$userId]
             );
 
-            if (!$user || $user['kullanici_rol'] != 2) {
+            if (!$user || $user['kullanici_rol'] < 1) {
                 Response::forbidden('Bu işlem için yetkiniz bulunmamaktadır');
             }
 
             $firmaId = $user['mobil_firmalar_id'];
+
+            if (!$firmaId) {
+                Response::error('Firma bilgisi bulunamadı', 'FIRMA_NOT_FOUND', 400);
+            }
 
             $input = json_decode(file_get_contents('php://input'), true);
 
@@ -243,21 +247,22 @@ class NotificationController {
             $hedefKullanicilar = [];
 
             if ($hedefTip === 'all') {
-                // All active users (all companies)
+                // All active users in the same company
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1"
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ?",
+                    [$firmaId]
                 );
             } elseif ($hedefTip === 'role') {
-                // Users with specific role (all companies)
+                // Users with specific role in the same company
                 if ($hedefDeger === null || !in_array((int)$hedefDeger, [0, 1, 2])) {
                     Response::badRequest('Geçerli bir rol seçmelisiniz');
                 }
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND kullanici_rol = ?",
-                    [(int)$hedefDeger]
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND kullanici_rol = ?",
+                    [$firmaId, (int)$hedefDeger]
                 );
             } elseif ($hedefTip === 'user') {
-                // Specific users (all companies)
+                // Specific users in the same company
                 if (empty($hedefDeger)) {
                     Response::badRequest('En az bir kullanıcı seçmelisiniz');
                 }
@@ -269,8 +274,8 @@ class NotificationController {
 
                 $placeholders = implode(',', array_fill(0, count($userIds), '?'));
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND id IN ({$placeholders})",
-                    $userIds
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND id IN ({$placeholders})",
+                    array_merge([$firmaId], $userIds)
                 );
             }
 

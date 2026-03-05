@@ -62,6 +62,11 @@ export const API_ENDPOINTS = {
   ACCOUNT_CARI_EKSTRE: `${BASE_API_URL}/account/cari-ekstre`,
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
   ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
+  ACCOUNT_CHECK_BILL_LIST: `${BASE_API_URL}/account/check-bill-list`,
+
+  // Stock endpoints (global - tüm modüller)
+  STOCK_LIST: `${BASE_API_URL}/stock/list`,
+  STOCK_BARCODE_QUERY: `${BASE_API_URL}/stock/barcode-query`,
 
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak
@@ -88,6 +93,7 @@ export const API_ENDPOINTS = {
   CONFECTION_REPORT_DETAIL: (id: string) => `${BASE_API_URL}/apps/confection/reports/${id}`,
   CONFECTION_TRANSACTIONS: `${BASE_API_URL}/apps/confection/transactions`,
   CONFECTION_TRANSACTION_DETAIL: (id: string) => `${BASE_API_URL}/apps/confection/transactions/${id}`,
+  CONFECTION_BARCODE_QUERY: `${BASE_API_URL}/apps/confection/barcode-query`,
 
   // Shop App (Mağaza)
   SHOP_REPORTS: `${BASE_API_URL}/apps/shop/reports`,

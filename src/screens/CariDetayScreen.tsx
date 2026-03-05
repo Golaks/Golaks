@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,6 +14,7 @@ import EmptyState from '../components/EmptyState';
 import CariCard from '../components/CariCard';
 import accountService, { CariAccount, CariTransaction } from '../services/account.service';
 import { authService } from '../services/auth.service';
+import { generateEkstrePDF } from '../utils/pdfEkstre';
 
 interface CariDetayScreenProps {
   onBack?: () => void;
@@ -48,6 +49,9 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [transactionSearch, setTransactionSearch] = useState('');
+  const [transactionSearchVisible, setTransactionSearchVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -142,10 +146,40 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     }
   };
 
+  const handleEkstrePDF = async (cari: CariAccount) => {
+    try {
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || 'golaks_demo';
+      const token = await authService.getToken();
+      if (!token) throw new Error('Token bulunamadı');
+
+      const response = await accountService.getCariEkstre(token, dataName, cari.id);
+      if (!response.success || !response.data.transactions.length) {
+        Alert.alert('Uyarı', 'Bu cari için hareket bulunamadı');
+        return;
+      }
+
+      await generateEkstrePDF({
+        unvan: cari.unvan,
+        hesapKodu: cari.hesapKodu,
+        sube: cari.sube,
+        transactions: response.data.transactions,
+      });
+    } catch (err: any) {
+      Alert.alert('Hata', err.message || 'PDF oluşturulamadı');
+    }
+  };
+
   const handleToggleSearch = () => {
-    setSearchVisible(!searchVisible);
-    if (searchVisible) {
-      setSearchQuery('');
+    if (selectedCari) {
+      setTransactionSearchVisible(!transactionSearchVisible);
+      if (transactionSearchVisible) {
+        setTransactionSearch('');
+      }
+    } else {
+      setSearchVisible(!searchVisible);
+      if (searchVisible) {
+        setSearchQuery('');
+      }
     }
   };
 
@@ -172,6 +206,9 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     setSelectedCari(null);
     setTransactions([]);
     setTransactionError(null);
+    setTransactionSearch('');
+    setTransactionSearchVisible(false);
+    setSummaryExpanded(false);
   };
 
   // Hesap koduna göre renk ve icon belirle
@@ -197,6 +234,17 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     })} ${doviz}`;
   };
 
+  const filteredTransactions = transactionSearch
+    ? transactions.filter(t => {
+        const q = transactionSearch.toLowerCase();
+        return (
+          (t.aciklama || '').toLowerCase().includes(q) ||
+          (t.fisNo || '').toLowerCase().includes(q) ||
+          (t.tarih || '').includes(q)
+        );
+      })
+    : transactions;
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('tr-TR', {
@@ -208,9 +256,6 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
 
   // Render transaction item
   const renderTransactionItem = ({ item, index }: { item: CariTransaction; index: number }) => {
-    const isBorc = item.borc > 0;
-    const amount = isBorc ? item.borc : item.alacak;
-
     return (
       <View style={styles.transactionItem}>
         <View style={styles.transactionLeft}>
@@ -223,16 +268,18 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           </Text>
         </View>
         <View style={styles.transactionRight}>
-          <Text
-            style={[
-              styles.transactionAmount,
-              { color: isBorc ? '#EF4444' : '#10B981' },
-            ]}
-          >
-            {isBorc ? '-' : '+'}{formatCurrency(amount, item.doviz)}
-          </Text>
+          {item.borc > 0 && (
+            <Text style={[styles.transactionAmount, { color: '#EF4444' }]}>
+              {formatCurrency(item.borc, item.doviz)} B
+            </Text>
+          )}
+          {item.alacak > 0 && (
+            <Text style={[styles.transactionAmount, { color: '#10B981' }]}>
+              {formatCurrency(item.alacak, item.doviz)} A
+            </Text>
+          )}
           <Text style={styles.transactionBakiye}>
-            Bakiye: {formatCurrency(item.bakiye, item.doviz)}
+            {formatCurrency(Math.abs(item.bakiye), item.doviz)} {item.bakiye >= 0 ? 'B' : 'A'}
           </Text>
         </View>
       </View>
@@ -253,39 +300,86 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           />
         </View>
 
-        {/* Summary */}
-        {transactions.length > 0 && (
-          <View style={styles.summaryContainer}>
-            <View style={styles.summaryItem}>
-              <Icon name="arrow-down-circle-outline" size={18} color="#EF4444" />
-              <Text style={styles.summaryLabel}>Toplam Borç</Text>
-              <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
-                {formatCurrency(
-                  transactions.reduce((sum, t) => sum + t.borc, 0),
-                  transactions[0]?.doviz
-                )}
-              </Text>
+        {/* Summary - döviz bazlı, açılır-kapanır */}
+        {transactions.length > 0 && (() => {
+          const grouped: Record<string, { borc: number; alacak: number }> = {};
+          transactions.forEach(t => {
+            const d = t.doviz || 'TL';
+            if (!grouped[d]) grouped[d] = { borc: 0, alacak: 0 };
+            grouped[d].borc += t.borc;
+            grouped[d].alacak += t.alacak;
+          });
+          const entries = Object.entries(grouped);
+          return (
+            <View style={styles.summaryWrapper}>
+              <Pressable
+                style={styles.summaryToggle}
+                onPress={() => setSummaryExpanded(!summaryExpanded)}
+              >
+                <View style={styles.summaryToggleLeft}>
+                  <Icon name="stats-chart-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.summaryToggleText}>Özet</Text>
+                  {!summaryExpanded && entries.map(([doviz, totals]) => {
+                    const bakiye = totals.borc - totals.alacak;
+                    return (
+                      <Text key={doviz} style={[styles.summaryInlineValue, { color: bakiye >= 0 ? '#EF4444' : '#10B981' }]}>
+                        {formatCurrency(Math.abs(bakiye), doviz)} {bakiye >= 0 ? 'B' : 'A'}
+                      </Text>
+                    );
+                  })}
+                </View>
+                <Icon
+                  name={summaryExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+              {summaryExpanded && entries.map(([doviz, totals]) => {
+                const bakiye = totals.borc - totals.alacak;
+                return (
+                  <View key={doviz} style={styles.summaryRow}>
+                    <View style={styles.summaryCell}>
+                      <Text style={styles.summaryCellLabel}>Borç</Text>
+                      <Text style={[styles.summaryCellValue, { color: '#EF4444' }]}>
+                        {formatCurrency(totals.borc, doviz)}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryCellDivider} />
+                    <View style={styles.summaryCell}>
+                      <Text style={styles.summaryCellLabel}>Alacak</Text>
+                      <Text style={[styles.summaryCellValue, { color: '#10B981' }]}>
+                        {formatCurrency(totals.alacak, doviz)}
+                      </Text>
+                    </View>
+                    <View style={styles.summaryCellDivider} />
+                    <View style={styles.summaryCell}>
+                      <Text style={styles.summaryCellLabel}>Bakiye</Text>
+                      <Text style={[styles.summaryCellValue, { color: bakiye >= 0 ? '#EF4444' : '#10B981' }]}>
+                        {formatCurrency(Math.abs(bakiye), doviz)} {bakiye >= 0 ? 'B' : 'A'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <Icon name="arrow-up-circle-outline" size={18} color="#10B981" />
-              <Text style={styles.summaryLabel}>Toplam Alacak</Text>
-              <Text style={[styles.summaryValue, { color: '#10B981' }]}>
-                {formatCurrency(
-                  transactions.reduce((sum, t) => sum + t.alacak, 0),
-                  transactions[0]?.doviz
-                )}
-              </Text>
-            </View>
-          </View>
-        )}
+          );
+        })()}
 
         <View style={styles.transactionListTitleContainer}>
           <Icon name="list-outline" size={16} color={colors.textSecondary} />
           <Text style={styles.transactionListTitle}>
-            Hesap Hareketleri ({transactions.length})
+            Hesap Hareketleri ({filteredTransactions.length})
           </Text>
         </View>
+        {transactionSearchVisible && (
+          <View style={{ marginBottom: 8 }}>
+            <SearchInput
+              value={transactionSearch}
+              onChangeText={setTransactionSearch}
+              placeholder="Hareket ara..."
+            />
+          </View>
+        )}
       </View>
     );
   };
@@ -298,13 +392,16 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           title={selectedCari ? 'Cari Ekstre' : 'Cari Detay'}
           leftButton={
             <BackButton
-              onPress={selectedCari ? handleBackToList : onBack}
+              onPress={selectedCari ? handleBackToList : (onBack || (() => {}))}
             />
           }
           rightButton={
-            !selectedCari ? (
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              {selectedCari && (
+                <IconButton icon="document-text-outline" onPress={() => handleEkstrePDF(selectedCari)} />
+              )}
               <IconButton icon="search-outline" onPress={handleToggleSearch} />
-            ) : undefined
+            </View>
           }
           showMenu={true}
           onLogout={handleLogout}
@@ -386,7 +483,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                 <EmptyState
                   icon="alert-circle-outline"
                   title="Hata"
-                  description={error}
+                  subtitle={error}
                 />
               ) : cariList.length === 0 ? (
                 <EmptyState />
@@ -413,7 +510,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                     <View style={styles.cariActions}>
                       <Pressable
                         style={styles.ekstreButton}
-                        onPress={() => {}}
+                        onPress={() => handleEkstrePDF(item)}
                       >
                         <Icon name="document-text-outline" size={20} color={colors.primary} />
                       </Pressable>
@@ -438,13 +535,13 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                   <EmptyState
                     icon="alert-circle-outline"
                     title="Hata"
-                    description={transactionError}
+                    subtitle={transactionError}
                   />
                 </View>
               </View>
             ) : (
               <FlatList
-                data={transactions}
+                data={filteredTransactions}
                 renderItem={renderTransactionItem}
                 keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.transactionListContent}
@@ -632,31 +729,59 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
 
     // Summary
-    summaryContainer: {
-      flexDirection: 'row',
+    summaryWrapper: {
       backgroundColor: colors.card,
       borderRadius: 12,
-      padding: 14,
-      marginBottom: 16,
+      marginBottom: 12,
       borderWidth: 1,
       borderColor: colors.border,
+      overflow: 'hidden',
     },
-    summaryItem: {
-      flex: 1,
+    summaryToggle: {
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
     },
-    summaryDivider: {
-      width: 1,
-      backgroundColor: colors.border,
-      marginHorizontal: 12,
+    summaryToggleLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
     },
-    summaryLabel: {
-      fontSize: 12,
+    summaryToggleText: {
+      fontSize: 13,
+      fontWeight: '600',
       color: colors.textSecondary,
     },
-    summaryValue: {
-      fontSize: 14,
+    summaryInlineValue: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginLeft: 4,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 12,
+      paddingBottom: 10,
+      alignItems: 'center',
+    },
+    summaryCell: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 2,
+    },
+    summaryCellDivider: {
+      width: 1,
+      height: 28,
+      backgroundColor: colors.border,
+    },
+    summaryCellLabel: {
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    summaryCellValue: {
+      fontSize: 13,
       fontWeight: '700',
     },
 

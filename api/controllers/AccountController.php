@@ -378,7 +378,7 @@ class AccountController {
                         SELECT
                             hesap_kodu,
                             cari_doviz AS doviz,
-                            SUM(IFNULL(cari_alacak, 0) - IFNULL(cari_borc, 0)) AS bakiye
+                            SUM(IFNULL(cari_borc, 0) - IFNULL(cari_alacak, 0)) AS bakiye
                         FROM fis_detay
                         WHERE aktif <> -1
                           AND hesap_kodu LIKE '100%'
@@ -401,7 +401,7 @@ class AccountController {
                         SELECT
                             hesap_kodu,
                             cari_doviz AS doviz,
-                            SUM(IFNULL(cari_alacak, 0) - IFNULL(cari_borc, 0)) AS bakiye
+                            SUM(IFNULL(cari_borc, 0) - IFNULL(cari_alacak, 0)) AS bakiye
                         FROM fis_detay
                         WHERE aktif <> -1
                           AND hesap_kodu LIKE '102%'
@@ -428,7 +428,7 @@ class AccountController {
                         SELECT
                             hesap_kodu,
                             cari_doviz AS doviz,
-                            SUM(IFNULL(cari_alacak, 0) - IFNULL(cari_borc, 0)) AS bakiye
+                            SUM(IFNULL(cari_borc, 0) - IFNULL(cari_alacak, 0)) AS bakiye
                         FROM fis_detay
                         WHERE aktif <> -1
                           AND hesap_kodu LIKE '100%'
@@ -453,7 +453,7 @@ class AccountController {
                         SELECT
                             hesap_kodu,
                             cari_doviz AS doviz,
-                            SUM(IFNULL(cari_alacak, 0) - IFNULL(cari_borc, 0)) AS bakiye
+                            SUM(IFNULL(cari_borc, 0) - IFNULL(cari_alacak, 0)) AS bakiye
                         FROM fis_detay
                         WHERE aktif <> -1
                           AND hesap_kodu LIKE '102%'
@@ -549,7 +549,7 @@ class AccountController {
 
         // Parametreleri al
         $dataName = $data['dataName'] ?? '';
-        $cariId = $data['cariId'] ?? '';
+        $cariId = $data['cariId'] ?? null;
         $startDate = $data['startDate'] ?? null;
         $endDate = $data['endDate'] ?? null;
         $limit = min((int)($data['limit'] ?? 100), 500); // Max 500
@@ -559,9 +559,11 @@ class AccountController {
             Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
         }
 
-        if (empty($cariId)) {
+        if (!$cariId) {
             Response::error('cariId gereklidir', 'VALIDATION_ERROR', 400);
         }
+
+        $cariId = (int)$cariId;
 
         try {
             $db = Database::getInstance();
@@ -638,14 +640,12 @@ class AccountController {
                     d.id,
                     m.fis_tarihi AS tarih,
                     m.fis_no AS fisNo,
-                    COALESCE(d.aciklama, m.aciklama, '') AS aciklama,
+                    COALESCE(d.aciklama, '') AS aciklama,
                     COALESCE(d.cari_borc, 0) AS borc,
                     COALESCE(d.cari_alacak, 0) AS alacak,
-                    d.cari_doviz AS doviz,
-                    COALESCE(ft.fis_turu_adi, 'İşlem') AS fisTuru
+                    d.cari_doviz AS doviz
                 FROM fis_detay d
                 INNER JOIN fis_master m ON m.id = d.fis_master_id
-                LEFT JOIN fis_turleri ft ON m.fis_turu_id = ft.id
                 WHERE d.aktif <> -1
                     AND d.hesap_kodu = :hesapKodu
                     {$dateFilter}
@@ -664,7 +664,7 @@ class AccountController {
             foreach ($rows as $row) {
                 $borc = floatval($row['borc'] ?? 0);
                 $alacak = floatval($row['alacak'] ?? 0);
-                $bakiye = $bakiye + $alacak - $borc;
+                $bakiye = $bakiye + $borc - $alacak;
 
                 $transactions[] = [
                     'id' => (int)$row['id'],
@@ -675,7 +675,7 @@ class AccountController {
                     'alacak' => $alacak,
                     'bakiye' => $bakiye,
                     'doviz' => $row['doviz'] ?? 'TL',
-                    'fisTuru' => $row['fisTuru']
+                    'fisTuru' => 'İşlem'
                 ];
             }
 

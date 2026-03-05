@@ -775,14 +775,14 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
             <MenuCard
               name="Güvenli Çıkış"
               icon="log-out-outline"
-              color={colors.primary}
+              color="#EF4444"
               description="Hesaptan güvenli çıkış yap"
               onPress={handleLogoutPress}
             />
             <MenuCard
               name="Hesabımı Kapat"
               icon="close-circle-outline"
-              color={colors.primary}
+              color="#EF4444"
               description="Hesabınızı kalıcı olarak silin"
               onPress={() => setShowDeleteAccountConfirm(true)}
             />

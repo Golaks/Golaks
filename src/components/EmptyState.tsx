@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -36,7 +36,6 @@ const createStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     wrapper: {
       flex: 1,
-      minHeight: Dimensions.get('window').height * 0.5,
       justifyContent: 'center',
       alignItems: 'center',
     },

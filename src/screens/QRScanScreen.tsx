@@ -25,9 +25,10 @@ type ScanMode = 'barcode' | 'model';
 interface QRScanScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onQuery?: (queryType: 'barcode' | 'model', queryValue: string) => void;
 }
 
-export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProps) {
+export default function QRScanScreen({ onTabChange, onLogout, onQuery }: QRScanScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
@@ -86,7 +87,10 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
 
   const handleQuery = (value?: string) => {
     const queryValue = value || inputValue;
-    // TODO: Implement query logic
+    if (!queryValue.trim()) return;
+    if (onQuery) {
+      onQuery(scanMode, queryValue);
+    }
   };
 
   const handleLogout = async () => {
@@ -99,7 +103,7 @@ export default function QRScanScreen({ onTabChange, onLogout }: QRScanScreenProp
     }
   };
 
-  const quickNumbers = ['7', '8', '9', '38'];
+  const quickNumbers = ['6', '7', '8', '9'];
 
   const getScanModeInfo = () => {
     switch (scanMode) {

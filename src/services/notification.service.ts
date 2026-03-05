@@ -94,14 +94,16 @@ class NotificationService {
     }
   ): Promise<{
     success: boolean;
-    message: string;
-    bildirim_id?: number;
-    baslik?: string;
-    hedef_tip?: string;
-    bildirim_tipi?: string;
-    toplam_hedef?: number;
-    basarili_gonderim?: number;
-    basarisiz_gonderim?: number;
+    message?: string;
+    data?: {
+      bildirim_id?: number;
+      baslik?: string;
+      hedef_tip?: string;
+      bildirim_tipi?: string;
+      toplam_hedef?: number;
+      basarili_gonderim?: number;
+      basarisiz_gonderim?: number;
+    };
   }> {
     try {
       const response = await fetch(API_ENDPOINTS.NOTIFICATION_SEND, {

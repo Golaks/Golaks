@@ -120,7 +120,7 @@ const createStyles = (colors: any, variant: 'primary' | 'secondary' | 'danger') 
     },
     buttonDisabled: {
       backgroundColor: colors.border,
-      opacity: 0.6,
+      opacity: 0.5,
     },
     buttonLoading: {
       opacity: 0.8,

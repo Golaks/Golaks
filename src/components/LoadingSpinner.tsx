@@ -58,6 +58,7 @@ export default function LoadingSpinner({ size = 80, color, showText = true }: Lo
 
 const styles = StyleSheet.create({
   wrapper: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

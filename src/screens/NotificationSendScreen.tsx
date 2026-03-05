@@ -98,7 +98,7 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
       const token = await authService.getToken();
       if (!token) return;
 
-      const response = await fetch(API_ENDPOINTS.USER_MANAGEMENT, {
+      const response = await fetch(API_ENDPOINTS.USER_LIST, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -176,7 +176,8 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
       });
 
       if (result.success) {
-        const successMessage = `Bildirim ${result.basarili_gonderim || 0} kullanıcıya başarıyla gönderildi`;
+        const count = result.data?.basarili_gonderim ?? 0;
+        const successMessage = `Bildirim ${count} kullanıcıya başarıyla gönderildi`;
         showSuccess(successMessage);
 
         // Refresh notification count (sender might be in target group)
@@ -231,7 +232,7 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
       <View style={styles.container}>
         <Header
           title="Bildirim Gönder"
-          leftButton={<BackButton onPress={onBack} />}
+          leftButton={<BackButton onPress={onBack || (() => {})} />}
         />
 
         <ScrollView
@@ -404,6 +405,7 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
                       onPress={() => handleToggleUser(user.id)}
                     >
                       <Checkbox
+                        label=""
                         checked={selectedUsers.includes(user.id)}
                         onPress={() => handleToggleUser(user.id)}
                       />

@@ -19,6 +19,7 @@ interface AccountScreenProps {
   onCashBank?: () => void;
   onCariDetay?: () => void;
   onCheckBill?: () => void;
+  onStock?: () => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -28,7 +29,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -172,6 +173,17 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 onPress={() => {
                   if (onCheckBill) {
                     onCheckBill();
+                  }
+                }}
+              />
+              <MenuCard
+                name="Stoklar"
+                icon="cube-outline"
+                color="#EF4444"
+                description="Stok durumu ve hareketleri"
+                onPress={() => {
+                  if (onStock) {
+                    onStock();
                   }
                 }}
               />

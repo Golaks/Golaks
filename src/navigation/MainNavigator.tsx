@@ -14,11 +14,13 @@ import AccountSummaryScreen from '../screens/AccountSummaryScreen';
 import CariDetayScreen from '../screens/CariDetayScreen';
 import CashBankScreen from '../screens/CashBankScreen';
 import CheckBillScreen from '../screens/CheckBillScreen';
+import StockScreen from '../screens/StockScreen';
 import TanneryScreen from '../screens/TanneryScreen';
 import ConfectionScreen from '../screens/ConfectionScreen';
 import ShopScreen from '../screens/ShopScreen';
+import BarcodeResultScreen from '../screens/BarcodeResultScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'tannery' | 'confection' | 'shop';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -26,6 +28,7 @@ interface MainNavigatorProps {
 
 export default function MainNavigator({ onLogout }: MainNavigatorProps) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
+  const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
 
   const handleAppNavigation = (appId: string) => {
     switch (appId) {
@@ -51,7 +54,16 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
       case 'aiChat':
         return <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'qrScan':
-        return <QRScanScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return (
+          <QRScanScreen
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+            onQuery={(queryType, queryValue) => {
+              setBarcodeQuery({ type: queryType, value: queryValue });
+              setActiveScreen('barcodeResult');
+            }}
+          />
+        );
       case 'profile':
         return (
           <ProfileScreen
@@ -80,6 +92,7 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
             onCashBank={() => setActiveScreen('cashBank')}
             onCariDetay={() => setActiveScreen('cariDetay')}
             onCheckBill={() => setActiveScreen('checkBill')}
+            onStock={() => setActiveScreen('stock')}
           />
         );
       case 'accountSummary':
@@ -90,12 +103,24 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
         return <CashBankScreen onBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'checkBill':
         return <CheckBillScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'stock':
+        return <StockScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'tannery':
         return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confection':
         return <ConfectionScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'shop':
         return <ShopScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'barcodeResult':
+        return (
+          <BarcodeResultScreen
+            queryType={barcodeQuery.type}
+            queryValue={barcodeQuery.value}
+            onGoBack={() => setActiveScreen('qrScan')}
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+          />
+        );
       default:
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
     }
