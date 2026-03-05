@@ -2,7 +2,7 @@
 
 Modern React Native mobil uygulama ve PHP backend API.
 
-## 📱 Proje Yapısı
+## 📱 Proje Yapısı Yeni
 
 ```
 Golaks/
