@@ -82,6 +82,7 @@ api/temp/
 api/uploads/
 api/vendor/
 api/composer.lock
+api/config/*firebase*adminsdk*.json
 
 # Environment Config
 src/config/env.ts

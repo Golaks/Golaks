@@ -2816,6 +2816,11 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
+  - RNNotifee (9.1.8):
+    - React-Core
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
+    - React-Core
   - RNShare (12.2.5):
     - boost
     - DoubleConversion
@@ -3003,6 +3008,7 @@ DEPENDENCIES:
   - "RNFBApp (from `../node_modules/@react-native-firebase/app`)"
   - "RNFBMessaging (from `../node_modules/@react-native-firebase/messaging`)"
   - RNLocalize (from `../node_modules/react-native-localize`)
+  - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNShare (from `../node_modules/react-native-share`)
   - RNSound (from `../node_modules/react-native-sound`)
   - RNVectorIcons (from `../node_modules/react-native-vector-icons`)
@@ -3198,6 +3204,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-firebase/messaging"
   RNLocalize:
     :path: "../node_modules/react-native-localize"
+  RNNotifee:
+    :path: "../node_modules/@notifee/react-native"
   RNShare:
     :path: "../node_modules/react-native-share"
   RNSound:
@@ -3306,6 +3314,7 @@ SPEC CHECKSUMS:
   RNFBApp: 555e704c7896088d6c6d3d6fcdc2c331c6f9462c
   RNFBMessaging: 8d3ebcfd48e3fe4580245ef3850ed2db1a4da18f
   RNLocalize: 1aedbc2c15073861a364174919d23c31c5924b16
+  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNShare: 60a6937925595bf06a0061ffe8a34dbbdd8c6584
   RNSound: d5dd3ca86d9978e1c2736dfa943ba619fc9fc504
   RNVectorIcons: 791f13226ec4a3fd13062eda9e892159f0981fae

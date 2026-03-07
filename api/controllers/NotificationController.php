@@ -37,7 +37,7 @@ class NotificationController {
                     mb.olusturma_tarihi AS created_at,
                     DATE_FORMAT(mb.olusturma_tarihi, '%d.%m.%Y %H:%i') as time,
                     mbl.durum AS status,
-                    CASE WHEN mbl.durum = 'gonderildi' THEN 0 ELSE 1 END AS \`read\`
+                    CASE WHEN mbl.durum = 'gonderildi' THEN 0 ELSE 1 END AS is_read
                 FROM mobil_bildirim_log mbl
                 INNER JOIN mobil_bildirim mb ON mbl.mobil_bildirim_id = mb.id
                 WHERE mbl.mobil_kullanici_id = ?
@@ -47,9 +47,10 @@ class NotificationController {
                 [$userId]
             );
 
-            // Convert read to boolean
+            // Convert is_read to read boolean
             foreach ($notifications as &$notification) {
-                $notification['read'] = (bool)$notification['read'];
+                $notification['read'] = (bool)$notification['is_read'];
+                unset($notification['is_read']);
             }
 
             // Get unread count
@@ -99,7 +100,7 @@ class NotificationController {
                     mb.olusturma_tarihi AS created_at,
                     DATE_FORMAT(mb.olusturma_tarihi, '%d.%m.%Y %H:%i') as time,
                     mbl.durum AS status,
-                    0 AS \`read\`
+                    0 AS is_read
                 FROM mobil_bildirim_log mbl
                 INNER JOIN mobil_bildirim mb ON mbl.mobil_bildirim_id = mb.id
                 WHERE mbl.mobil_kullanici_id = ? AND mbl.durum = 'gonderildi'
@@ -307,6 +308,20 @@ class NotificationController {
                     [$bildirimId]
                 );
 
+                // Get FCM tokens for target users
+                $userIds = array_column($hedefKullanicilar, 'id');
+                $placeholdersFcm = implode(',', array_fill(0, count($userIds), '?'));
+                $usersWithTokens = $db->fetchAll(
+                    "SELECT id, cihaz_token FROM mobil_kullanici WHERE id IN ({$placeholdersFcm}) AND cihaz_token IS NOT NULL AND cihaz_token != ''",
+                    $userIds
+                );
+                $tokenMap = [];
+                foreach ($usersWithTokens as $u) {
+                    $tokenMap[$u['id']] = $u['cihaz_token'];
+                }
+                error_log("FCM DEBUG: target_users=" . count($userIds) . ", users_with_token=" . count($usersWithTokens) . ", tokens=" . count($tokenMap));
+                error_log("FCM DEBUG: userIds=" . json_encode($userIds));
+
                 // Create notification log for each target user
                 $basariliGonderim = 0;
                 foreach ($hedefKullanicilar as $kullanici) {
@@ -326,6 +341,28 @@ class NotificationController {
                     } catch (Exception $e) {
                         error_log("Failed to send notification to user {$kullanici['id']}: " . $e->getMessage());
                     }
+                }
+
+                // Send FCM push notifications to devices
+                try {
+                    require_once BASE_PATH . '/utils/FCM.php';
+                    $fcmTokens = array_values($tokenMap);
+                    error_log("FCM DEBUG: fcmTokens count=" . count($fcmTokens));
+                    if (!empty($fcmTokens)) {
+                        $fcmResult = FCM::sendToMultipleDevices(
+                            $fcmTokens,
+                            $baslik,
+                            $mesaj,
+                            [
+                                'bildirim_id' => (string)$bildirimId,
+                                'bildirim_tipi' => $bildirimTipi,
+                                'type' => 'notification',
+                            ]
+                        );
+                        error_log("FCM push sent: success={$fcmResult['success']}, failure={$fcmResult['failure']}");
+                    }
+                } catch (Exception $e) {
+                    error_log("FCM push error (non-critical): " . $e->getMessage());
                 }
 
                 // Update main notification with statistics

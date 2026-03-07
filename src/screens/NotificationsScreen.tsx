@@ -45,7 +45,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
       setLoading(true);
       const response = await notificationService.getNotifications(token);
 
-      if (response.success) {
+      if (response.success && Array.isArray(response.data)) {
         setNotifications(response.data);
       }
     } catch (error: any) {
@@ -63,7 +63,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
       setRefreshing(true);
       const response = await notificationService.getNotifications(token);
 
-      if (response.success) {
+      if (response.success && Array.isArray(response.data)) {
         setNotifications(response.data);
       }
     } catch (error: any) {
@@ -196,7 +196,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
 
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, filteredNotifications.length === 0 && styles.scrollContentEmpty]}
           showsVerticalScrollIndicator={false}
         >
           {/* Page Title */}
@@ -342,6 +342,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     scrollContent: {
       padding: 16,
       paddingBottom: 120,
+    },
+    scrollContentEmpty: {
+      flexGrow: 1,
     },
     pageHeader: {
       marginBottom: 16,
