@@ -359,6 +359,48 @@ class NotificationController {
     }
 
     /**
+     * Register FCM token for push notifications
+     */
+    public function registerToken() {
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $fcmToken = trim($input['fcm_token'] ?? '');
+        $platform = trim($input['platform'] ?? 'ios');
+        $deviceInfo = $input['device_info'] ?? null;
+
+        if (empty($fcmToken)) {
+            Response::badRequest('FCM token gereklidir');
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            // Update cihaz_token and cihaz_bilgisi in mobil_kullanici
+            $updateData = [
+                'cihaz_token' => $fcmToken,
+                'guncelleme_tarihi' => date('Y-m-d H:i:s')
+            ];
+
+            if ($deviceInfo) {
+                $updateData['cihaz_bilgisi'] = json_encode(array_merge(
+                    is_array($deviceInfo) ? $deviceInfo : [],
+                    ['platform' => $platform]
+                ));
+            }
+
+            $db->update('mobil_kullanici', $updateData, 'id = ?', [$userId]);
+
+            Response::success([], 'FCM token kaydedildi');
+
+        } catch (Exception $e) {
+            error_log("Register FCM token error: " . $e->getMessage());
+            Response::serverError('FCM token kaydedilemedi');
+        }
+    }
+
+    /**
      * Delete notification
      */
     public function deleteNotification() {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "566679058782",
+    "project_id": "golaks-mobile-app",
+    "storage_bucket": "golaks-mobile-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:566679058782:android:d9f4efaee55aa43259b7cf",
+        "android_client_info": {
+          "package_name": "com.golaks.golaksmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVjhsfa4VUKWpU9AA7We9iY18_5YW1b6Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Sound from 'react-native-sound';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
@@ -85,6 +86,8 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
   const [isSending, setIsSending] = useState(false);
   const [isEmojiModalVisible, setIsEmojiModalVisible] = useState(false);
   const [emojiTargetField, setEmojiTargetField] = useState<'title' | 'message'>('title');
+  const [isPlayingSound, setIsPlayingSound] = useState(false);
+  const soundRef = useRef<Sound | null>(null);
 
   React.useEffect(() => {
     if (target === 'user') {
@@ -198,6 +201,30 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleSoundTest = () => {
+    if (isPlayingSound && soundRef.current) {
+      soundRef.current.stop();
+      soundRef.current.release();
+      soundRef.current = null;
+      setIsPlayingSound(false);
+      return;
+    }
+
+    const sound = new Sound('golaks-mobile.mp3', Sound.MAIN_BUNDLE, (error) => {
+      if (error) {
+        showError('Ses dosyası yüklenemedi');
+        return;
+      }
+      soundRef.current = sound;
+      setIsPlayingSound(true);
+      sound.play(() => {
+        sound.release();
+        soundRef.current = null;
+        setIsPlayingSound(false);
+      });
+    });
   };
 
   const selectedCategory = CATEGORY_OPTIONS.find(c => c.id === category);
@@ -442,6 +469,29 @@ export default function NotificationSendScreen({ onBack, onTabChange }: Notifica
               </View>
             </View>
           )}
+
+          {/* Ses Testi */}
+          <View style={styles.section}>
+            <SectionTitle title="Bildirim Sesi" />
+            <Pressable
+              style={[styles.soundTestButton, isPlayingSound && { borderColor: colors.primary, backgroundColor: colors.primary + '10' }]}
+              onPress={handleSoundTest}
+            >
+              <Icon
+                name={isPlayingSound ? 'stop-circle' : 'musical-notes'}
+                size={24}
+                color={isPlayingSound ? colors.primary : colors.textSecondary}
+              />
+              <Text style={[styles.soundTestText, isPlayingSound && { color: colors.primary }]}>
+                {isPlayingSound ? 'Sesi Durdur' : 'Bildirim Sesini Test Et'}
+              </Text>
+              <Icon
+                name={isPlayingSound ? 'volume-high' : 'volume-medium-outline'}
+                size={20}
+                color={isPlayingSound ? colors.primary : colors.textSecondary}
+              />
+            </Pressable>
+          </View>
 
           {/* Gönder Butonu */}
           <View style={styles.footer}>
@@ -761,5 +811,21 @@ const createStyles = (colors: any, isDark: boolean) =>
     loadingContainer: {
       padding: 20,
       alignItems: 'center',
+    },
+    soundTestButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      padding: 16,
+      gap: 12,
+    },
+    soundTestText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.textSecondary,
     },
   });

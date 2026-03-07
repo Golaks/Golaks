@@ -70,6 +70,7 @@ class Router {
         $this->put('/notifications/:id/read', 'NotificationController', 'markAsRead');
         $this->delete('/notifications/:id', 'NotificationController', 'deleteNotification');
         $this->post('/notifications/send', 'NotificationController', 'sendNotification');
+        $this->post('/notifications/register-token', 'NotificationController', 'registerToken');
 
         // AI Routes (Protected)
         $this->post('/ai/chat', 'AIController', 'chat');

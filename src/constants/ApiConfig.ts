@@ -55,6 +55,7 @@ export const API_ENDPOINTS = {
   NOTIFICATION_MARK_READ: (id: string) => `${BASE_API_URL}/notifications/${id}/read`,
   NOTIFICATION_DELETE: (id: string) => `${BASE_API_URL}/notifications/${id}`,
   NOTIFICATION_SEND: `${BASE_API_URL}/notifications/send`,
+  NOTIFICATION_REGISTER_TOKEN: `${BASE_API_URL}/notifications/register-token`,
 
   // Account endpoints (muhasebe)
   ACCOUNT_CARI_LIST: `${BASE_API_URL}/account/cari-list`,

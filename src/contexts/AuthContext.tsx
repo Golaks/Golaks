@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { authService } from '../services/auth.service';
 import { UserInfo } from '../types/auth.types';
 import notificationService from '../services/notification.service';
+import pushNotificationService from '../services/pushNotification.service';
 
 interface AuthContextType {
   user: UserInfo | null;
@@ -32,11 +33,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
-  // Refresh notification count when authenticated
+  // Register FCM token and listen for push notifications when authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      refreshNotificationCount();
-    }
+    if (!isAuthenticated) return;
+
+    refreshNotificationCount();
+
+    let unsubscribeTokenRefresh: (() => void) | undefined;
+    let unsubscribeMessage: (() => void) | undefined;
+
+    const setupPush = async () => {
+      const token = await authService.getToken();
+      if (!token) return;
+
+      await pushNotificationService.registerToken(token);
+      unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(token);
+
+      unsubscribeMessage = pushNotificationService.onMessage(() => {
+        refreshNotificationCount();
+      });
+    };
+
+    setupPush();
+
+    return () => {
+      unsubscribeTokenRefresh?.();
+      unsubscribeMessage?.();
+    };
   }, [isAuthenticated]);
 
   const checkAuth = async () => {
