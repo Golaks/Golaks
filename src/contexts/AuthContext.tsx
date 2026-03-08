@@ -3,7 +3,8 @@
  * Global authentication state management
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { authService } from '../services/auth.service';
 import { UserInfo } from '../types/auth.types';
 import notificationService from '../services/notification.service';
@@ -33,6 +34,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
+  // Refresh badge count when app comes to foreground
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        refreshNotificationCount();
+      }
+      appState.current = nextState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [isAuthenticated]);
+
   // Register FCM token and listen for push notifications when authenticated
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -49,8 +66,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await pushNotificationService.registerToken(token);
       unsubscribeTokenRefresh = pushNotificationService.onTokenRefresh(token);
 
-      unsubscribeMessage = pushNotificationService.onMessage(() => {
-        refreshNotificationCount();
+      unsubscribeMessage = pushNotificationService.onMessage(async () => {
+        await refreshNotificationCount();
       });
     };
 
@@ -113,6 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await authService.logout();
       setUser(null);
       setIsAuthenticated(false);
+      await pushNotificationService.setBadgeCount(0);
     } catch (error) {
     }
   };
@@ -132,15 +150,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const token = await authService.getToken();
       if (!token) {
         setNotificationCount(0);
+        await pushNotificationService.setBadgeCount(0);
         return;
       }
 
       const response = await notificationService.getNotifications(token);
       if (response.success) {
         setNotificationCount(response.unread_count);
+        await pushNotificationService.setBadgeCount(response.unread_count);
       }
     } catch (error) {
       setNotificationCount(0);
+      await pushNotificationService.setBadgeCount(0);
     }
   };
 

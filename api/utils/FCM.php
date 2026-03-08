@@ -129,7 +129,7 @@ class FCM {
      * @param array $data Optional data payload
      * @return bool Success status
      */
-    public static function sendToDevice(string $fcmToken, string $title, string $body, array $data = []): bool {
+    public static function sendToDevice(string $fcmToken, string $title, string $body, array $data = [], int $badgeCount = 1): bool {
         try {
             $projectId = self::getProjectId();
             $accessToken = self::getAccessToken();
@@ -145,15 +145,16 @@ class FCM {
                     'apns' => [
                         'payload' => [
                             'aps' => [
-                                'sound' => 'default',
-                                'badge' => 1,
+                                'sound' => 'golaks-mobile.mp3',
+                                'badge' => $badgeCount,
                             ],
                         ],
                     ],
                     'android' => [
                         'notification' => [
-                            'sound' => 'default',
-                            'channel_id' => 'default',
+                            'sound' => 'golaks_mobile',
+                            'channel_id' => 'golaks_notifications',
+                            'icon' => 'ic_notification',
                         ],
                     ],
                 ],
@@ -202,9 +203,10 @@ class FCM {
      * @param string $title Notification title
      * @param string $body Notification body/message
      * @param array $data Optional data payload
+     * @param array $badgeCounts Optional map of fcmToken => badgeCount for per-user badge
      * @return array ['success' => int, 'failure' => int]
      */
-    public static function sendToMultipleDevices(array $fcmTokens, string $title, string $body, array $data = []): array {
+    public static function sendToMultipleDevices(array $fcmTokens, string $title, string $body, array $data = [], array $badgeCounts = []): array {
         $success = 0;
         $failure = 0;
 
@@ -214,7 +216,9 @@ class FCM {
                 continue;
             }
 
-            if (self::sendToDevice($token, $title, $body, $data)) {
+            $badge = $badgeCounts[$token] ?? 1;
+
+            if (self::sendToDevice($token, $title, $body, $data, $badge)) {
                 $success++;
             } else {
                 $failure++;

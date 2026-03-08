@@ -343,12 +343,33 @@ class NotificationController {
                     }
                 }
 
-                // Send FCM push notifications to devices
+                // Send FCM push notifications to devices with per-user badge counts
                 try {
                     require_once BASE_PATH . '/utils/FCM.php';
                     $fcmTokens = array_values($tokenMap);
                     error_log("FCM DEBUG: fcmTokens count=" . count($fcmTokens));
                     if (!empty($fcmTokens)) {
+                        // Query unread notification count per user (after log insert)
+                        $tokenUserIds = array_keys($tokenMap);
+                        $placeholdersBadge = implode(',', array_fill(0, count($tokenUserIds), '?'));
+                        $unreadCounts = $db->fetchAll(
+                            "SELECT mobil_kullanici_id, COUNT(*) as unread
+                            FROM mobil_bildirim_log
+                            WHERE mobil_kullanici_id IN ({$placeholdersBadge}) AND durum = 'gonderildi'
+                            GROUP BY mobil_kullanici_id",
+                            $tokenUserIds
+                        );
+
+                        // Build token => badge count map
+                        $userUnreadMap = [];
+                        foreach ($unreadCounts as $row) {
+                            $userUnreadMap[$row['mobil_kullanici_id']] = (int)$row['unread'];
+                        }
+                        $badgeCounts = [];
+                        foreach ($tokenMap as $uid => $fcmToken) {
+                            $badgeCounts[$fcmToken] = $userUnreadMap[$uid] ?? 1;
+                        }
+
                         $fcmResult = FCM::sendToMultipleDevices(
                             $fcmTokens,
                             $baslik,
@@ -357,7 +378,8 @@ class NotificationController {
                                 'bildirim_id' => (string)$bildirimId,
                                 'bildirim_tipi' => $bildirimTipi,
                                 'type' => 'notification',
-                            ]
+                            ],
+                            $badgeCounts
                         );
                         error_log("FCM push sent: success={$fcmResult['success']}, failure={$fcmResult['failure']}");
                     }

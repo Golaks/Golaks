@@ -1,7 +1,7 @@
 import { getMessaging, getToken, onTokenRefresh, onMessage, onNotificationOpenedApp, getInitialNotification, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { getApp } from '@react-native-firebase/app';
 import notifee, { AndroidImportance } from '@notifee/react-native';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
 
@@ -14,6 +14,16 @@ class PushNotificationService {
   }
 
   async requestPermission(): Promise<boolean> {
+    // Android 13+ requires runtime POST_NOTIFICATIONS permission
+    if (Platform.OS === 'android' && Platform.Version >= 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        return false;
+      }
+    }
+
     const authStatus = await requestPermission(getMessaging(getApp()));
     return (
       authStatus === AuthorizationStatus.AUTHORIZED ||
@@ -89,13 +99,13 @@ class PushNotificationService {
     return onMessage(getMessaging(getApp()), async (remoteMessage) => {
       // Show local notification when app is in foreground
       try {
-        let channelId = 'default';
+        let channelId = 'golaks_notifications';
         if (Platform.OS === 'android') {
           channelId = await notifee.createChannel({
-            id: 'default',
+            id: 'golaks_notifications',
             name: 'Bildirimler',
             importance: AndroidImportance.HIGH,
-            sound: 'default',
+            sound: 'golaks_mobile',
           });
         }
 
@@ -105,11 +115,12 @@ class PushNotificationService {
           android: {
             channelId,
             smallIcon: 'ic_notification',
-            sound: 'default',
+            largeIcon: 'ic_launcher',
+            sound: 'golaks_mobile',
             pressAction: { id: 'default' },
           },
           ios: {
-            sound: 'default',
+            sound: 'golaks-mobile.mp3',
           },
         });
       } catch (e) {
@@ -127,6 +138,14 @@ class PushNotificationService {
 
   async getInitialNotification(): Promise<any> {
     return getInitialNotification(getMessaging(getApp()));
+  }
+
+  async setBadgeCount(count: number): Promise<void> {
+    try {
+      await notifee.setBadgeCount(count);
+    } catch {
+      // Silent fail
+    }
   }
 }
 

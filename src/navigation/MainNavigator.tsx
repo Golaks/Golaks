@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { TabName } from '../components/TabBar';
 import ApplicationsScreen from '../screens/ApplicationsScreen';
@@ -26,9 +26,17 @@ interface MainNavigatorProps {
   onLogout?: () => void;
 }
 
-export default function MainNavigator({ onLogout }: MainNavigatorProps) {
+export interface MainNavigatorRef {
+  navigateTo: (screen: AppScreen) => void;
+}
+
+function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
   const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
+
+  useImperativeHandle(ref, () => ({
+    navigateTo: (screen: AppScreen) => setActiveScreen(screen),
+  }));
 
   const handleAppNavigation = (appId: string) => {
     switch (appId) {
@@ -128,6 +136,9 @@ export default function MainNavigator({ onLogout }: MainNavigatorProps) {
 
   return <View style={styles.container}>{renderScreen()}</View>;
 }
+
+const MainNavigator = forwardRef(MainNavigatorInner);
+export default MainNavigator;
 
 const styles = StyleSheet.create({
   container: {

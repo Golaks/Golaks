@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
@@ -14,7 +14,8 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import SplashScreen from './src/components/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
-import MainNavigator from './src/navigation/MainNavigator';
+import MainNavigator, { MainNavigatorRef } from './src/navigation/MainNavigator';
+import pushNotificationService from './src/services/pushNotification.service';
 
 type Screen = 'splash' | 'login' | 'forgot-password' | 'home';
 
@@ -23,6 +24,7 @@ function AppContent(): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [showSplash, setShowSplash] = useState(true);
+  const navigatorRef = useRef<MainNavigatorRef>(null);
 
   useEffect(() => {
     // Check authentication after splash
@@ -34,6 +36,28 @@ function AppContent(): React.JSX.Element {
       }
     }
   }, [isAuthenticated, isLoading, showSplash]);
+
+  // Handle notification tap - navigate to notifications screen
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const goToNotifications = () => {
+      setCurrentScreen('home');
+      setTimeout(() => navigatorRef.current?.navigateTo('notifications'), 100);
+    };
+
+    // App opened from background by tapping notification
+    const unsubscribe = pushNotificationService.onNotificationOpenedApp(goToNotifications);
+
+    // App was closed, opened by tapping notification
+    pushNotificationService.getInitialNotification().then((message) => {
+      if (message) {
+        goToNotifications();
+      }
+    });
+
+    return unsubscribe;
+  }, [isAuthenticated]);
 
   const handleSplashComplete = () => {
     setShowSplash(false);
@@ -81,7 +105,7 @@ function AppContent(): React.JSX.Element {
       case 'forgot-password':
         return <ForgotPasswordScreen onBackToLogin={handleBackToLogin} />;
       case 'home':
-        return <MainNavigator onLogout={handleLogout} />;
+        return <MainNavigator ref={navigatorRef} onLogout={handleLogout} />;
       default:
         return null;
     }
