@@ -49,7 +49,6 @@ const APPLICATIONS: Application[] = [
     icon: 'storefront-outline',
     color: '#8B5CF6',
     description: 'Satış Yönetimi',
-    comingSoon: true,
   },
 ];
 

@@ -1,4 +1,4 @@
-import { getMessaging, getToken, onTokenRefresh, onMessage, onNotificationOpenedApp, getInitialNotification, requestPermission, AuthorizationStatus, getAPNSToken } from '@react-native-firebase/messaging';
+import { getMessaging, getToken, onTokenRefresh, onMessage, onNotificationOpenedApp, getInitialNotification, requestPermission, AuthorizationStatus } from '@react-native-firebase/messaging';
 import { getApp } from '@react-native-firebase/app';
 import notifee, { AndroidImportance } from '@notifee/react-native';
 import { Platform } from 'react-native';
@@ -26,7 +26,7 @@ class PushNotificationService {
       const token = await getToken(getMessaging(getApp()));
       return token;
     } catch (error) {
-      console.log('[PushNotification] getToken error:', error);
+      console.warn('[PushNotification] getToken error:', error);
       return null;
     }
   }
@@ -44,19 +44,9 @@ class PushNotificationService {
   async registerToken(authToken: string): Promise<void> {
     try {
       const hasPermission = await this.requestPermission();
-      console.log('[PushNotification] Permission:', hasPermission);
       if (!hasPermission) return;
 
-      // Log APNs token for debugging
-      try {
-        const apnsToken = await getAPNSToken(getMessaging(getApp()));
-        console.log('[PushNotification] APNs Token:', apnsToken || 'null');
-      } catch (e) {
-        console.log('[PushNotification] APNs Token error:', e);
-      }
-
       const fcmToken = await this.getFcmToken();
-      console.log('[PushNotification] FCM Token:', fcmToken ? fcmToken.substring(0, 20) + '...' : 'null');
       if (!fcmToken) return;
 
       const deviceInfo = await this.getDeviceInfo();
@@ -71,10 +61,9 @@ class PushNotificationService {
         }),
       });
 
-      const result = await response.json();
-      console.log('[PushNotification] Register response:', response.status, result);
+      await response.json();
     } catch (error) {
-      console.log('[PushNotification] Register error:', error);
+      console.warn('[PushNotification] Register error:', error);
     }
   }
 

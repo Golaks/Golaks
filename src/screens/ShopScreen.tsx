@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
 import Tab, { TabOption } from '../components/Tab';
+import MenuCard from '../components/MenuCard';
 
 interface ShopScreenProps {
   onBack?: () => void;
@@ -80,6 +81,40 @@ export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreen
             activeTab={shopTab}
             onTabChange={setShopTab}
           />
+
+          {/* Tab Content */}
+          {shopTab === 'reports' && (
+            <>
+              <MenuCard
+                name="Satışlar"
+                icon="cart-outline"
+                color="#10B981"
+                description="Mağaza satış raporu"
+                onPress={() => {}}
+              />
+              <MenuCard
+                name="Stoklar"
+                icon="cube-outline"
+                color="#3B82F6"
+                description="Mağaza stok durumu raporu"
+                onPress={() => {}}
+              />
+              <MenuCard
+                name="Firma Model Performans"
+                icon="trending-up-outline"
+                color="#8B5CF6"
+                description="Firma ve Model performans raporu"
+                onPress={() => {}}
+              />
+              <MenuCard
+                name="Personel Performans"
+                icon="people-outline"
+                color="#EC4899"
+                description="Personel performans raporu"
+                onPress={() => {}}
+              />
+            </>
+          )}
         </ScrollView>
 
         {/* Bottom TabBar */}

@@ -248,22 +248,22 @@ class NotificationController {
             $hedefKullanicilar = [];
 
             if ($hedefTip === 'all') {
-                // All active users in the same company
+                // All active users across all companies
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ?",
-                    [$firmaId]
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1",
+                    []
                 );
             } elseif ($hedefTip === 'role') {
-                // Users with specific role in the same company
+                // Users with specific role across all companies
                 if ($hedefDeger === null || !in_array((int)$hedefDeger, [0, 1, 2])) {
                     Response::badRequest('Geçerli bir rol seçmelisiniz');
                 }
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND kullanici_rol = ?",
-                    [$firmaId, (int)$hedefDeger]
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND kullanici_rol = ?",
+                    [(int)$hedefDeger]
                 );
             } elseif ($hedefTip === 'user') {
-                // Specific users in the same company
+                // Specific users
                 if (empty($hedefDeger)) {
                     Response::badRequest('En az bir kullanıcı seçmelisiniz');
                 }
@@ -275,8 +275,8 @@ class NotificationController {
 
                 $placeholders = implode(',', array_fill(0, count($userIds), '?'));
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND id IN ({$placeholders})",
-                    array_merge([$firmaId], $userIds)
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND id IN ({$placeholders})",
+                    $userIds
                 );
             }
 
