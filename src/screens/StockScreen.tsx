@@ -5,19 +5,25 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SearchInput from '../components/SearchInput';
+import Input from '../components/Input';
 import IconButton from '../components/IconButton';
 import BackButton from '../components/BackButton';
+import Button from '../components/Button';
+import BottomSheet from '../components/BottomSheet';
 import TabBar, { TabName } from '../components/TabBar';
-import stockService, { StockItem, StockSummaryItem } from '../services/stock.service';
+import stockService, { StockItem, StockSummaryItem, CreateStockData } from '../services/stock.service';
 import { authService } from '../services/auth.service';
 
 interface StockScreenProps {
@@ -26,9 +32,21 @@ interface StockScreenProps {
   onLogout?: () => void;
 }
 
+const INITIAL_FORM: CreateStockData = {
+  stockCode: '',
+  stockName: '',
+  barcode: '',
+  barcodeType: 'tekil',
+  currency: 'TL',
+  size: '',
+  vatRate: 0,
+  description: '',
+};
+
 export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
+  const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
@@ -38,6 +56,12 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
   const [data, setData] = useState<StockItem[]>([]);
   const [summaryData, setSummaryData] = useState<StockSummaryItem[]>([]);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+
+  // Create stock modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState<CreateStockData>({ ...INITIAL_FORM });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   const styles = createStyles(colors, isDark);
 
@@ -128,13 +152,73 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
     }
   };
 
+  const handleOpenCreate = () => {
+    setFormData({ ...INITIAL_FORM });
+    setFormErrors({});
+    setShowCreateModal(true);
+  };
+
+  const handleFormChange = (key: keyof CreateStockData, value: string) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+    if (formErrors[key]) {
+      setFormErrors(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
+  const handleCreateStock = async () => {
+    const errors: Record<string, string> = {};
+    if (!formData.stockCode?.trim()) errors.stockCode = 'Stok kodu gerekli';
+    if (!formData.stockName?.trim()) errors.stockName = 'Stok adı gerekli';
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = await authService.getToken();
+      if (!token) { showError('Oturum bilgisi bulunamadı'); return; }
+
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      if (!dataName) { showError('Firma veritabanı bilgisi bulunamadı'); return; }
+
+      const result = await stockService.createStock(token, dataName, {
+        ...formData,
+        module: 'muhasebe',
+        vatRate: formData.vatRate ? Number(formData.vatRate) : 0,
+      });
+
+      if (result.success) {
+        showSuccess(result.message || 'Stok kartı oluşturuldu');
+        setShowCreateModal(false);
+        fetchData();
+      } else {
+        showError(result.message || 'Stok kartı oluşturulamadı');
+      }
+    } catch (err: any) {
+      showError(err.message || 'Stok kartı oluşturulamadı');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
         <Header
           title="Stoklar"
           leftButton={<BackButton onPress={onGoBack} />}
-          rightButton={<IconButton icon="search-outline" onPress={handleToggleSearch} />}
+          rightButton={
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              <IconButton icon="add-outline" onPress={handleOpenCreate} />
+              <IconButton icon="search-outline" onPress={handleToggleSearch} />
+            </View>
+          }
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -388,6 +472,112 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
             })}
           </ScrollView>
         )}
+
+        {/* Create Stock Bottom Sheet */}
+        <BottomSheet
+          visible={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          title="Yeni Stok Kartı"
+          icon="add-circle-outline"
+          iconColor={colors.primary}
+          footer={
+            <>
+              <Button
+                text="İptal"
+                variant="secondary"
+                onPress={() => setShowCreateModal(false)}
+                icon="close-outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                text="Kaydet"
+                variant="primary"
+                onPress={handleCreateStock}
+                icon="checkmark-outline"
+                loading={isSaving}
+                style={{ flex: 1 }}
+              />
+            </>
+          }>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={100}>
+            <Input
+              label="Stok Kodu *"
+              icon="barcode-outline"
+              value={formData.stockCode || ''}
+              onChangeText={(v) => handleFormChange('stockCode', v)}
+              placeholder="Stok kodunu girin"
+              error={formErrors.stockCode}
+              shake={!!formErrors.stockCode}
+              clearable
+              onClear={() => handleFormChange('stockCode', '')}
+            />
+            <Input
+              label="Stok Adı *"
+              icon="pricetag-outline"
+              value={formData.stockName || ''}
+              onChangeText={(v) => handleFormChange('stockName', v)}
+              placeholder="Stok adını girin"
+              error={formErrors.stockName}
+              shake={!!formErrors.stockName}
+              clearable
+              onClear={() => handleFormChange('stockName', '')}
+              containerStyle={{ marginTop: 4 }}
+            />
+            <Input
+              label="Barkod"
+              icon="scan-outline"
+              value={formData.barcode || ''}
+              onChangeText={(v) => handleFormChange('barcode', v)}
+              placeholder="Barkod numarası"
+              clearable
+              onClear={() => handleFormChange('barcode', '')}
+              containerStyle={{ marginTop: 4 }}
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="Döviz"
+                  icon="cash-outline"
+                  value={formData.currency || 'TL'}
+                  onChangeText={(v) => handleFormChange('currency', v)}
+                  placeholder="TL"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Input
+                  label="KDV Oranı (%)"
+                  icon="receipt-outline"
+                  value={formData.vatRate ? String(formData.vatRate) : ''}
+                  onChangeText={(v) => handleFormChange('vatRate', v)}
+                  placeholder="0"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+            <Input
+              label="Beden"
+              icon="resize-outline"
+              value={formData.size || ''}
+              onChangeText={(v) => handleFormChange('size', v)}
+              placeholder="Beden bilgisi"
+              clearable
+              onClear={() => handleFormChange('size', '')}
+              containerStyle={{ marginTop: 4 }}
+            />
+            <Input
+              label="Açıklama"
+              icon="document-text-outline"
+              value={formData.description || ''}
+              onChangeText={(v) => handleFormChange('description', v)}
+              placeholder="Açıklama (opsiyonel)"
+              clearable
+              onClear={() => handleFormChange('description', '')}
+              containerStyle={{ marginTop: 4 }}
+            />
+          </KeyboardAvoidingView>
+        </BottomSheet>
 
         <TabBar
           activeTab={activeTab}

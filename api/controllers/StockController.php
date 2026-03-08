@@ -263,4 +263,133 @@ class StockController {
             Response::serverError('Stok listesi alınamadı: ' . $e->getMessage());
         }
     }
+
+    /**
+     * POST /stock/create
+     * Yeni stok kartı oluştur
+     */
+    public function create() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $stockData = $data['stockData'] ?? [];
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        $stockCode = trim($stockData['stockCode'] ?? '');
+        $stockName = trim($stockData['stockName'] ?? '');
+
+        if (empty($stockCode)) {
+            Response::error('Stok kodu gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($stockName)) {
+            Response::error('Stok adı gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $subeAyarlar = $firmaAyarlar['sube'] ?? [];
+            $subeId = (int)($subeAyarlar['subeId'] ?? 0);
+
+            // Stok kodu benzersizlik kontrolü
+            $existing = $pdo->prepare(
+                "SELECT id FROM stok_master WHERE stok_kodu = ? AND firma_id = ? AND aktif = 1 LIMIT 1"
+            );
+            $existing->execute([$stockCode, $firmaId]);
+            if ($existing->fetch()) {
+                Response::error('Bu stok kodu zaten kullanılmaktadır', 'DUPLICATE_STOCK_CODE', 409);
+            }
+
+            $sql = "INSERT INTO stok_master (
+                stok_kodu, stok_adi, barkod, barkod_tipi,
+                stok_modul, stok_alt_modul, doviz, beden,
+                kdv_oran, aciklama, firma_id, sube_id, aktif,
+                miktar1_giren, miktar1_cikan, miktar1_kalan,
+                miktar2_giren, miktar2_cikan, miktar2_kalan
+            ) VALUES (
+                :stok_kodu, :stok_adi, :barkod, :barkod_tipi,
+                :stok_modul, :stok_alt_modul, :doviz, :beden,
+                :kdv_oran, :aciklama, :firma_id, :sube_id, 1,
+                0, 0, 0, 0, 0, 0
+            )";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':stok_kodu' => $stockCode,
+                ':stok_adi' => $stockName,
+                ':barkod' => trim($stockData['barcode'] ?? ''),
+                ':barkod_tipi' => $stockData['barcodeType'] ?? 'tekil',
+                ':stok_modul' => $stockData['module'] ?? 'muhasebe',
+                ':stok_alt_modul' => $stockData['subModule'] ?? '',
+                ':doviz' => $stockData['currency'] ?? 'TL',
+                ':beden' => trim($stockData['size'] ?? ''),
+                ':kdv_oran' => (float)($stockData['vatRate'] ?? 0),
+                ':aciklama' => trim($stockData['description'] ?? ''),
+                ':firma_id' => $firmaId,
+                ':sube_id' => $subeId,
+            ]);
+
+            $newId = $pdo->lastInsertId();
+
+            Response::success([
+                'id' => (string)$newId,
+                'stockCode' => $stockCode,
+                'stockName' => $stockName,
+            ], 'Stok kartı başarıyla oluşturuldu');
+
+        } catch (PDOException $e) {
+            Response::serverError('Veritabanı hatası: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Response::serverError('Stok kartı oluşturulamadı: ' . $e->getMessage());
+        }
+    }
 }

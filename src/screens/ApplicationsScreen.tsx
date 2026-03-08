@@ -35,7 +35,6 @@ const APPLICATIONS: Application[] = [
     icon: 'business-outline',
     color: '#10B981',
     description: 'Üretim Yönetimi',
-    comingSoon: true,
   },
   {
     id: '3',
@@ -50,7 +49,6 @@ const APPLICATIONS: Application[] = [
     icon: 'storefront-outline',
     color: '#8B5CF6',
     description: 'Satış Yönetimi',
-    comingSoon: true,
   },
 ];
 

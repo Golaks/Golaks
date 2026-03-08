@@ -37,10 +37,20 @@ class NotificationService {
         method: 'GET',
         headers: this.getAuthHeader(token),
       });
-      const data = await response.json();
-      return data;
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.message || json.error?.message || 'Bildirimler yüklenemedi');
+      }
+      // API: { success, data: { data: [...], unread_count, read_count } }
+      const payload = json.data || {};
+      return {
+        success: true,
+        data: Array.isArray(payload.data) ? payload.data : Array.isArray(payload) ? payload : [],
+        unread_count: payload.unread_count ?? 0,
+        read_count: payload.read_count ?? 0,
+      };
     } catch (error: any) {
-      throw new Error('Bildirimler yüklenemedi');
+      throw new Error(error.message || 'Bildirimler yüklenemedi');
     }
   }
 
@@ -50,10 +60,19 @@ class NotificationService {
         method: 'GET',
         headers: this.getAuthHeader(token),
       });
-      const data = await response.json();
-      return data;
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.message || json.error?.message || 'Okunmamış bildirimler yüklenemedi');
+      }
+      const payload = json.data || {};
+      return {
+        success: true,
+        data: Array.isArray(payload.data) ? payload.data : Array.isArray(payload) ? payload : [],
+        unread_count: payload.unread_count ?? 0,
+        read_count: payload.read_count ?? 0,
+      };
     } catch (error: any) {
-      throw new Error('Okunmamış bildirimler yüklenemedi');
+      throw new Error(error.message || 'Okunmamış bildirimler yüklenemedi');
     }
   }
 

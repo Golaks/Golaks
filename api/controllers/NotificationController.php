@@ -37,7 +37,7 @@ class NotificationController {
                     mb.olusturma_tarihi AS created_at,
                     DATE_FORMAT(mb.olusturma_tarihi, '%d.%m.%Y %H:%i') as time,
                     mbl.durum AS status,
-                    CASE WHEN mbl.durum = 'gonderildi' THEN 0 ELSE 1 END AS \`read\`
+                    CASE WHEN mbl.durum = 'gonderildi' THEN 0 ELSE 1 END AS is_read
                 FROM mobil_bildirim_log mbl
                 INNER JOIN mobil_bildirim mb ON mbl.mobil_bildirim_id = mb.id
                 WHERE mbl.mobil_kullanici_id = ?
@@ -47,9 +47,10 @@ class NotificationController {
                 [$userId]
             );
 
-            // Convert read to boolean
+            // Convert is_read to read boolean
             foreach ($notifications as &$notification) {
-                $notification['read'] = (bool)$notification['read'];
+                $notification['read'] = (bool)$notification['is_read'];
+                unset($notification['is_read']);
             }
 
             // Get unread count
@@ -99,7 +100,7 @@ class NotificationController {
                     mb.olusturma_tarihi AS created_at,
                     DATE_FORMAT(mb.olusturma_tarihi, '%d.%m.%Y %H:%i') as time,
                     mbl.durum AS status,
-                    0 AS \`read\`
+                    0 AS is_read
                 FROM mobil_bildirim_log mbl
                 INNER JOIN mobil_bildirim mb ON mbl.mobil_bildirim_id = mb.id
                 WHERE mbl.mobil_kullanici_id = ? AND mbl.durum = 'gonderildi'
@@ -247,22 +248,22 @@ class NotificationController {
             $hedefKullanicilar = [];
 
             if ($hedefTip === 'all') {
-                // All active users in the same company
+                // All active users across all companies
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ?",
-                    [$firmaId]
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1",
+                    []
                 );
             } elseif ($hedefTip === 'role') {
-                // Users with specific role in the same company
+                // Users with specific role across all companies
                 if ($hedefDeger === null || !in_array((int)$hedefDeger, [0, 1, 2])) {
                     Response::badRequest('Geçerli bir rol seçmelisiniz');
                 }
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND kullanici_rol = ?",
-                    [$firmaId, (int)$hedefDeger]
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND kullanici_rol = ?",
+                    [(int)$hedefDeger]
                 );
             } elseif ($hedefTip === 'user') {
-                // Specific users in the same company
+                // Specific users
                 if (empty($hedefDeger)) {
                     Response::badRequest('En az bir kullanıcı seçmelisiniz');
                 }
@@ -274,8 +275,8 @@ class NotificationController {
 
                 $placeholders = implode(',', array_fill(0, count($userIds), '?'));
                 $hedefKullanicilar = $db->fetchAll(
-                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND mobil_firmalar_id = ? AND id IN ({$placeholders})",
-                    array_merge([$firmaId], $userIds)
+                    "SELECT id FROM mobil_kullanici WHERE aktif = 1 AND id IN ({$placeholders})",
+                    $userIds
                 );
             }
 
@@ -307,6 +308,20 @@ class NotificationController {
                     [$bildirimId]
                 );
 
+                // Get FCM tokens for target users
+                $userIds = array_column($hedefKullanicilar, 'id');
+                $placeholdersFcm = implode(',', array_fill(0, count($userIds), '?'));
+                $usersWithTokens = $db->fetchAll(
+                    "SELECT id, cihaz_token FROM mobil_kullanici WHERE id IN ({$placeholdersFcm}) AND cihaz_token IS NOT NULL AND cihaz_token != ''",
+                    $userIds
+                );
+                $tokenMap = [];
+                foreach ($usersWithTokens as $u) {
+                    $tokenMap[$u['id']] = $u['cihaz_token'];
+                }
+                error_log("FCM DEBUG: target_users=" . count($userIds) . ", users_with_token=" . count($usersWithTokens) . ", tokens=" . count($tokenMap));
+                error_log("FCM DEBUG: userIds=" . json_encode($userIds));
+
                 // Create notification log for each target user
                 $basariliGonderim = 0;
                 foreach ($hedefKullanicilar as $kullanici) {
@@ -326,6 +341,28 @@ class NotificationController {
                     } catch (Exception $e) {
                         error_log("Failed to send notification to user {$kullanici['id']}: " . $e->getMessage());
                     }
+                }
+
+                // Send FCM push notifications to devices
+                try {
+                    require_once BASE_PATH . '/utils/FCM.php';
+                    $fcmTokens = array_values($tokenMap);
+                    error_log("FCM DEBUG: fcmTokens count=" . count($fcmTokens));
+                    if (!empty($fcmTokens)) {
+                        $fcmResult = FCM::sendToMultipleDevices(
+                            $fcmTokens,
+                            $baslik,
+                            $mesaj,
+                            [
+                                'bildirim_id' => (string)$bildirimId,
+                                'bildirim_tipi' => $bildirimTipi,
+                                'type' => 'notification',
+                            ]
+                        );
+                        error_log("FCM push sent: success={$fcmResult['success']}, failure={$fcmResult['failure']}");
+                    }
+                } catch (Exception $e) {
+                    error_log("FCM push error (non-critical): " . $e->getMessage());
                 }
 
                 // Update main notification with statistics
@@ -355,6 +392,48 @@ class NotificationController {
         } catch (Exception $e) {
             error_log("Send notification error: " . $e->getMessage());
             Response::serverError('Bildirim gönderilemedi: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Register FCM token for push notifications
+     */
+    public function registerToken() {
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $fcmToken = trim($input['fcm_token'] ?? '');
+        $platform = trim($input['platform'] ?? 'ios');
+        $deviceInfo = $input['device_info'] ?? null;
+
+        if (empty($fcmToken)) {
+            Response::badRequest('FCM token gereklidir');
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            // Update cihaz_token and cihaz_bilgisi in mobil_kullanici
+            $updateData = [
+                'cihaz_token' => $fcmToken,
+                'guncelleme_tarihi' => date('Y-m-d H:i:s')
+            ];
+
+            if ($deviceInfo) {
+                $updateData['cihaz_bilgisi'] = json_encode(array_merge(
+                    is_array($deviceInfo) ? $deviceInfo : [],
+                    ['platform' => $platform]
+                ));
+            }
+
+            $db->update('mobil_kullanici', $updateData, 'id = ?', [$userId]);
+
+            Response::success([], 'FCM token kaydedildi');
+
+        } catch (Exception $e) {
+            error_log("Register FCM token error: " . $e->getMessage());
+            Response::serverError('FCM token kaydedilemedi');
         }
     }
 

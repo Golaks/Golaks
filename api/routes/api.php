@@ -70,6 +70,7 @@ class Router {
         $this->put('/notifications/:id/read', 'NotificationController', 'markAsRead');
         $this->delete('/notifications/:id', 'NotificationController', 'deleteNotification');
         $this->post('/notifications/send', 'NotificationController', 'sendNotification');
+        $this->post('/notifications/register-token', 'NotificationController', 'registerToken');
 
         // AI Routes (Protected)
         $this->post('/ai/chat', 'AIController', 'chat');
@@ -84,6 +85,7 @@ class Router {
 
         // Stock Routes (Global - tüm modüller için)
         $this->post('/stock/list', 'StockController', 'getList');
+        $this->post('/stock/create', 'StockController', 'create');
         $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
 
         // Company Routes (Protected, Super Admin only)

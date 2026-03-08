@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
+import { formatPhone } from '../utils/formatPhone';
 import { authService } from '../services/auth.service';
 import { API_ENDPOINTS, BASE_API_URL } from '../constants/ApiConfig';
 import Header from '../components/Header';
@@ -549,7 +550,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
               </View>
             </View>
             <Text style={styles.userEmail}>{user.email}</Text>
-            {user.phone && <Text style={styles.userPhone}>{user.phone}</Text>}
+            {user.phone && <Text style={styles.userPhone}>{formatPhone(user.phone)}</Text>}
           </View>
         </View>
       </View>
