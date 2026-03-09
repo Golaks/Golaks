@@ -70,6 +70,12 @@ export const API_ENDPOINTS = {
   STOCK_CREATE: `${BASE_API_URL}/stock/create`,
   STOCK_BARCODE_QUERY: `${BASE_API_URL}/stock/barcode-query`,
 
+  // Model Kart endpoints (global - tüm modüller)
+  MODEL_KART_LIST: `${BASE_API_URL}/model-kart/list`,
+  MODEL_KART_UPLOAD_IMAGE: `${BASE_API_URL}/model-kart/upload-image`,
+  MODEL_KART_DELETE_IMAGE: `${BASE_API_URL}/model-kart/delete-image`,
+  MODEL_KART_COLORS: `${BASE_API_URL}/model-kart/colors`,
+
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak
   DASHBOARD: `${BASE_API_URL}/data/dashboard`,

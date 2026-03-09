@@ -14,6 +14,7 @@ interface ShopScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onModelOperations?: () => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -23,7 +24,7 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -112,6 +113,18 @@ export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreen
                 color="#EC4899"
                 description="Personel performans raporu"
                 onPress={() => {}}
+              />
+            </>
+          )}
+
+          {shopTab === 'transactions' && (
+            <>
+              <MenuCard
+                name="Model İşlemleri"
+                icon="layers-outline"
+                color="#F59E0B"
+                description="Model kartları ve işlemleri"
+                onPress={() => onModelOperations?.()}
               />
             </>
           )}

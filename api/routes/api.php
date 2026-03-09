@@ -88,6 +88,12 @@ class Router {
         $this->post('/stock/create', 'StockController', 'create');
         $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
 
+        // Model Kart Routes (Global - tüm modüller için)
+        $this->post('/model-kart/list', 'ModelKartController', 'getList');
+        $this->post('/model-kart/upload-image', 'ModelKartController', 'uploadImage');
+        $this->post('/model-kart/delete-image', 'ModelKartController', 'deleteImage');
+        $this->post('/model-kart/colors', 'ModelKartController', 'getColors');
+
         // Company Routes (Protected, Super Admin only)
         $this->get('/company/list', 'CompanyController', 'getList');
         $this->post('/company/list', 'CompanyController', 'create');

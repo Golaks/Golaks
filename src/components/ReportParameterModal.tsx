@@ -179,7 +179,7 @@ export default function ReportParameterModal({
             style={styles.modalContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.subtitle}>Rapor Parametreleri</Text>
+            <Text style={styles.subtitle}>{'Rapor Parametreleri'.toLocaleUpperCase('tr-TR')}</Text>
             {parameters.map((param) => renderParameter(param))}
           </ScrollView>
 
@@ -246,7 +246,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontWeight: '600',
       color: colors.textSecondary,
       marginBottom: 16,
-      textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
     parameterContainer: {

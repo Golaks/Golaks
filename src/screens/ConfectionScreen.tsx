@@ -14,6 +14,7 @@ interface ConfectionScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onModelOperations?: () => void;
 }
 
 type ConfectionTab = 'reports' | 'transactions';
@@ -23,7 +24,7 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -98,6 +99,18 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout }: Conf
                 color="#8B5CF6"
                 description="Ürün stok durumu raporu"
                 onPress={() => {}}
+              />
+            </>
+          )}
+
+          {confectionTab === 'transactions' && (
+            <>
+              <MenuCard
+                name="Model İşlemleri"
+                icon="layers-outline"
+                color="#F59E0B"
+                description="Model kartları ve işlemleri"
+                onPress={() => onModelOperations?.()}
               />
             </>
           )}

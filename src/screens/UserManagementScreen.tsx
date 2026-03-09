@@ -458,7 +458,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       .split(' ')
       .map(n => n[0])
       .join('')
-      .toUpperCase()
+      .toLocaleUpperCase('tr-TR')
       .slice(0, 2);
   };
 

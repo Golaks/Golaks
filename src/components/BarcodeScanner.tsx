@@ -37,12 +37,21 @@ export default function BarcodeScanner({
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const hasScanned = useRef(false);
+  const openedAt = useRef(0);
+  const onBarcodeScannedRef = useRef(onBarcodeScanned);
+  const onCloseRef = useRef(onClose);
+  onBarcodeScannedRef.current = onBarcodeScanned;
+  onCloseRef.current = onClose;
 
-  // Select optimal format for barcode scanning (higher resolution for better recognition)
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1920, height: 1080 } },
-    { fps: 30 },
-  ]);
+  // Select optimal format for barcode scanning (Android only - iOS uses default)
+  const format = useCameraFormat(
+    Platform.OS === 'android' ? device : null,
+    [
+      { videoResolution: { width: 1920, height: 1080 } },
+      { fps: 30 },
+    ]
+  );
 
   // Focus function
   const triggerFocus = async () => {
@@ -89,6 +98,8 @@ export default function BarcodeScanner({
 
   useEffect(() => {
     if (visible) {
+      hasScanned.current = false;
+      openedAt.current = Date.now();
       checkCameraPermission();
       startScanAnimation();
     } else {
@@ -101,6 +112,7 @@ export default function BarcodeScanner({
       setShowPermissionModal(false);
       setTorchOn(false);
       setHasPermission(false);
+      hasScanned.current = false;
       scanLineAnim.setValue(0);
     }
 
@@ -135,7 +147,7 @@ export default function BarcodeScanner({
     animationRef.current.start();
   };
 
-  const checkCameraPermission = () => {
+  const checkCameraPermission = async () => {
     try {
       const cameraPermission = Camera.getCameraPermissionStatus();
 
@@ -144,16 +156,32 @@ export default function BarcodeScanner({
         setIsActive(true);
         setShowPermissionModal(false);
       } else if (cameraPermission === 'not-determined') {
-        setHasPermission(false);
-        setShowPermissionModal(true);
+        // Durumu belirlenemedi, doğrudan izin iste
+        const newPermission = await Camera.requestCameraPermission();
+        setHasPermission(newPermission === 'granted');
+        setIsActive(newPermission === 'granted');
+        if (newPermission !== 'granted') {
+          setShowPermissionModal(true);
+        }
       } else {
+        // denied veya restricted
         setHasPermission(false);
         setIsActive(false);
         setShowPermissionModal(true);
       }
     } catch (error) {
-      setHasPermission(false);
-      setShowPermissionModal(false);
+      // getCameraPermissionStatus hata fırlatırsa doğrudan izin iste
+      try {
+        const newPermission = await Camera.requestCameraPermission();
+        setHasPermission(newPermission === 'granted');
+        setIsActive(newPermission === 'granted');
+        if (newPermission !== 'granted') {
+          setShowPermissionModal(true);
+        }
+      } catch {
+        setHasPermission(false);
+        setShowPermissionModal(true);
+      }
     }
   };
 
@@ -178,10 +206,18 @@ export default function BarcodeScanner({
   };
 
   const handleCodeScanned = useRef((codes: any[]) => {
+    // İlk 2 saniye taramayı yoksay (kamera stabilize olsun)
+    if (Date.now() - openedAt.current < 2000) return;
+    if (hasScanned.current) return;
     if (codes.length > 0 && codes[0].value) {
+      hasScanned.current = true;
+      const scannedValue = codes[0].value;
+      // Önce kamerayı deaktive et, sonra callback ve close çağır
       setIsActive(false);
-      onBarcodeScanned(codes[0].value);
-      onClose();
+      setTimeout(() => {
+        onBarcodeScannedRef.current(scannedValue);
+        onCloseRef.current();
+      }, 400);
     }
   }).current;
 
@@ -201,30 +237,23 @@ export default function BarcodeScanner({
     onCodeScanned: handleCodeScanned,
   });
 
-  // Don't render anything if not visible
-  if (!visible) return null;
-
-  // If showing permission modal, only show that
-  if (showPermissionModal) {
-    return (
+  return (
+    <>
       <PermissionModal
-        visible={showPermissionModal}
+        visible={visible && showPermissionModal}
         permissions={['camera']}
         onRequestPermissions={handleRequestPermission}
         onCancel={handleCancelPermission}
         title="Kamera İzni Gerekli"
         subtitle="Barkod taramak için kamera erişimine ihtiyacımız var."
       />
-    );
-  }
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
+      <Modal
+        visible={visible && !showPermissionModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={onClose}
+      >
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
@@ -275,12 +304,10 @@ export default function BarcodeScanner({
                           isActive={isActive}
                           codeScanner={codeScanner}
                           torch={torchOn ? 'on' : 'off'}
-                          format={format}
+                          {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
                           onInitialized={handleCameraInitialized}
-                          onError={() => {}}
+                          onError={(e) => console.warn('Camera error:', e)}
                           enableZoomGesture={false}
-                          exposure={0}
-                          videoStabilizationMode="off"
                         />
                       )}
 
@@ -326,6 +353,7 @@ export default function BarcodeScanner({
           </View>
         </View>
       </Modal>
+    </>
   );
 }
 

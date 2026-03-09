@@ -58,10 +58,11 @@ export default function BarcodeResultScreen({
   const [errorType, setErrorType] = useState<'connection' | 'notFound'>('connection');
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
-  const [productDistribution, setProductDistribution] = useState<ProductDistribution[]>([]);
-  const [productionDistribution, setProductionDistribution] = useState<ProductionDistribution[]>([]);
-  const [noMagazaModule, setNoMagazaModule] = useState(false);
-  const [noKonfeksiyonModule, setNoKonfeksiyonModule] = useState(false);
+  const [magazaDistribution, setMagazaDistribution] = useState<any[]>([]);
+  const [konfeksiyonDistribution, setKonfeksiyonDistribution] = useState<any[]>([]);
+  const [tabakhaneDistribution, setTabakhaneDistribution] = useState<any[]>([]);
+  const [muhasebeDistribution, setMuhasebeDistribution] = useState<any[]>([]);
+  const [stokModul, setStokModul] = useState('');
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedDistributionItem, setSelectedDistributionItem] = useState<ProductDistribution | ProductionDistribution | null>(null);
@@ -86,56 +87,52 @@ export default function BarcodeResultScreen({
   const styles = createStyles(colors, isDark);
 
   const formatPrice = (price: string | undefined): string => {
-    if (!price || price === '-') return '0.00';
+    if (!price || price === '-') return '0,00';
     const num = parseFloat(price);
     if (isNaN(num)) return price;
-    if (num % 1 === 0) {
-      return num.toFixed(0);
-    }
-    return num.toFixed(2).replace(/\.?0+$/, '');
+    return num.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   };
 
   // Filter helpers
   const getFilterOptions = () => {
-    const branches = [...new Set(productDistribution.map(item => item.branch))];
-    const warehouses = [...new Set(productDistribution.map(item => item.warehouse))];
-    const types = [...new Set(productDistribution.map(item => item.type))];
-    const colors_list = [...new Set(productDistribution.map(item => item.color))];
-    const sizes = [...new Set(productDistribution.map(item => item.size))];
+    const allDist = [...magazaDistribution, ...konfeksiyonDistribution, ...tabakhaneDistribution, ...muhasebeDistribution];
+    const branches = [...new Set(allDist.map(item => item.branch))];
+    const warehouses = [...new Set(allDist.map(item => item.warehouse))];
+    const types = [...new Set(allDist.map(item => item.type))];
+    const colors_list = [...new Set(allDist.map(item => item.color))];
+    const sizes = [...new Set(allDist.map(item => item.size))];
     return { branches, warehouses, types, colors: colors_list, sizes };
   };
 
   const filterOptions = getFilterOptions();
 
-  const filteredDistribution = productDistribution.filter(item => {
-    if (selectedBranches.length > 0 && !selectedBranches.includes(item.branch)) return false;
-    if (selectedWarehouses.length > 0 && !selectedWarehouses.includes(item.warehouse)) return false;
-    if (selectedTypes.length > 0 && !selectedTypes.includes(item.type)) return false;
-    if (selectedColors.length > 0 && !selectedColors.includes(item.color)) return false;
-    if (selectedSizes.length > 0 && !selectedSizes.includes(item.size)) return false;
-    if (distributionSearchText.trim()) {
-      const searchLower = distributionSearchText.toLowerCase();
-      const match = item.branch.toLowerCase().includes(searchLower) ||
-        item.warehouse.toLowerCase().includes(searchLower) ||
-        item.type.toLowerCase().includes(searchLower) ||
-        item.color.toLowerCase().includes(searchLower) ||
-        item.size.toLowerCase().includes(searchLower);
-      if (!match) return false;
-    }
-    return true;
-  });
+  const filterDistItems = (items: any[], searchText: string) => {
+    return items.filter(item => {
+      if (selectedBranches.length > 0 && !selectedBranches.includes(item.branch)) return false;
+      if (selectedWarehouses.length > 0 && !selectedWarehouses.includes(item.warehouse)) return false;
+      if (selectedTypes.length > 0 && !selectedTypes.includes(item.type)) return false;
+      if (selectedColors.length > 0 && !selectedColors.includes(item.color)) return false;
+      if (selectedSizes.length > 0 && !selectedSizes.includes(item.size)) return false;
+      if (searchText.trim()) {
+        const s = searchText.toLowerCase();
+        const match = (item.branch || '').toLowerCase().includes(s) ||
+          (item.warehouse || '').toLowerCase().includes(s) ||
+          (item.type || '').toLowerCase().includes(s) ||
+          (item.color || '').toLowerCase().includes(s) ||
+          (item.size || '').toLowerCase().includes(s);
+        if (!match) return false;
+      }
+      return true;
+    });
+  };
 
-  const filteredProductionDistribution = productionDistribution.filter(item => {
-    if (productionSearchText.trim()) {
-      const searchLower = productionSearchText.toLowerCase();
-      const match = item.branchWarehouse.toLowerCase().includes(searchLower) ||
-        item.type.toLowerCase().includes(searchLower) ||
-        item.color.toLowerCase().includes(searchLower) ||
-        item.size.toLowerCase().includes(searchLower);
-      if (!match) return false;
-    }
-    return true;
-  });
+  const filteredMagaza = filterDistItems(magazaDistribution, distributionSearchText);
+  const filteredKonfeksiyon = filterDistItems(konfeksiyonDistribution, productionSearchText);
+  const filteredTabakhane = filterDistItems(tabakhaneDistribution, productionSearchText);
+  const filteredMuhasebe = filterDistItems(muhasebeDistribution, productionSearchText);
 
   const toggleFilter = (
     value: string,
@@ -213,43 +210,25 @@ export default function BarcodeResultScreen({
         const result = data.data;
         setProductImages(result.images || []);
         setProductInfo(result.product || null);
-        setNoMagazaModule(result.noMagazaModule || false);
-        setNoKonfeksiyonModule(result.noKonfeksiyonModule || false);
+        setStokModul(result.stokModul || '');
 
-        // Magaza distribution
-        if (result.noMagazaModule) {
-          setProductDistribution([]);
-        } else {
-          const magazaDist = (result.magazaDistribution || []).map((item: any, index: number) => ({
-            id: `dist-${index + 1}`,
+        // 4 modül dağılımı
+        const mapDist = (arr: any[], prefix: string) =>
+          (arr || []).map((item: any, index: number) => ({
+            id: `${prefix}-${index + 1}`,
             branch: item.branch || '-',
             warehouse: item.warehouse || '-',
-            type: '-',
+            branchWarehouse: item.branchWarehouse || '-',
+            type: item.type || '-',
             color: item.color || '-',
             size: item.size || '-',
             quantity: item.quantity || 0,
-            height: item.height || '-',
-            outlet: item.outlet || '-',
+            status: item.status || 'stock',
           }));
-          setProductDistribution(magazaDist);
-        }
-
-        // Konfeksiyon distribution
-        if (result.noKonfeksiyonModule) {
-          setProductionDistribution([]);
-        } else {
-          const stockData = (result.konfeksiyonDistribution || []).map((item: any, index: number) => ({
-            ...item,
-            id: `stock-${index + 1}`,
-            branchWarehouse: item.warehouse || item.branchWarehouse || '-',
-            status: 'stock' as const,
-          }));
-          const prodData = (result.productionDistribution || []).map((item: any, index: number) => ({
-            ...item,
-            id: `prod-${index + 1}`,
-          }));
-          setProductionDistribution([...stockData, ...prodData]);
-        }
+        setMagazaDistribution(mapDist(result.magazaDistribution, 'mag'));
+        setKonfeksiyonDistribution(mapDist(result.konfeksiyonDistribution, 'konf'));
+        setTabakhaneDistribution(mapDist(result.tabakhaneDistribution, 'tab'));
+        setMuhasebeDistribution(mapDist(result.muhasebeDistribution, 'muh'));
 
         if (!result.product) {
           setErrorType('notFound');
@@ -378,7 +357,7 @@ export default function BarcodeResultScreen({
   ) => (
     <View style={styles.filterRow}>
       <View style={styles.filterLabelRow}>
-        <Text style={styles.filterLabel}>{label}</Text>
+        <Text style={styles.filterLabel}>{label.toLocaleUpperCase('tr-TR')}</Text>
         {selected.length > 0 && <Text style={styles.filterCount}>({selected.length})</Text>}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptionsScroll}>
@@ -618,6 +597,14 @@ export default function BarcodeResultScreen({
                   <Icon name="information-circle" size={22} color={colors.textSecondary} />
                   <Text style={styles.infoHeaderText}>Ürün Detayları</Text>
                 </View>
+                {productInfo?.barcodeType && (
+                  <View style={styles.barcodeTypeBadge}>
+                    <Icon name="qr-code-outline" size={14} color="#3B82F6" />
+                    <Text style={styles.barcodeTypeBadgeText}>
+                      {productInfo.barcodeType === 'tekil' ? 'Tekil' : productInfo.barcodeType === 'seri' ? 'Seri' : 'Çoğul'}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.infoContent}>
                 {queryType === 'barcode' && (
@@ -715,7 +702,7 @@ export default function BarcodeResultScreen({
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="storefront-outline" size={22} color={colors.textSecondary} />
-                <Text style={styles.infoHeaderText}>Mağaza Dağılımı</Text>
+                <Text style={styles.infoHeaderText}>Mağaza Stok Dağılım</Text>
               </View>
               <Pressable onPress={() => setIsDistributionSearchVisible(!isDistributionSearchVisible)} style={styles.searchToggleButton}>
                 <Icon name={isDistributionSearchVisible ? 'close' : 'search'} size={20} color={colors.text} />
@@ -728,20 +715,15 @@ export default function BarcodeResultScreen({
             )}
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>Şube</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>Depo</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>Tip</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>Renk</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>Beden</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>Adet</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
             </View>
-            {noMagazaModule ? (
-              <View style={styles.emptyTableRow}>
-                <Icon name="storefront" size={32} color={colors.purple} />
-                <Text style={styles.emptyTableText}>Mağaza modülünüz bulunmuyor</Text>
-              </View>
-            ) : filteredDistribution.length > 0 ? (
-              filteredDistribution.map((item, index) => (
+            {filteredMagaza.length > 0 ? (
+              filteredMagaza.map((item: any, index: number) => (
                 <Pressable
                   key={item.id}
                   style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
@@ -765,61 +747,46 @@ export default function BarcodeResultScreen({
             ) : (
               <View style={styles.emptyTableRow}>
                 <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
-                <Text style={styles.emptyTableText}>Dağılım verisi bulunamadı</Text>
+                <Text style={styles.emptyTableText}>Mağaza dağılım verisi bulunamadı</Text>
               </View>
             )}
           </View>
 
-          {/* Production Distribution Table - Konfeksiyon */}
+          {/* Konfeksiyon Stok Dağılımı */}
           <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="cut-outline" size={22} color={colors.textSecondary} />
-                <Text style={styles.infoHeaderText}>Üretim Dağılımı</Text>
+                <Text style={styles.infoHeaderText}>Konfeksiyon Stok Dağılımı</Text>
               </View>
-              <Pressable onPress={() => setIsProductionSearchVisible(!isProductionSearchVisible)} style={styles.searchToggleButton}>
-                <Icon name={isProductionSearchVisible ? 'close' : 'search'} size={20} color={colors.text} />
-              </Pressable>
             </View>
-            {isProductionSearchVisible && (
-              <View style={styles.searchContainer}>
-                <SearchInput value={productionSearchText} onChangeText={setProductionSearchText} placeholder="Ara..." />
-              </View>
-            )}
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>Konum</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>Tip</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>Renk</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>Beden</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>Adet</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
             </View>
-            {noKonfeksiyonModule ? (
-              <View style={styles.emptyTableRow}>
-                <Icon name="shirt" size={32} color={colors.info} />
-                <Text style={styles.emptyTableText}>Konfeksiyon modülünüz bulunmuyor</Text>
-              </View>
-            ) : filteredProductionDistribution.length > 0 ? (
-              filteredProductionDistribution.map((item, index) => (
+            {filteredKonfeksiyon.length > 0 ? (
+              filteredKonfeksiyon.map((item: any, index: number) => (
                 <Pressable
                   key={item.id}
                   style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
                   onPress={() => handleProductionRowPress(item)}
                 >
                   <View style={styles.tableCellDetail}>
-                    <Icon
-                      name={item.status === 'stock' ? 'cube-outline' : 'sync-outline'}
-                      size={18}
-                      color={item.status === 'stock' ? colors.green : colors.orange}
-                    />
+                    <Icon name="cube-outline" size={18} color={colors.green} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branchWarehouse}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
                   <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
                   <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
                   <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
                   <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
-                    <View style={[styles.quantityBadge, item.status === 'process' && styles.quantityBadgeProcess]}>
-                      <Text style={[styles.quantityText, item.status === 'process' && styles.quantityTextProcess]}>{item.quantity}</Text>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
                   </View>
                 </Pressable>
@@ -827,7 +794,101 @@ export default function BarcodeResultScreen({
             ) : (
               <View style={styles.emptyTableRow}>
                 <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
-                <Text style={styles.emptyTableText}>Dağılım verisi bulunamadı</Text>
+                <Text style={styles.emptyTableText}>Konfeksiyon dağılım verisi bulunamadı</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Üretim (Tabakhane) Stok Dağılımı */}
+          <View style={styles.distributionSection}>
+            <View style={styles.infoHeader}>
+              <View style={styles.infoHeaderLeft}>
+                <Icon name="flask-outline" size={22} color={colors.textSecondary} />
+                <Text style={styles.infoHeaderText}>Üretim Stok Dağılımı</Text>
+              </View>
+            </View>
+            <View style={styles.tableHeader}>
+              <View style={styles.tableCellDetail} />
+              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+            </View>
+            {filteredTabakhane.length > 0 ? (
+              filteredTabakhane.map((item: any, index: number) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
+                  onPress={() => handleProductionRowPress(item)}
+                >
+                  <View style={styles.tableCellDetail}>
+                    <Icon name="cube-outline" size={18} color={colors.green} />
+                  </View>
+                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
+                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTableRow}>
+                <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
+                <Text style={styles.emptyTableText}>Üretim dağılım verisi bulunamadı</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Muhasebe Stok Dağılımı */}
+          <View style={styles.distributionSection}>
+            <View style={styles.infoHeader}>
+              <View style={styles.infoHeaderLeft}>
+                <Icon name="calculator-outline" size={22} color={colors.textSecondary} />
+                <Text style={styles.infoHeaderText}>Muhasebe Stok Dağılımı</Text>
+              </View>
+            </View>
+            <View style={styles.tableHeader}>
+              <View style={styles.tableCellDetail} />
+              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
+              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+            </View>
+            {filteredMuhasebe.length > 0 ? (
+              filteredMuhasebe.map((item: any, index: number) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
+                  onPress={() => handleProductionRowPress(item)}
+                >
+                  <View style={styles.tableCellDetail}>
+                    <Icon name="cube-outline" size={18} color={colors.green} />
+                  </View>
+                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
+                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
+                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTableRow}>
+                <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
+                <Text style={styles.emptyTableText}>Muhasebe dağılım verisi bulunamadı</Text>
               </View>
             )}
           </View>
@@ -1408,7 +1469,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 13,
       fontWeight: '600',
       color: colors.textSecondary,
-      textTransform: 'uppercase',
     },
     filterCount: {
       fontSize: 12,
@@ -1495,6 +1555,22 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontWeight: '700',
       color: colors.textSecondary,
     },
+    barcodeTypeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.3)',
+    },
+    barcodeTypeBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#3B82F6',
+    },
     searchToggleButton: {
       padding: 8,
       borderRadius: 8,
@@ -1580,7 +1656,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       marginBottom: 4,
     },
     priceCardValue: {
-      fontSize: 18,
+      fontSize: 12,
       fontWeight: '700',
       color: colors.text,
     },
@@ -1622,7 +1698,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 11,
       fontWeight: '700',
       color: colors.textSecondary,
-      textTransform: 'uppercase',
     },
     tableRow: {
       flexDirection: 'row',

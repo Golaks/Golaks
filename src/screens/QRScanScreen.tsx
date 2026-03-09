@@ -70,6 +70,12 @@ export default function QRScanScreen({ onTabChange, onLogout, onQuery }: QRScanS
 
   const handleBarcodeScanned = (barcode: string) => {
     setInputValue(barcode);
+    // Tarama sonrası otomatik sorgula (scanner onClose ile kapanır)
+    setTimeout(() => {
+      if (onQuery) {
+        onQuery(scanMode, barcode);
+      }
+    }, 300);
   };
 
   const handleQuickNumber = (prefix: string) => {

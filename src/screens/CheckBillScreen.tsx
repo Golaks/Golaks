@@ -102,19 +102,19 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
   // Get document type label
   const getDocumentTypeLabel = (type: string): string => {
     if (!type) return '';
-    const normalized = type.toUpperCase().trim();
+    const normalized = type.toLocaleUpperCase('tr-TR').trim();
     const mapping: { [key: string]: string } = {
       'ÇEK': 'Çek',
       'CEK': 'Çek',
       'SENET': 'Senet',
     };
-    return mapping[normalized] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    return mapping[normalized] || type.charAt(0).toLocaleUpperCase('tr-TR') + type.slice(1).toLowerCase();
   };
 
   // Get document location label
   const getDocumentLocationLabel = (location: string): string => {
     if (!location) return '';
-    const normalized = location.toUpperCase().replace(/_/g, ' ').trim();
+    const normalized = location.toLocaleUpperCase('tr-TR').replace(/_/g, ' ').trim();
     const mapping: { [key: string]: string } = {
       'PORTFÖY': 'Portföy',
       'PORTFÖYDE': 'Portföy',
@@ -773,7 +773,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                   {/* Footer - Always visible */}
                   <View style={styles.cardFooter}>
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>TUTAR</Text>
+                      <Text style={styles.amountLabel}>{'TUTAR'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: cardColor }]}>
                         {item.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -782,7 +782,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                     <View style={styles.footerDivider} />
 
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>ÖDENEN</Text>
+                      <Text style={styles.amountLabel}>{'ÖDENEN'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: colors.success }]}>
                         {(item.paid || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -791,7 +791,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                     <View style={styles.footerDivider} />
 
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>KALAN</Text>
+                      <Text style={styles.amountLabel}>{'KALAN'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: colors.warning }]}>
                         {item.remaining.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -979,7 +979,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   amountValue: {
     fontSize: 14,

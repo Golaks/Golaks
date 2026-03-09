@@ -180,7 +180,7 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
               >
                 {app.comingSoon && (
                   <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>Çok Yakında</Text>
+                    <Text style={styles.comingSoonText}>{'Çok Yakında'.toLocaleUpperCase('tr-TR')}</Text>
                   </View>
                 )}
                 <View style={[styles.iconContainer, { backgroundColor: `${app.color}15` }]}>
@@ -344,7 +344,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 10,
       fontWeight: '700',
       color: '#FFFFFF',
-      textTransform: 'uppercase',
     },
     iconContainer: {
       width: 64,

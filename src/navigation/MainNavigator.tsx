@@ -19,8 +19,9 @@ import TanneryScreen from '../screens/TanneryScreen';
 import ConfectionScreen from '../screens/ConfectionScreen';
 import ShopScreen from '../screens/ShopScreen';
 import BarcodeResultScreen from '../screens/BarcodeResultScreen';
+import ModelOperationsScreen from '../screens/ModelOperationsScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -33,6 +34,7 @@ export interface MainNavigatorRef {
 function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
   const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
+  const [modelOpsFrom, setModelOpsFrom] = useState<'shop' | 'confection'>('shop');
 
   useImperativeHandle(ref, () => ({
     navigateTo: (screen: AppScreen) => setActiveScreen(screen),
@@ -116,9 +118,31 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
       case 'tannery':
         return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confection':
-        return <ConfectionScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return (
+          <ConfectionScreen
+            onBack={() => setActiveScreen('dashboard')}
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+            onModelOperations={() => { setModelOpsFrom('confection'); setActiveScreen('modelOperations'); }}
+          />
+        );
       case 'shop':
-        return <ShopScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return (
+          <ShopScreen
+            onBack={() => setActiveScreen('dashboard')}
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+            onModelOperations={() => { setModelOpsFrom('shop'); setActiveScreen('modelOperations'); }}
+          />
+        );
+      case 'modelOperations':
+        return (
+          <ModelOperationsScreen
+            onBack={() => setActiveScreen(modelOpsFrom)}
+            onTabChange={setActiveScreen}
+            onLogout={onLogout}
+          />
+        );
       case 'barcodeResult':
         return (
           <BarcodeResultScreen
