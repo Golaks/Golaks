@@ -190,11 +190,8 @@ export default function DateFilter({
 
 const createStyles = (colors: any) => StyleSheet.create({
   filterArea: {
-    backgroundColor: colors.card,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   searchContainer: {
     width: '100%',

@@ -15,6 +15,10 @@ interface ShopScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
   onModelOperations?: () => void;
+  onStock?: () => void;
+  onSales?: () => void;
+  onPersonnelPerformance?: () => void;
+  onCompanyModelPerformance?: () => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -24,7 +28,7 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -91,28 +95,28 @@ export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOpera
                 icon="cart-outline"
                 color="#10B981"
                 description="Mağaza satış raporu"
-                onPress={() => {}}
+                onPress={() => onSales?.()}
               />
               <MenuCard
                 name="Stoklar"
                 icon="cube-outline"
                 color="#3B82F6"
                 description="Mağaza stok durumu raporu"
-                onPress={() => {}}
+                onPress={() => onStock?.()}
               />
               <MenuCard
                 name="Firma Model Performans"
                 icon="trending-up-outline"
                 color="#8B5CF6"
                 description="Firma ve Model performans raporu"
-                onPress={() => {}}
+                onPress={() => onCompanyModelPerformance?.()}
               />
               <MenuCard
                 name="Personel Performans"
                 icon="people-outline"
                 color="#EC4899"
                 description="Personel performans raporu"
-                onPress={() => {}}
+                onPress={() => onPersonnelPerformance?.()}
               />
             </>
           )}
@@ -170,7 +174,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

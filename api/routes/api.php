@@ -83,6 +83,9 @@ class Router {
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
         $this->post('/account/check-bill-list', 'CheckBillController', 'getList');
 
+        // Sales Routes (Global - tüm modüller için)
+        $this->post('/sales/list', 'SalesController', 'getList');
+
         // Stock Routes (Global - tüm modüller için)
         $this->post('/stock/list', 'StockController', 'getList');
         $this->post('/stock/create', 'StockController', 'create');

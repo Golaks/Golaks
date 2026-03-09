@@ -20,6 +20,9 @@ interface AccountScreenProps {
   onCariDetay?: () => void;
   onCheckBill?: () => void;
   onStock?: () => void;
+  onSales?: () => void;
+  onPersonnelPerformance?: () => void;
+  onCompanyModelPerformance?: () => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -29,7 +32,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -187,6 +190,27 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                   }
                 }}
               />
+              <MenuCard
+                name="Satışlar"
+                icon="cart-outline"
+                color="#10B981"
+                description="Satış faturaları ve raporu"
+                onPress={() => onSales?.()}
+              />
+              <MenuCard
+                name="Firma Model Performans"
+                icon="trending-up-outline"
+                color="#8B5CF6"
+                description="Firma ve Model performans raporu"
+                onPress={() => onCompanyModelPerformance?.()}
+              />
+              <MenuCard
+                name="Personel Performans"
+                icon="people-outline"
+                color="#EC4899"
+                description="Personel performans raporu"
+                onPress={() => onPersonnelPerformance?.()}
+              />
             </>
           )}
 
@@ -250,7 +274,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

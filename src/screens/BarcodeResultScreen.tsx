@@ -290,15 +290,22 @@ export default function BarcodeResultScreen({
         {productImages.map((image, index) => (
           <Pressable
             key={image.id}
-            style={[styles.thumbnail, index === currentImageIndex && styles.thumbnailActive]}
+            style={[styles.thumbnailWrapper]}
             onPress={() => setCurrentImageIndex(index)}
           >
-            <Image source={{ uri: image.url }} style={styles.thumbnailImage} resizeMode="cover" />
-            {index === currentImageIndex && (
-              <View style={styles.thumbnailOverlay}>
-                <Icon name="checkmark-circle" size={16} color="#FFFFFF" />
+            <View style={[styles.thumbnail, index === currentImageIndex && styles.thumbnailActive]}>
+              <Image source={{ uri: image.url }} style={styles.thumbnailImage} resizeMode="cover" />
+              {index === currentImageIndex && (
+                <View style={styles.thumbnailOverlay}>
+                  <Icon name="checkmark-circle" size={16} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            {image.color ? (
+              <View style={[styles.thumbColorBadge, index === currentImageIndex && styles.thumbColorBadgeActive]}>
+                <Text style={[styles.thumbColorText, index === currentImageIndex && styles.thumbColorTextActive]} numberOfLines={1}>{image.color}</Text>
               </View>
-            )}
+            ) : null}
           </Pressable>
         ))}
       </ScrollView>
@@ -324,7 +331,15 @@ export default function BarcodeResultScreen({
           >
             <Icon name="chevron-back" size={32} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.fullScreenCounter}>{currentImageIndex + 1} / {productImages.length}</Text>
+          <View style={styles.fullScreenCounterContainer}>
+            <Text style={styles.fullScreenCounter}>{currentImageIndex + 1} / {productImages.length}</Text>
+            {productImages[currentImageIndex]?.color ? (
+              <View style={styles.fullScreenColorChip}>
+                <Icon name="color-palette" size={14} color="#FFFFFF" />
+                <Text style={styles.fullScreenColorText}>{productImages[currentImageIndex].color}</Text>
+              </View>
+            ) : null}
+          </View>
           <Pressable
             style={[styles.fullScreenArrow, currentImageIndex === productImages.length - 1 && styles.fullScreenArrowDisabled]}
             onPress={goToNextImage}
@@ -521,9 +536,18 @@ export default function BarcodeResultScreen({
                   <View style={styles.zoomHint}>
                     <Icon name="expand-outline" size={16} color="#FFFFFF" />
                   </View>
-                  <View style={styles.imageCounter}>
-                    <Icon name="images-outline" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.imageCounterText}>{currentImageIndex + 1}/{productImages.length}</Text>
+                  <View style={styles.imageCounterRow}>
+                    {productImages[currentImageIndex]?.color ? (
+                      <View style={styles.imageColorChip}>
+                        <Icon name="color-palette" size={11} color="#FFFFFF" />
+                        <Text style={styles.imageColorChipText}>{productImages[currentImageIndex].color}</Text>
+                      </View>
+                    ) : null}
+                    <View style={{ flex: 1 }} />
+                    <View style={styles.imageCounter}>
+                      <Icon name="images-outline" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.imageCounterText}>{currentImageIndex + 1}/{productImages.length}</Text>
+                    </View>
                   </View>
                 </Pressable>
 
@@ -1275,9 +1299,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     imageCounter: {
-      position: 'absolute',
-      bottom: 12,
-      left: 12,
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
       paddingHorizontal: 10,
       paddingVertical: 6,
@@ -1290,6 +1311,29 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '700',
     },
+    imageCounterRow: {
+      position: 'absolute',
+      bottom: 12,
+      left: 12,
+      right: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    imageColorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    imageColorChipText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
     // Thumbnails
     thumbnailContainer: {
       marginTop: 12,
@@ -1300,6 +1344,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     thumbnailScroll: {
       paddingHorizontal: 4,
       gap: 8,
+    },
+    thumbnailWrapper: {
+      alignItems: 'center',
     },
     thumbnail: {
       width: 56,
@@ -1322,6 +1369,30 @@ const createStyles = (colors: any, isDark: boolean) =>
     thumbnailImage: {
       width: '100%',
       height: '100%',
+    },
+    thumbColorBadge: {
+      marginTop: 4,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      maxWidth: 60,
+    },
+    thumbColorBadgeActive: {
+      backgroundColor: colors.primary + '15',
+      borderColor: colors.primary + '40',
+    },
+    thumbColorText: {
+      fontSize: 8,
+      fontWeight: '500',
+      color: colors.textTertiary,
+      textAlign: 'center',
+    },
+    thumbColorTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
     },
     thumbnailOverlay: {
       position: 'absolute',
@@ -1391,10 +1462,28 @@ const createStyles = (colors: any, isDark: boolean) =>
     fullScreenArrowDisabled: {
       opacity: 0.3,
     },
+    fullScreenCounterContainer: {
+      alignItems: 'center',
+      gap: 6,
+    },
     fullScreenCounter: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
+    },
+    fullScreenColorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    fullScreenColorText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '500',
     },
     // No Image
     noImageContainer: {

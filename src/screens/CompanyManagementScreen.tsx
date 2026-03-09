@@ -1337,7 +1337,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

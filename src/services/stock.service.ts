@@ -36,12 +36,47 @@ export interface StockSummaryItem {
   totalOut: number;
   totalRemaining: number;
   totalValue: number;
+  amountIn: number;
+  amountOut: number;
+  amountRemaining: number;
 }
 
 export interface StockListResponse {
   success: boolean;
   data: {
     data: StockItem[];
+    count: number;
+    summary: StockSummaryItem[];
+  };
+  message?: string;
+}
+
+export interface StockSubGroupItem {
+  subGroupId: string;
+  subGroupName: string;
+  itemCount: number;
+  totalIn: number;
+  totalOut: number;
+  totalRemaining: number;
+}
+
+export interface StockGroupItem {
+  groupId: string;
+  groupName: string;
+  currency: string;
+  itemCount: number;
+  totalIn: number;
+  totalOut: number;
+  totalRemaining: number;
+  totalValue: number;
+  subGroups?: StockSubGroupItem[];
+}
+
+export interface StockGroupedResponse {
+  success: boolean;
+  data: {
+    reportMode: string;
+    groups: StockGroupItem[];
     count: number;
     summary: StockSummaryItem[];
   };

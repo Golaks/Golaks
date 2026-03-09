@@ -90,7 +90,7 @@ class BarcodeQueryController {
 
             // Mevcut tabloları kontrol et
             $existingTables = $this->getExistingTables($pdo, [
-                'stok_varyant', 'model_kartlar', 'tanimlar', 'subeler', 'stok_detay', 'model_resimleri', 'cariler'
+                'stok_varyant', 'model_kartlar', 'tanimlar', 'subeler', 'stok_detay', 'dosyalar', 'cariler'
             ]);
 
             // === URUN BILGISI SORGUSU ===
@@ -105,11 +105,12 @@ class BarcodeQueryController {
             }
 
             $modelId = $productInfo['model_id'] ?? null;
+            $renkId = $productInfo['renk_id'] ?? null;
 
             // === RESIMLER ===
             $images = [];
-            if ($modelId && !empty($resimDomain) && $existingTables['model_resimleri']) {
-                $images = $this->getModelImages($pdo, $modelId, $resimDomain);
+            if ($modelId && $existingTables['dosyalar']) {
+                $images = $this->getModelImages($pdo, (int)$modelId, $resimDomain, $renkId ? (int)$renkId : null);
             }
 
             // === STOK DAGILIM ===
@@ -244,7 +245,7 @@ class BarcodeQueryController {
         }
 
         if ($tables['stok_varyant']) {
-            $select .= ", COALESCE(t_renk.tanim_deger, '') AS renk, sv.beden AS varyant_beden, YEAR(sv.kayit_tarihi) AS varyant_yil, sv.alis_fiyat, sv.maliyet_fiyat, sv.satis_fiyat";
+            $select .= ", sv.renk_id, COALESCE(t_renk.tanim_deger, '') AS renk, sv.beden AS varyant_beden, YEAR(sv.kayit_tarihi) AS varyant_yil, sv.alis_fiyat, sv.maliyet_fiyat, sv.satis_fiyat";
             $joins .= "
                 LEFT JOIN stok_varyant sv ON sv.stok_master_id = sm.id AND sv.firma_id = sm.firma_id AND sv.aktif = 1";
             if ($tables['tanimlar']) {
@@ -372,19 +373,39 @@ class BarcodeQueryController {
     /**
      * Model resimlerini getir
      */
-    private function getModelImages(PDO $pdo, int $modelId, string $resimDomain): array {
+    private function getModelImages(PDO $pdo, int $modelId, string $resimDomain, ?int $renkId = null): array {
         $images = [];
         try {
-            $stmt = $pdo->prepare(
-                "SELECT id, resim_yol FROM model_resimleri WHERE model_id = ? AND aktif = 1 ORDER BY sira ASC LIMIT 4"
-            );
-            $stmt->execute([$modelId]);
+            if ($renkId) {
+                $sql = "SELECT d.id, d.dosya_yolu, d.tanim_id, COALESCE(t.tanim_deger, '') AS renk_adi
+                     FROM dosyalar d
+                     LEFT JOIN tanimlar t ON t.id = d.tanim_id AND t.tanim_kodu = 'RENK'
+                     WHERE d.modul = 'model_kartlar' AND d.modul_kayit_id = ? AND d.aktif = 1
+                       AND d.dosya_tipi IN ('jpg', 'jpeg', 'png', 'webp', 'gif')
+                     ORDER BY (d.tanim_id = ?) DESC, d.id ASC LIMIT 4";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$modelId, $renkId]);
+            } else {
+                $sql = "SELECT d.id, d.dosya_yolu, d.tanim_id, COALESCE(t.tanim_deger, '') AS renk_adi
+                     FROM dosyalar d
+                     LEFT JOIN tanimlar t ON t.id = d.tanim_id AND t.tanim_kodu = 'RENK'
+                     WHERE d.modul = 'model_kartlar' AND d.modul_kayit_id = ? AND d.aktif = 1
+                       AND d.dosya_tipi IN ('jpg', 'jpeg', 'png', 'webp', 'gif')
+                     ORDER BY d.id ASC LIMIT 4";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$modelId]);
+            }
             $rows = $stmt->fetchAll();
             foreach ($rows as $row) {
-                if (!empty($row['resim_yol'])) {
+                if (!empty($row['dosya_yolu'])) {
+                    $url = $row['dosya_yolu'];
+                    if (!empty($resimDomain) && !preg_match('/^https?:\/\//', $url)) {
+                        $url = rtrim($resimDomain, '/') . '/' . ltrim($url, '/');
+                    }
                     $images[] = [
                         'id' => (string)$row['id'],
-                        'url' => rtrim($resimDomain, '/') . '/' . ltrim($row['resim_yol'], '/'),
+                        'url' => $url,
+                        'color' => $row['renk_adi'] ?: '',
                     ];
                 }
             }
