@@ -306,7 +306,7 @@ export default function BarcodeScanner({
                           torch={torchOn ? 'on' : 'off'}
                           {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
                           onInitialized={handleCameraInitialized}
-                          onError={(e) => console.warn('Camera error:', e)}
+                          onError={(_e) => {}}
                           enableZoomGesture={false}
                         />
                       )}

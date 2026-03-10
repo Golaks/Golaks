@@ -13,6 +13,8 @@ interface TanneryScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  initialTab?: TanneryTab;
+  onActiveTabChange?: (tab: TanneryTab) => void;
 }
 
 type TanneryTab = 'reports' | 'transactions';
@@ -22,11 +24,11 @@ const TANNERY_TABS: TabOption<TanneryTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function TanneryScreen({ onBack, onTabChange, onLogout }: TanneryScreenProps) {
+export default function TanneryScreen({ onBack, onTabChange, onLogout, initialTab, onActiveTabChange }: TanneryScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [tanneryTab, setTanneryTab] = useState<TanneryTab>('reports');
+  const [tanneryTab, setTanneryTab] = useState<TanneryTab>(initialTab ?? 'reports');
 
   const styles = createStyles(colors, isDark);
 
@@ -78,7 +80,7 @@ export default function TanneryScreen({ onBack, onTabChange, onLogout }: Tannery
           <Tab
             options={TANNERY_TABS}
             activeTab={tanneryTab}
-            onTabChange={setTanneryTab}
+            onTabChange={(tab) => { setTanneryTab(tab); onActiveTabChange?.(tab); }}
           />
         </ScrollView>
 

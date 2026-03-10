@@ -52,7 +52,6 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
         setColorList(response.data.data);
       }
     } catch (err: any) {
-      console.log('Renk listesi hatası:', err.message);
     } finally {
       setColorsLoading(false);
     }

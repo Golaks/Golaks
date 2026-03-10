@@ -41,6 +41,10 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
   const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
   const [modelOpsFrom, setModelOpsFrom] = useState<'shop' | 'confection'>('shop');
+  const [accountTab, setAccountTab] = useState<'reports' | 'transactions'>('reports');
+  const [shopTab, setShopTab] = useState<'reports' | 'transactions'>('reports');
+  const [confectionTab, setConfectionTab] = useState<'reports' | 'transactions'>('reports');
+  const [tanneryTab, setTanneryTab] = useState<'reports' | 'transactions'>('reports');
 
   useImperativeHandle(ref, () => ({
     navigateTo: (screen: AppScreen) => setActiveScreen(screen),
@@ -112,6 +116,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onSales={() => setActiveScreen('accountSales')}
             onPersonnelPerformance={() => setActiveScreen('accountPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('accountCompanyModelPerformance')}
+            initialTab={accountTab}
+            onActiveTabChange={setAccountTab}
           />
         );
       case 'accountSummary':
@@ -131,7 +137,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
       case 'confectionHammaddeStock':
         return <StockScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} stokModul="konfeksiyon" stokTipi="hammadde" />;
       case 'tannery':
-        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} initialTab={tanneryTab} onActiveTabChange={setTanneryTab} />;
       case 'confection':
         return (
           <ConfectionScreen
@@ -145,6 +151,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onPersonnelPerformance={() => setActiveScreen('confectionPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('confectionCompanyModelPerformance')}
             onOrders={() => setActiveScreen('confectionOrders')}
+            initialTab={confectionTab}
+            onActiveTabChange={setConfectionTab}
           />
         );
       case 'confectionOrders':
@@ -162,6 +170,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onCompanyModelPerformance={() => setActiveScreen('shopCompanyModelPerformance')}
             onReservations={() => setActiveScreen('shopReservations')}
             onAgencyPerformance={() => setActiveScreen('shopAgencyPerformance')}
+            initialTab={shopTab}
+            onActiveTabChange={setShopTab}
           />
         );
       case 'shopReservations':

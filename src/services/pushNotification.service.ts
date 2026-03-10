@@ -36,7 +36,6 @@ class PushNotificationService {
       const token = await getToken(getMessaging(getApp()));
       return token;
     } catch (error) {
-      console.warn('[PushNotification] getToken error:', error);
       return null;
     }
   }
@@ -73,7 +72,6 @@ class PushNotificationService {
 
       await response.json();
     } catch (error) {
-      console.warn('[PushNotification] Register error:', error);
     }
   }
 

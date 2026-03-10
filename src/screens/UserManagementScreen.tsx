@@ -40,7 +40,7 @@ interface User {
   avatar?: string;
   lastLogin?: string;
   defaultScreen?: 'apps' | 'barcode';
-  permissions: {
+  permissions?: {
     muhasebe?: boolean;
     tabakhane?: boolean;
     konfeksiyon?: boolean;
@@ -196,12 +196,10 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         },
       });
       const data = await response.json();
-      console.log('Subeler response:', JSON.stringify(data));
       if (data.success && data.data?.subeler) {
         setSubeler(data.data.subeler);
       }
     } catch (error) {
-      console.log('Subeler fetch error:', error);
     }
   };
 
@@ -302,10 +300,10 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setFormRole(user.role);
     setFormDefaultScreen(user.defaultScreen || 'apps');
     setFormPermissions({
-      muhasebe: user.permissions.muhasebe ?? false,
-      tabakhane: user.permissions.tabakhane ?? false,
-      konfeksiyon: user.permissions.konfeksiyon ?? false,
-      magaza: user.permissions.magaza ?? false,
+      muhasebe: user.permissions?.muhasebe ?? false,
+      tabakhane: user.permissions?.tabakhane ?? false,
+      konfeksiyon: user.permissions?.konfeksiyon ?? false,
+      magaza: user.permissions?.magaza ?? false,
     });
     setFormSubeYetkileri(user.subeYetkileri ?? []);
     setFormVarsayilanSube(user.varsayilanSube ?? (user.subeYetkileri?.[0] ?? ''));

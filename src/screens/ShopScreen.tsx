@@ -21,6 +21,8 @@ interface ShopScreenProps {
   onCompanyModelPerformance?: () => void;
   onReservations?: () => void;
   onAgencyPerformance?: () => void;
+  initialTab?: ShopTab;
+  onActiveTabChange?: (tab: ShopTab) => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -30,11 +32,11 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance, initialTab, onActiveTabChange }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [shopTab, setShopTab] = useState<ShopTab>('reports');
+  const [shopTab, setShopTab] = useState<ShopTab>(initialTab ?? 'reports');
 
   const styles = createStyles(colors, isDark);
 
@@ -86,7 +88,7 @@ export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOpera
           <Tab
             options={SHOP_TABS}
             activeTab={shopTab}
-            onTabChange={setShopTab}
+            onTabChange={(tab) => { setShopTab(tab); onActiveTabChange?.(tab); }}
           />
 
           {/* Tab Content */}
