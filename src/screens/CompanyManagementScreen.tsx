@@ -24,7 +24,8 @@ import ConfirmButton from '../components/ConfirmButton';
 import SearchInput from '../components/SearchInput';
 import Header from '../components/Header';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Input from '../components/Input';
@@ -1083,7 +1084,7 @@ export default function CompanyManagementScreen({
                     label="Telefon"
                     value={defaultUser.telefon}
                     onChangeText={(text) => setDefaultUser(prev => ({ ...prev, telefon: text }))}
-                    placeholder="0 5__ ___ ____"
+                    placeholder="(5__) ___-____"
                   />
 
                   {/* Şifre */}
@@ -1139,8 +1140,8 @@ export default function CompanyManagementScreen({
         leftButton={<BackButton onPress={onGoBack} />}
         rightButton={
           <View style={styles.headerRight}>
-            <IconButton icon="search-outline" onPress={handleToggleSearch} />
-            <IconButton icon="add" onPress={handleOpenAddCompany} />
+            <SearchButton onPress={handleToggleSearch} />
+            <AddButton onPress={handleOpenAddCompany} />
           </View>
         }
       />

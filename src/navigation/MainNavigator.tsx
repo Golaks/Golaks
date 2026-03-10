@@ -23,8 +23,11 @@ import ModelOperationsScreen from '../screens/ModelOperationsScreen';
 import SalesScreen from '../screens/SalesScreen';
 import PersonnelPerformanceScreen from '../screens/PersonnelPerformanceScreen';
 import CompanyModelPerformanceScreen from '../screens/CompanyModelPerformanceScreen';
+import OrdersScreen from '../screens/OrdersScreen';
+import ReservationsScreen from '../screens/ReservationsScreen';
+import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -141,8 +144,11 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onSales={() => setActiveScreen('confectionSales')}
             onPersonnelPerformance={() => setActiveScreen('confectionPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('confectionCompanyModelPerformance')}
+            onOrders={() => setActiveScreen('confectionOrders')}
           />
         );
+      case 'confectionOrders':
+        return <OrdersScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'shop':
         return (
           <ShopScreen
@@ -154,8 +160,12 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onSales={() => setActiveScreen('shopSales')}
             onPersonnelPerformance={() => setActiveScreen('shopPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('shopCompanyModelPerformance')}
+            onReservations={() => setActiveScreen('shopReservations')}
+            onAgencyPerformance={() => setActiveScreen('shopAgencyPerformance')}
           />
         );
+      case 'shopReservations':
+        return <ReservationsScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'modelOperations':
         return (
           <ModelOperationsScreen
@@ -192,6 +202,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
         return <CompanyModelPerformanceScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} modul="magaza" />;
       case 'confectionCompanyModelPerformance':
         return <CompanyModelPerformanceScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} modul="konfeksiyon" />;
+      case 'shopAgencyPerformance':
+        return <AgencyPerformanceScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       default:
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
     }

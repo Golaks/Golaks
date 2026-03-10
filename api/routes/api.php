@@ -62,6 +62,7 @@ class Router {
         $this->post('/user/create', 'UserController', 'create');
         $this->put('/user/update', 'UserController', 'update');
         $this->delete('/user/delete', 'UserController', 'delete');
+        $this->get('/user/subeler', 'UserController', 'getSubeler');
 
         // Notification Routes (Protected)
         $this->get('/notifications', 'NotificationController', 'getNotifications');
@@ -78,6 +79,9 @@ class Router {
 
         // Account Routes (Protected, Company-specific)
         $this->post('/account/cari-list', 'AccountController', 'getCariList');
+        $this->post('/account/cari-create', 'AccountController', 'createCari');
+        $this->post('/account/cari-next-kod', 'AccountController', 'getNextHesapKodu');
+        $this->post('/account/cari-update', 'AccountController', 'updateCari');
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
@@ -85,6 +89,22 @@ class Router {
 
         // Sales Routes (Global - tüm modüller için)
         $this->post('/sales/list', 'SalesController', 'getList');
+
+        // Orders Routes (Global - tüm modüller için)
+        $this->post('/orders/list', 'OrdersController', 'getList');
+        $this->post('/orders/detail', 'OrdersController', 'getDetail');
+
+        // Reservation Routes (Mağaza)
+        $this->post('/reservations/list', 'ReservationsController', 'getList');
+        $this->post('/reservations/create', 'ReservationsController', 'create');
+        $this->post('/reservations/update', 'ReservationsController', 'update');
+        $this->post('/reservations/lookups', 'ReservationsController', 'getLookups');
+
+        // Tanimlar Routes (Global - parametrik tanımlar)
+        $this->post('/tanimlar/list', 'TanimlarController', 'getList');
+        $this->post('/tanimlar/create', 'TanimlarController', 'create');
+        $this->post('/tanimlar/update', 'TanimlarController', 'update');
+        $this->post('/tanimlar/delete', 'TanimlarController', 'delete');
 
         // Stock Routes (Global - tüm modüller için)
         $this->post('/stock/list', 'StockController', 'getList');

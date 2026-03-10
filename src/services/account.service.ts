@@ -21,6 +21,19 @@ export interface CariAccount {
   bakiyeler?: CariBalance[]; // Optional, lazy loaded
 }
 
+export interface CariCreateData {
+  hesapKodu: string;
+  unvan: string;
+  kisaUnvan?: string;
+  doviz?: string;
+  kurTipi?: string;
+  subeId: number;
+  ozelKod1?: string;
+  ozelKod2?: string;
+  ozelKod3?: string;
+  ozelKod4?: string;
+}
+
 export interface CariListResponse {
   success: boolean;
   data: {
@@ -96,18 +109,19 @@ class AccountService {
   async getCariList(
     token: string,
     dataName: string,
-    filterType: 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' = 'all',
-    search: string = ''
+    filterType: 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' | 'stocks' = 'all',
+    search: string = '',
+    subeId?: number
   ): Promise<CariListResponse> {
     try {
+      const body: any = { dataName, filterType, search };
+      if (subeId) {
+        body.subeId = subeId;
+      }
       const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_LIST, {
         method: 'POST',
         headers: this.getAuthHeader(token),
-        body: JSON.stringify({
-          dataName,
-          filterType,
-          search,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -119,6 +133,96 @@ class AccountService {
       return data;
     } catch (error: any) {
       throw new Error(error.message || 'Cari listesi alınamadı');
+    }
+  }
+
+  /**
+   * Yeni cari hesap oluşturur
+   */
+  async createCari(
+    token: string,
+    dataName: string,
+    cariData: CariCreateData
+  ): Promise<{ success: boolean; data: { id: string; message: string } }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_CREATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          ...cariData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Cari hesap oluşturulamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Cari hesap oluşturulamadı');
+    }
+  }
+
+  /**
+   * Cari hesap günceller
+   */
+  async updateCari(
+    token: string,
+    dataName: string,
+    cariId: number,
+    updateData: { hesapKodu?: string; unvan: string; kisaUnvan?: string; doviz?: string }
+  ): Promise<{ success: boolean; data: { message: string } }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_UPDATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({
+          dataName,
+          cariId,
+          ...updateData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Cari hesap güncellenemedi');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Cari hesap güncellenemedi');
+    }
+  }
+
+  /**
+   * Sıradaki hesap kodunu getirir
+   */
+  async getNextHesapKodu(
+    token: string,
+    dataName: string,
+    filterType: string,
+    subeId: number
+  ): Promise<{ success: boolean; data: { hesapKodu: string; prefix: string; subeKodu: string } }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_NEXT_KOD, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, filterType, subeId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Hesap kodu alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Hesap kodu alınamadı');
     }
   }
 

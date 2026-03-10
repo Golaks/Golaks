@@ -19,6 +19,8 @@ interface ShopScreenProps {
   onSales?: () => void;
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
+  onReservations?: () => void;
+  onAgencyPerformance?: () => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -28,7 +30,7 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -118,11 +120,25 @@ export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOpera
                 description="Personel performans raporu"
                 onPress={() => onPersonnelPerformance?.()}
               />
+              <MenuCard
+                name="Acenta Performans"
+                icon="business-outline"
+                color="#F59E0B"
+                description="Acenta bazlı performans raporu"
+                onPress={() => onAgencyPerformance?.()}
+              />
             </>
           )}
 
           {shopTab === 'transactions' && (
             <>
+              <MenuCard
+                name="Rezervasyonlar"
+                icon="calendar-outline"
+                color="#F59E0B"
+                description="Rezervasyon takibi ve işlemleri"
+                onPress={() => onReservations?.()}
+              />
               <MenuCard
                 name="Model İşlemleri"
                 icon="layers-outline"

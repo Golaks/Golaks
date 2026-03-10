@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   USER_CREATE: `${BASE_API_URL}/user/create`,
   USER_UPDATE: `${BASE_API_URL}/user/update`,
   USER_DELETE: `${BASE_API_URL}/user/delete`,
+  USER_SUBELER: `${BASE_API_URL}/user/subeler`,
 
   // Company Management (Super Admin)
   COMPANY_LIST: `${BASE_API_URL}/company/list`,
@@ -59,6 +60,9 @@ export const API_ENDPOINTS = {
 
   // Account endpoints (muhasebe)
   ACCOUNT_CARI_LIST: `${BASE_API_URL}/account/cari-list`,
+  ACCOUNT_CARI_CREATE: `${BASE_API_URL}/account/cari-create`,
+  ACCOUNT_CARI_NEXT_KOD: `${BASE_API_URL}/account/cari-next-kod`,
+  ACCOUNT_CARI_UPDATE: `${BASE_API_URL}/account/cari-update`,
   ACCOUNT_CARI_BALANCE: `${BASE_API_URL}/account/cari-balance`,
   ACCOUNT_CARI_EKSTRE: `${BASE_API_URL}/account/cari-ekstre`,
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
@@ -67,6 +71,16 @@ export const API_ENDPOINTS = {
 
   // Sales endpoints (global - tüm modüller)
   SALES_LIST: `${BASE_API_URL}/sales/list`,
+
+  // Orders endpoints (global - tüm modüller)
+  ORDERS_LIST: `${BASE_API_URL}/orders/list`,
+  ORDERS_DETAIL: `${BASE_API_URL}/orders/detail`,
+
+  // Reservation endpoints (mağaza)
+  RESERVATIONS_LIST: `${BASE_API_URL}/reservations/list`,
+  RESERVATIONS_CREATE: `${BASE_API_URL}/reservations/create`,
+  RESERVATIONS_UPDATE: `${BASE_API_URL}/reservations/update`,
+  RESERVATIONS_LOOKUPS: `${BASE_API_URL}/reservations/lookups`,
 
   // Stock endpoints (global - tüm modüller)
   STOCK_LIST: `${BASE_API_URL}/stock/list`,
@@ -78,6 +92,12 @@ export const API_ENDPOINTS = {
   MODEL_KART_UPLOAD_IMAGE: `${BASE_API_URL}/model-kart/upload-image`,
   MODEL_KART_DELETE_IMAGE: `${BASE_API_URL}/model-kart/delete-image`,
   MODEL_KART_COLORS: `${BASE_API_URL}/model-kart/colors`,
+
+  // Tanimlar endpoints (global - parametrik tanımlar)
+  TANIMLAR_LIST: `${BASE_API_URL}/tanimlar/list`,
+  TANIMLAR_CREATE: `${BASE_API_URL}/tanimlar/create`,
+  TANIMLAR_UPDATE: `${BASE_API_URL}/tanimlar/update`,
+  TANIMLAR_DELETE: `${BASE_API_URL}/tanimlar/delete`,
 
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak

@@ -15,7 +15,7 @@ import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SearchInput from '../components/SearchInput';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
 import BackButton from '../components/BackButton';
 import TabBar, { TabName } from '../components/TabBar';
 import stockService, { StockItem, StockSummaryItem, StockGroupItem } from '../services/stock.service';
@@ -181,7 +181,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
           title={isHammadde ? 'Konfeksiyon Hammadde Stokları' : MODUL_TITLES[stokModul]}
           leftButton={<BackButton onPress={onGoBack} />}
           rightButton={
-            <IconButton icon="search-outline" onPress={handleToggleSearch} />
+            <SearchButton onPress={handleToggleSearch} />
           }
           showMenu={true}
           onLogout={handleLogout}

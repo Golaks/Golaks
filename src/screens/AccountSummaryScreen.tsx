@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
 import SearchInput from '../components/SearchInput';
 import CariCard from '../components/CariCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -164,7 +164,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
         <Header
           title="Cari Özet"
           leftButton={<BackButton onPress={onBack} />}
-          rightButton={<IconButton icon="search-outline" onPress={handleToggleSearch} />}
+          rightButton={<SearchButton onPress={handleToggleSearch} />}
           showMenu={true}
           onLogout={handleLogout}
         />

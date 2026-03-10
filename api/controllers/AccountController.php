@@ -26,13 +26,14 @@ class AccountController {
         $dataName = $data['dataName'] ?? '';
         $filterType = $data['filterType'] ?? 'all';
         $search = $data['search'] ?? '';
+        $subeId = isset($data['subeId']) ? (int)$data['subeId'] : null;
 
         // Validasyon
         if (empty($dataName)) {
             Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
         }
 
-        $validFilters = ['all', 'customers', 'suppliers', 'safes', 'banks', 'personnel'];
+        $validFilters = ['all', 'customers', 'suppliers', 'safes', 'banks', 'personnel', 'stocks'];
         if (!in_array($filterType, $validFilters)) {
             Response::error('Geçersiz filtre tipi', 'VALIDATION_ERROR', 400);
         }
@@ -101,6 +102,9 @@ class AccountController {
                 case 'personnel':
                     $hesapKoduFilter = '335%'; // Personeller
                     break;
+                case 'stocks':
+                    $hesapKoduFilter = '150%'; // Stoklar
+                    break;
             }
 
             // Arama terimi
@@ -126,18 +130,25 @@ class AccountController {
                         OR c.hesap_kodu LIKE :search3
                         OR s.sube_adi LIKE :search4
                     )
-                ORDER BY c.unvan
-                LIMIT 100
             ";
 
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([
+            $params = [
                 ':hesapKodu' => $hesapKoduFilter,
                 ':search' => $searchTerm,
                 ':search2' => $searchTerm,
                 ':search3' => $searchTerm,
                 ':search4' => $searchTerm
-            ]);
+            ];
+
+            if ($subeId) {
+                $sql .= " AND c.sube_id = :subeId";
+                $params[':subeId'] = $subeId;
+            }
+
+            $sql .= " ORDER BY c.unvan LIMIT 100";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
 
             $rows = $stmt->fetchAll();
 
@@ -164,6 +175,389 @@ class AccountController {
             Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
         } catch (Exception $e) {
             error_log("Cari List Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/cari-create
+     * Yeni cari hesap oluştur
+     */
+    public function createCari() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $hesapKodu = trim($data['hesapKodu'] ?? '');
+        $unvan = trim($data['unvan'] ?? '');
+        $kisaUnvan = trim($data['kisaUnvan'] ?? '');
+        $doviz = trim($data['doviz'] ?? 'TL');
+        $kurTipi = $data['kurTipi'] ?? 'doviz_alis';
+        $subeId = (int)($data['subeId'] ?? 0);
+        $ozelKod1 = trim($data['ozelKod1'] ?? '');
+        $ozelKod2 = trim($data['ozelKod2'] ?? '');
+        $ozelKod3 = trim($data['ozelKod3'] ?? '');
+        $ozelKod4 = trim($data['ozelKod4'] ?? '');
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($hesapKodu)) {
+            Response::error('Hesap kodu gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($unvan)) {
+            Response::error('Ünvan gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if ($subeId <= 0) {
+            Response::error('Şube seçilmelidir', 'VALIDATION_ERROR', 400);
+        }
+
+        $validKurTipleri = ['doviz_alis', 'doviz_satis', 'efektif_alis', 'efektif_satis', 'ozel_kur'];
+        if (!in_array($kurTipi, $validKurTipleri)) {
+            $kurTipi = 'doviz_alis';
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Aynı hesap kodu + şube + firma kontrolü
+            $existing = $pdo->prepare(
+                "SELECT id FROM cariler WHERE firma_id = ? AND sube_id = ? AND hesap_kodu = ? AND aktif != -1"
+            );
+            $existing->execute([$firmaId, $subeId, $hesapKodu]);
+            if ($existing->fetch()) {
+                Response::error('Bu hesap kodu zaten mevcut', 'DUPLICATE_ERROR', 409);
+            }
+
+            $sql = "INSERT INTO cariler (firma_id, sube_id, hesap_kodu, unvan, kisa_unvan, doviz, kur_tipi, ozel_kod_1, ozel_kod_2, ozel_kod_3, ozel_kod_4, kayit_kullanici_id, kayit_ip)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                $firmaId,
+                $subeId,
+                $hesapKodu,
+                $unvan,
+                $kisaUnvan,
+                $doviz,
+                $kurTipi,
+                $ozelKod1,
+                $ozelKod2,
+                $ozelKod3,
+                $ozelKod4,
+                $userId,
+                $_SERVER['REMOTE_ADDR'] ?? ''
+            ]);
+
+            $newId = $pdo->lastInsertId();
+
+            Response::success([
+                'id' => $newId,
+                'message' => 'Cari hesap başarıyla oluşturuldu'
+            ], 201);
+
+        } catch (PDOException $e) {
+            error_log("Cari Create DB Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("Cari Create Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/cari-update
+     * Cari hesap güncelleme
+     */
+    public function updateCari() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $cariId = (int)($data['cariId'] ?? 0);
+        $hesapKodu = trim($data['hesapKodu'] ?? '');
+        $unvan = trim($data['unvan'] ?? '');
+        $kisaUnvan = trim($data['kisaUnvan'] ?? '');
+        $doviz = trim($data['doviz'] ?? 'TL');
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if ($cariId <= 0) {
+            Response::error('Cari ID gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($unvan)) {
+            Response::error('Ünvan gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Cari kaydının varlığını kontrol et
+            $existing = $pdo->prepare(
+                "SELECT id FROM cariler WHERE id = ? AND firma_id = ? AND aktif != -1"
+            );
+            $existing->execute([$cariId, $firmaId]);
+            if (!$existing->fetch()) {
+                Response::error('Cari hesap bulunamadı', 'NOT_FOUND', 404);
+            }
+
+            // Hesap kodu değiştiyse duplicate kontrolü
+            if (!empty($hesapKodu)) {
+                $dupCheck = $pdo->prepare(
+                    "SELECT id FROM cariler WHERE firma_id = ? AND hesap_kodu = ? AND id != ? AND aktif != -1"
+                );
+                $dupCheck->execute([$firmaId, $hesapKodu, $cariId]);
+                if ($dupCheck->fetch()) {
+                    Response::error('Bu hesap kodu zaten mevcut', 'DUPLICATE_ERROR', 409);
+                }
+            }
+
+            $updateFields = ['unvan = ?', 'kisa_unvan = ?', 'doviz = ?'];
+            $updateParams = [$unvan, $kisaUnvan, $doviz];
+
+            if (!empty($hesapKodu)) {
+                $updateFields[] = 'hesap_kodu = ?';
+                $updateParams[] = $hesapKodu;
+            }
+
+            $updateParams[] = $cariId;
+            $updateParams[] = $firmaId;
+
+            $sql = "UPDATE cariler SET " . implode(', ', $updateFields) . " WHERE id = ? AND firma_id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($updateParams);
+
+            Response::success([
+                'message' => 'Cari hesap güncellendi'
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Cari Update DB Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası', 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("Cari Update Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/cari-next-kod
+     * Seçilen filtre ve şubeye göre sıradaki hesap kodunu döner
+     */
+    public function getNextHesapKodu() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $filterType = $data['filterType'] ?? 'customers';
+        $subeId = (int)($data['subeId'] ?? 0);
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if ($subeId <= 0) {
+            Response::error('Şube seçilmelidir', 'VALIDATION_ERROR', 400);
+        }
+
+        // filterType -> hesap kodu prefix
+        $prefixMap = [
+            'customers' => '120',
+            'suppliers' => '320',
+            'safes' => '100',
+            'banks' => '102',
+            'personnel' => '335',
+            'stocks' => '150',
+        ];
+
+        $prefix = $prefixMap[$filterType] ?? '120';
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Şube kodunu al
+            $subeStmt = $pdo->prepare("SELECT sube_kodu FROM subeler WHERE id = ? AND firma_id = ? AND aktif = 1 LIMIT 1");
+            $subeStmt->execute([$subeId, $firmaId]);
+            $subeResult = $subeStmt->fetch();
+
+            if ($subeResult && !empty($subeResult['sube_kodu'])) {
+                $subeKodu = $subeResult['sube_kodu'];
+            } else {
+                $subeKodu = str_pad($subeId, 2, '0', STR_PAD_LEFT);
+            }
+
+            $searchPrefix = $prefix . '.' . $subeKodu;
+
+            // Son hesap kodunu bul
+            $stmt = $pdo->prepare(
+                "SELECT hesap_kodu FROM cariler
+                 WHERE firma_id = ? AND sube_id = ? AND hesap_kodu LIKE ?
+                 ORDER BY hesap_kodu DESC LIMIT 1"
+            );
+            $stmt->execute([$firmaId, $subeId, $searchPrefix . '%']);
+            $result = $stmt->fetch();
+
+            if ($result && !empty($result['hesap_kodu'])) {
+                $lastKod = $result['hesap_kodu'];
+                $parts = explode('.', $lastKod);
+
+                if (count($parts) === 4) {
+                    $lastNumber = intval($parts[3]);
+                    $nextNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+                    $nextKod = implode('.', [$parts[0], $parts[1], $parts[2], $nextNumber]);
+                } else {
+                    $nextKod = $searchPrefix . '.01.0001';
+                }
+            } else {
+                $nextKod = $searchPrefix . '.01.0001';
+            }
+
+            Response::success([
+                'hesapKodu' => $nextKod,
+                'prefix' => $prefix,
+                'subeKodu' => $subeKodu,
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Next HesapKodu DB Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası', 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("Next HesapKodu Error: " . $e->getMessage());
             Response::error($e->getMessage(), 'SERVER_ERROR', 500);
         }
     }

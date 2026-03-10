@@ -154,7 +154,7 @@ const createStyles = (colors: any, hasError: boolean) =>
       fontSize: 14,
       fontWeight: '600',
       color: colors.inputLabel,
-      marginBottom: 8,
+      marginBottom: 4,
     },
     inputWrapper: {
       flexDirection: 'row',

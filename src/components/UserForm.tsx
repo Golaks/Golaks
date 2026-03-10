@@ -6,6 +6,11 @@ import Input from './Input';
 import InputPhone from './InputPhone';
 import IOSSwitch from './IOSSwitch';
 
+export interface SubeItem {
+  id: string;
+  name: string;
+}
+
 interface AvailablePrograms {
   muhasebe: boolean;
   tabakhane: boolean;
@@ -26,6 +31,9 @@ interface UserFormProps {
     konfeksiyon?: boolean;
     magaza?: boolean;
   };
+  formSubeYetkileri: string[];
+  formVarsayilanSube: string;
+  subeler: SubeItem[];
   isEditMode: boolean;
   availablePrograms?: AvailablePrograms;
   onNameChange: (value: string) => void;
@@ -35,6 +43,8 @@ interface UserFormProps {
   onRoleChange: (role: 'user' | 'admin' | 'superAdmin') => void;
   onDefaultScreenChange: (screen: 'apps' | 'barcode') => void;
   onPermissionsChange: (permissions: any) => void;
+  onSubeYetkileriChange: (subeYetkileri: string[]) => void;
+  onVarsayilanSubeChange: (subeId: string) => void;
 }
 
 const PERMISSIONS = [
@@ -67,6 +77,9 @@ export default function UserForm({
   formRole,
   formDefaultScreen,
   formPermissions,
+  formSubeYetkileri,
+  formVarsayilanSube,
+  subeler,
   isEditMode,
   availablePrograms,
   onNameChange,
@@ -76,6 +89,8 @@ export default function UserForm({
   onRoleChange,
   onDefaultScreenChange,
   onPermissionsChange,
+  onSubeYetkileriChange,
+  onVarsayilanSubeChange,
 }: UserFormProps) {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
@@ -276,7 +291,7 @@ export default function UserForm({
             <Icon name="apps-outline" size={18} color={colors.text} />
             <Text style={styles.sectionTitleText}>Uygulama Yetkileri</Text>
           </View>
-          <View style={[styles.permissionList, { marginBottom: 20 }]}>
+          <View style={styles.permissionList}>
             {PERMISSIONS.map((perm) => {
               const isAvailable = availablePrograms
                 ? availablePrograms[perm.key as keyof AvailablePrograms]
@@ -326,6 +341,78 @@ export default function UserForm({
                     </View>
                   )}
                 </View>
+              );
+            })}
+          </View>
+        </>
+      )}
+
+      {/* Şube Yetkileri */}
+      {subeler.length > 0 && (
+        <>
+          <View style={[styles.sectionTitle, { marginTop: 16 }]}>
+            <Icon name="business-outline" size={18} color={colors.text} />
+            <Text style={styles.sectionTitleText}>Şube Yetkileri</Text>
+          </View>
+          <View style={[styles.permissionList, { marginBottom: 20 }]}>
+            {subeler.map((sube) => {
+              const isSelected = formSubeYetkileri.includes(sube.id);
+              const isDefault = formVarsayilanSube === sube.id;
+              return (
+                <Pressable
+                  key={sube.id}
+                  style={[styles.permissionItem, isSelected && styles.subeItemSelected]}
+                  onPress={() => {
+                    if (isSelected) {
+                      const newYetkiler = formSubeYetkileri.filter(id => id !== sube.id);
+                      onSubeYetkileriChange(newYetkiler);
+                      // Varsayılan şube kaldırıldıysa ilk şubeyi varsayılan yap
+                      if (isDefault && newYetkiler.length > 0) {
+                        onVarsayilanSubeChange(newYetkiler[0]);
+                      } else if (newYetkiler.length === 0) {
+                        onVarsayilanSubeChange('');
+                      }
+                    } else {
+                      const newYetkiler = [...formSubeYetkileri, sube.id];
+                      onSubeYetkileriChange(newYetkiler);
+                      // İlk şube eklendiyse otomatik varsayılan yap
+                      if (newYetkiler.length === 1) {
+                        onVarsayilanSubeChange(sube.id);
+                      }
+                    }
+                  }}
+                >
+                  <View style={styles.permissionLeft}>
+                    <Icon
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={isSelected ? colors.primary : colors.textSecondary}
+                    />
+                    <View>
+                      <Text style={[styles.permissionLabel, isSelected && { color: colors.primary, fontWeight: '600' }]}>
+                        {sube.name}
+                      </Text>
+                      {isDefault && (
+                        <Text style={[styles.permissionDisabledHint, { color: colors.primary }]}>
+                          Varsayılan Şube
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  {isSelected && (
+                    <Pressable
+                      onPress={() => onVarsayilanSubeChange(sube.id)}
+                      hitSlop={8}
+                      style={styles.defaultSubeBtn}
+                    >
+                      <Icon
+                        name={isDefault ? 'star' : 'star-outline'}
+                        size={20}
+                        color={isDefault ? '#F59E0B' : colors.textSecondary}
+                      />
+                    </Pressable>
+                  )}
+                </Pressable>
               );
             })}
           </View>
@@ -477,6 +564,13 @@ const createStyles = (colors: any, isDark: boolean) =>
     permissionItemDisabled: {
       opacity: 0.6,
       backgroundColor: colors.cardSecondary,
+    },
+    subeItemSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '08',
+    },
+    defaultSubeBtn: {
+      padding: 4,
     },
     permissionDisabledHint: {
       fontSize: 11,

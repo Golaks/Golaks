@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -8,11 +8,17 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
 import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import SearchInput from '../components/SearchInput';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import CariCard from '../components/CariCard';
-import accountService, { CariAccount, CariTransaction } from '../services/account.service';
+import BottomSheet from '../components/BottomSheet';
+import Input from '../components/Input';
+import SelectInput from '../components/SelectInput';
+import Button from '../components/Button';
+import accountService, { CariAccount, CariTransaction, CariCreateData } from '../services/account.service';
 import { authService } from '../services/auth.service';
 import { generateEkstrePDF } from '../utils/pdfEkstre';
 
@@ -22,7 +28,7 @@ interface CariDetayScreenProps {
   onLogout?: () => void;
 }
 
-type AccountFilterType = 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel';
+type AccountFilterType = 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' | 'stocks';
 
 interface FilterOption {
   id: AccountFilterType;
@@ -32,12 +38,13 @@ interface FilterOption {
 }
 
 const FILTER_OPTIONS: FilterOption[] = [
-  { id: 'all', label: 'Tümü', icon: 'grid-outline', color: '#6B7280' },
-  { id: 'customers', label: 'Müşteriler', icon: 'person-outline', color: '#3B82F6' },
-  { id: 'suppliers', label: 'Tedarikçiler', icon: 'business-outline', color: '#8B5CF6' },
-  { id: 'safes', label: 'Kasalar', icon: 'wallet-outline', color: '#10B981' },
-  { id: 'banks', label: 'Bankalar', icon: 'card-outline', color: '#F59E0B' },
+  { id: 'all', label: 'Tüm Cariler', icon: 'grid-outline', color: '#6B7280' },
+  { id: 'customers', label: 'Müşteriler', icon: 'people-outline', color: '#3B82F6' },
+  { id: 'suppliers', label: 'Tedarikçiler', icon: 'people-outline', color: '#8B5CF6' },
+  { id: 'safes', label: 'Kasalar', icon: 'people-outline', color: '#10B981' },
+  { id: 'banks', label: 'Bankalar', icon: 'people-outline', color: '#F59E0B' },
   { id: 'personnel', label: 'Personeller', icon: 'people-outline', color: '#EF4444' },
+  { id: 'stocks', label: 'Stoklar', icon: 'people-outline', color: '#06B6D4' },
 ];
 
 export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariDetayScreenProps) {
@@ -61,14 +68,62 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
 
+  // Branch state
+  const [subeler, setSubeler] = useState<{ id: string; label: string }[]>([]);
+  const [selectedSubeId, setSelectedSubeId] = useState<string>('');
+  const [subelerLoaded, setSubelerLoaded] = useState(false);
+
+  // Create/Edit form state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingCari, setEditingCari] = useState<CariAccount | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formHesapKodu, setFormHesapKodu] = useState('');
+  const [formUnvan, setFormUnvan] = useState('');
+  const [formKisaUnvan, setFormKisaUnvan] = useState('');
+  const [formDoviz, setFormDoviz] = useState('TL');
+  const [formSubeId, setFormSubeId] = useState('');
+
   const styles = createStyles(colors, isDark);
+
+  // Load subeler on mount
+  const loadSubeler = useCallback(async () => {
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const response = await fetch(
+        `${require('../config/env').BASE_URL}/user/subeler`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = await response.json();
+      if (data.success && data.data?.subeler) {
+        const mapped = data.data.subeler.map((s: any) => ({ id: String(s.id), label: s.name || s.subeAdi }));
+        setSubeler(mapped);
+        const varsayilan = data.data.varsayilanSube ? String(data.data.varsayilanSube) : '';
+        if (varsayilan) {
+          setSelectedSubeId(varsayilan);
+          setFormSubeId(varsayilan);
+        } else if (mapped.length > 0) {
+          setSelectedSubeId(mapped[0].id);
+          setFormSubeId(mapped[0].id);
+        }
+        setSubelerLoaded(true);
+      }
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    loadSubeler();
+  }, []);
 
   // Load cari list
   useEffect(() => {
-    if (!selectedCari) {
+    if (!selectedCari && subelerLoaded) {
       loadCariList();
     }
-  }, [selectedFilter, searchQuery]);
+  }, [selectedFilter, searchQuery, selectedSubeId, subelerLoaded]);
 
   const loadCariList = async () => {
     try {
@@ -86,7 +141,8 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         token,
         dataName,
         selectedFilter,
-        searchQuery
+        searchQuery,
+        selectedSubeId ? parseInt(selectedSubeId) : undefined
       );
 
       if (response.success) {
@@ -169,6 +225,112 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     }
   };
 
+  const resetForm = () => {
+    setFormHesapKodu('');
+    setFormUnvan('');
+    setFormKisaUnvan('');
+    setFormDoviz('TL');
+    setFormSubeId('');
+    setEditingCari(null);
+  };
+
+  const fetchNextHesapKodu = async (filterType: AccountFilterType, subeId: string) => {
+    if (!subeId || filterType === 'all') return;
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const response = await accountService.getNextHesapKodu(token, dataName, filterType, parseInt(subeId));
+      if (response.success && response.data.hesapKodu) {
+        setFormHesapKodu(response.data.hesapKodu);
+      }
+    } catch (_) {}
+  };
+
+  const handleOpenCreateModal = () => {
+    resetForm();
+    setFormSubeId(selectedSubeId);
+    setShowFormModal(true);
+    fetchNextHesapKodu(selectedFilter, selectedSubeId);
+  };
+
+  const handleOpenEditModal = (cari: CariAccount) => {
+    setEditingCari(cari);
+    setFormHesapKodu(cari.hesapKodu);
+    setFormUnvan(cari.unvan);
+    setFormKisaUnvan(cari.kisaUnvan || '');
+    setFormDoviz(cari.doviz || 'TL');
+    setFormSubeId(selectedSubeId);
+    setShowFormModal(true);
+  };
+
+  const handleSaveCari = async () => {
+    if (!formUnvan.trim()) {
+      Alert.alert('Uyarı', 'Ünvan gereklidir');
+      return;
+    }
+
+    if (editingCari) {
+      // Update
+      setIsSaving(true);
+      try {
+        const token = await authService.getToken();
+        if (!token) throw new Error('Token bulunamadı');
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+
+        await accountService.updateCari(token, dataName, editingCari.id, {
+          hesapKodu: formHesapKodu.trim(),
+          unvan: formUnvan.trim(),
+          kisaUnvan: formKisaUnvan.trim(),
+          doviz: formDoviz,
+        });
+
+        setShowFormModal(false);
+        resetForm();
+        loadCariList();
+        Alert.alert('Başarılı', 'Cari hesap güncellendi');
+      } catch (err: any) {
+        Alert.alert('Hata', err.message || 'Cari hesap güncellenemedi');
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      // Create
+      if (!formHesapKodu.trim()) {
+        Alert.alert('Uyarı', 'Hesap kodu gereklidir');
+        return;
+      }
+      if (!formSubeId) {
+        Alert.alert('Uyarı', 'Şube seçilmelidir');
+        return;
+      }
+
+      setIsSaving(true);
+      try {
+        const token = await authService.getToken();
+        if (!token) throw new Error('Token bulunamadı');
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+
+        await accountService.createCari(token, dataName, {
+          hesapKodu: formHesapKodu.trim(),
+          unvan: formUnvan.trim(),
+          kisaUnvan: formKisaUnvan.trim(),
+          doviz: formDoviz,
+          subeId: parseInt(formSubeId),
+        });
+
+        setShowFormModal(false);
+        resetForm();
+        loadCariList();
+        Alert.alert('Başarılı', 'Cari hesap oluşturuldu');
+      } catch (err: any) {
+        Alert.alert('Hata', err.message || 'Cari hesap oluşturulamadı');
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
   const handleToggleSearch = () => {
     if (selectedCari) {
       setTransactionSearchVisible(!transactionSearchVisible);
@@ -223,6 +385,8 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
       return { color: '#F59E0B', icon: 'card-outline', label: 'Banka' };
     } else if (hesapKodu.startsWith('335')) {
       return { color: '#EF4444', icon: 'people-outline', label: 'Personel' };
+    } else if (hesapKodu.startsWith('150')) {
+      return { color: '#06B6D4', icon: 'cube-outline', label: 'Stok' };
     }
     return { color: colors.primary, icon: 'person-outline', label: 'Cari' };
   };
@@ -389,7 +553,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
       <View style={styles.container}>
         {/* Header */}
         <Header
-          title={selectedCari ? 'Cari Ekstre' : 'Cari Detay'}
+          title={selectedCari ? 'Cari Ekstre' : 'Cari Hesaplar'}
           leftButton={
             <BackButton
               onPress={selectedCari ? handleBackToList : (onBack || (() => {}))}
@@ -400,7 +564,10 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
               {selectedCari && (
                 <IconButton icon="document-text-outline" onPress={() => handleEkstrePDF(selectedCari)} />
               )}
-              <IconButton icon="search-outline" onPress={handleToggleSearch} />
+              {!selectedCari && (
+                <AddButton onPress={handleOpenCreateModal} />
+              )}
+              <SearchButton onPress={handleToggleSearch} />
             </View>
           }
           showMenu={true}
@@ -425,13 +592,26 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
               </View>
             )}
 
-            {/* Page Title */}
+            {/* Page Title + Branch Selector */}
             <View style={styles.pageHeader}>
-              <View style={styles.pageTitleContainer}>
-                <View style={[styles.pageTitleIcon, { backgroundColor: '#10B981' + '15' }]}>
-                  <Icon name="document-text" size={18} color="#10B981" />
+              <View style={styles.pageTitleRow}>
+                <View style={styles.pageTitleContainer}>
+                  <View style={[styles.pageTitleIcon, { backgroundColor: colors.primary + '15' }]}>
+                    <Icon name="people" size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.pageTitle}>Cari Hesaplar</Text>
                 </View>
-                <Text style={styles.pageTitle}>Cari Detay</Text>
+                {subeler.length > 1 && (
+                  <View style={styles.subeSelectorContainer}>
+                    <SelectInput
+                      value={selectedSubeId}
+                      onSelect={setSelectedSubeId}
+                      items={subeler}
+                      placeholder="Şube"
+                      compact
+                    />
+                  </View>
+                )}
               </View>
             </View>
 
@@ -439,7 +619,8 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterContainer}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterContent}
             >
               {FILTER_OPTIONS.map((filter) => {
                 const isSelected = selectedFilter === filter.id;
@@ -448,22 +629,17 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                     key={filter.id}
                     style={[
                       styles.filterChip,
-                      {
-                        backgroundColor: isSelected ? filter.color : colors.card,
-                        borderColor: isSelected ? filter.color : colors.border,
-                      },
+                      isSelected && { backgroundColor: filter.color, borderColor: filter.color },
                     ]}
                     onPress={() => handleFilterPress(filter.id)}
                   >
-                    <Icon
-                      name={filter.icon}
-                      size={16}
-                      color={isSelected ? '#FFFFFF' : colors.text}
-                    />
+                    {filter.color && !isSelected && (
+                      <View style={[styles.filterDot, { backgroundColor: filter.color }]} />
+                    )}
                     <Text
                       style={[
                         styles.filterChipText,
-                        { color: isSelected ? '#FFFFFF' : colors.text },
+                        isSelected && { color: '#FFF' },
                       ]}
                     >
                       {filter.label}
@@ -509,12 +685,20 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                     </View>
                     <View style={styles.cariActions}>
                       <Pressable
-                        style={styles.ekstreButton}
-                        onPress={() => handleEkstrePDF(item)}
+                        style={styles.actionBtn}
+                        onPress={() => handleOpenEditModal(item)}
+                        hitSlop={4}
                       >
-                        <Icon name="document-text-outline" size={20} color={colors.primary} />
+                        <Icon name="create-outline" size={18} color={colors.primary} />
                       </Pressable>
-                      <Icon name="chevron-forward" size={20} color={colors.textSecondary} />
+                      <Pressable
+                        style={styles.actionBtn}
+                        onPress={() => handleEkstrePDF(item)}
+                        hitSlop={4}
+                      >
+                        <Icon name="document-text-outline" size={18} color={colors.primary} />
+                      </Pressable>
+                      <Icon name="chevron-forward" size={18} color={colors.textSecondary} />
                     </View>
                   </Pressable>
                 ))
@@ -569,6 +753,86 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           onTabPress={handleTabPress}
           notificationCount={notificationCount}
         />
+
+        {/* Create/Edit Cari Modal */}
+        <BottomSheet
+          visible={showFormModal}
+          onClose={() => { setShowFormModal(false); resetForm(); }}
+          title={editingCari ? 'Cari Düzenle' : 'Yeni Cari Hesap'}
+          icon={editingCari ? 'create-outline' : 'person-add-outline'}
+          footer={
+            <>
+              <Button
+                text="İptal"
+                variant="secondary"
+                onPress={() => { setShowFormModal(false); resetForm(); }}
+                icon="close-outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                text={editingCari ? 'Güncelle' : 'Kaydet'}
+                variant="primary"
+                onPress={handleSaveCari}
+                icon="checkmark-outline"
+                loading={isSaving}
+                style={{ flex: 1 }}
+              />
+            </>
+          }
+        >
+          <Input
+            label="Hesap Kodu *"
+            value={formHesapKodu}
+            onChangeText={setFormHesapKodu}
+            placeholder="Otomatik oluşturulacak"
+            autoCapitalize="none"
+            editable={!editingCari}
+          />
+          <Input
+            label="Ünvan *"
+            value={formUnvan}
+            onChangeText={setFormUnvan}
+            placeholder="Firma veya kişi adı"
+          />
+          <Input
+            label="Kısa Ünvan"
+            value={formKisaUnvan}
+            onChangeText={setFormKisaUnvan}
+            placeholder="Kısaltılmış ad"
+          />
+          {!editingCari && (
+            <View style={styles.formRow}>
+              <View style={styles.formRowHalf}>
+                <SelectInput
+                  label="Şube *"
+                  value={formSubeId}
+                  onSelect={(id) => {
+                    setFormSubeId(id);
+                    if (id) fetchNextHesapKodu(selectedFilter, id);
+                  }}
+                  items={subeler}
+                  placeholder="Şube seçin"
+                  noClear
+                />
+              </View>
+              <View style={styles.formRowHalf}>
+                <SelectInput
+                  label="Döviz"
+                  value={formDoviz}
+                  onSelect={setFormDoviz}
+                  items={[
+                    { id: 'TL', label: 'TL' },
+                    { id: 'USD', label: 'USD' },
+                    { id: 'EUR', label: 'EUR' },
+                    { id: 'GBP', label: 'GBP' },
+                  ]}
+                  placeholder="Döviz seçin"
+                  noClear
+                />
+              </View>
+            </View>
+          )}
+        </BottomSheet>
       </View>
     </SafeAreaProvider>
   );
@@ -593,10 +857,19 @@ const createStyles = (colors: any, isDark: boolean) =>
     pageHeader: {
       marginBottom: 16,
     },
+    pageTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
     pageTitleContainer: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
+    },
+    subeSelectorContainer: {
+      minWidth: 140,
+      maxWidth: 200,
     },
     pageTitleIcon: {
       width: 36,
@@ -611,23 +884,32 @@ const createStyles = (colors: any, isDark: boolean) =>
       color: colors.text,
       opacity: 0.6,
     },
-    filterContainer: {
-      paddingVertical: 4,
-      gap: 4,
+    filterScroll: {
+      marginBottom: 14,
+    },
+    filterContent: {
+      gap: 8,
     },
     filterChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
       borderRadius: 20,
+      backgroundColor: isDark ? colors.card : '#fff',
       borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
       gap: 6,
-      marginRight: 4,
+    },
+    filterDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
     },
     filterChipText: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
+      color: colors.text,
     },
     listContainer: {
       marginTop: 16,
@@ -708,13 +990,13 @@ const createStyles = (colors: any, isDark: boolean) =>
     cariActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 6,
       marginLeft: 8,
     },
-    ekstreButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+    actionBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: colors.primary + '15',
       alignItems: 'center',
       justifyContent: 'center',
@@ -853,5 +1135,12 @@ const createStyles = (colors: any, isDark: boolean) =>
     transactionBakiye: {
       fontSize: 11,
       color: colors.textSecondary,
+    },
+    formRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    formRowHalf: {
+      flex: 1,
     },
   });

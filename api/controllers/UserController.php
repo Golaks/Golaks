@@ -62,6 +62,9 @@ class UserController {
                     $permissions = new stdClass();
                 }
 
+                $subeYetkileri = $yetkiler['sube_yetkileri'] ?? [];
+                $varsayilanSube = $yetkiler['varsayilan_sube'] ?? '';
+
                 return [
                     'id' => (string)$user['id'],
                     'name' => $user['ad_soyad'],
@@ -72,6 +75,8 @@ class UserController {
                     'avatar' => $user['resim_yolu'] ?? null,
                     'lastLogin' => $user['son_giris_tarihi'] ?? null,
                     'permissions' => $permissions,
+                    'subeYetkileri' => $subeYetkileri,
+                    'varsayilanSube' => $varsayilanSube,
                 ];
             }, $users);
 
@@ -115,6 +120,8 @@ class UserController {
             $password = $data['password'] ?? '';
             $role = $data['role'] ?? 'user';
             $permissions = $data['permissions'] ?? [];
+            $subeYetkileri = $data['subeYetkileri'] ?? [];
+            $varsayilanSube = $data['varsayilanSube'] ?? '';
 
             // Validasyon
             if (empty($name)) {
@@ -153,7 +160,9 @@ class UserController {
 
             // Yetkileri JSON olarak hazırla
             $yetkilerJson = json_encode([
-                'uygulamalar' => $permissions
+                'uygulamalar' => $permissions,
+                'sube_yetkileri' => array_values($subeYetkileri),
+                'varsayilan_sube' => $varsayilanSube,
             ], JSON_UNESCAPED_UNICODE);
 
             // Kullanıcıyı oluştur
@@ -203,6 +212,8 @@ class UserController {
             $role = $data['role'] ?? 'user';
             $active = $data['active'] ?? true;
             $permissions = $data['permissions'] ?? [];
+            $subeYetkileri = $data['subeYetkileri'] ?? null;
+            $varsayilanSube = $data['varsayilanSube'] ?? null;
             $password = $data['password'] ?? '';
 
             // Validasyon
@@ -244,9 +255,23 @@ class UserController {
                 }
             }
 
-            $yetkilerJson = json_encode([
-                'uygulamalar' => $permissions
-            ], JSON_UNESCAPED_UNICODE);
+            // Mevcut yetkileri oku (sube_yetkileri ve bildirim_ayarlari korunsun)
+            $existingUser = $db->fetchOne(
+                "SELECT kullanici_yetkiler FROM mobil_kullanici WHERE id = ?",
+                [$id]
+            );
+            $mevcutYetkiler = [];
+            if ($existingUser && !empty($existingUser['kullanici_yetkiler'])) {
+                $mevcutYetkiler = json_decode($existingUser['kullanici_yetkiler'], true) ?? [];
+            }
+
+            $yeniYetkiler = [
+                'uygulamalar' => $permissions,
+                'sube_yetkileri' => $subeYetkileri !== null ? array_values($subeYetkileri) : ($mevcutYetkiler['sube_yetkileri'] ?? []),
+                'varsayilan_sube' => $varsayilanSube !== null ? $varsayilanSube : ($mevcutYetkiler['varsayilan_sube'] ?? ''),
+                'bildirim_ayarlari' => $mevcutYetkiler['bildirim_ayarlari'] ?? [],
+            ];
+            $yetkilerJson = json_encode($yeniYetkiler, JSON_UNESCAPED_UNICODE);
 
             // Şifre güncellemesi var mı?
             if (!empty($password)) {
@@ -570,6 +595,101 @@ class UserController {
 
         } catch (Exception $e) {
             error_log('Update notifications error: ' . $e->getMessage());
+            Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * GET /user/subeler
+     * Firmanın şube listesini getir (tenant DB'den)
+     */
+    public function getSubeler() {
+        $payload = Auth::requireAuth();
+        $userId = $payload['user_id'] ?? null;
+
+        if (!$userId) {
+            Response::error('Geçersiz token', 'INVALID_TOKEN', 401);
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT kullanici_rol, mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || $currentUser['kullanici_rol'] < 1) {
+                Response::error('Bu işlem için yetkiniz yok', 'UNAUTHORIZED', 403);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Kullanıcının varsayılan şubesini al
+            $userInfo = $db->fetchOne(
+                "SELECT kullanici_yetkiler FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $yetkiler = [];
+            if (!empty($userInfo['kullanici_yetkiler'])) {
+                $yetkiler = json_decode($userInfo['kullanici_yetkiler'], true) ?? [];
+            }
+            $varsayilanSube = $yetkiler['varsayilan_sube'] ?? '';
+            $subeYetkileri = $yetkiler['sube_yetkileri'] ?? [];
+
+            // Şube listesini al
+            $stmt = $pdo->prepare("SELECT id, sube_adi FROM subeler WHERE firma_id = ? AND aktif = 1 ORDER BY sube_adi");
+            $stmt->execute([$firmaId]);
+            $subeler = $stmt->fetchAll();
+
+            // Kullanıcının yetkili olduğu şubeleri filtrele
+            $formattedSubeler = [];
+            foreach ($subeler as $sube) {
+                if (empty($subeYetkileri) || in_array((string)$sube['id'], $subeYetkileri)) {
+                    $formattedSubeler[] = [
+                        'id' => (string)$sube['id'],
+                        'name' => $sube['sube_adi'],
+                    ];
+                }
+            }
+
+            Response::success([
+                'subeler' => $formattedSubeler,
+                'varsayilanSube' => $varsayilanSube,
+            ]);
+
+        } catch (PDOException $e) {
+            error_log('Get subeler DB error: ' . $e->getMessage());
+            Response::error('Veritabanı hatası', 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log('Get subeler error: ' . $e->getMessage());
             Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
         }
     }

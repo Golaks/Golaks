@@ -16,6 +16,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import XButton from './XButton';
+import AddTanimModal from './AddTanimModal';
 import { ModelColor } from '../services/model.service';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -48,6 +49,7 @@ interface ModelImageModalProps {
   onRemovePending: (index: number) => void;
   onUploadAll: (colorId?: number) => void;
   onDeleteImage: (imageId: number) => void | Promise<void>;
+  onColorAdded?: (id: string, name: string) => void;
 }
 
 export default function ModelImageModal({
@@ -64,6 +66,7 @@ export default function ModelImageModal({
   onRemovePending,
   onUploadAll,
   onDeleteImage,
+  onColorAdded,
 }: ModelImageModalProps) {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
@@ -72,6 +75,8 @@ export default function ModelImageModal({
   const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAddColor, setShowAddColor] = useState(false);
+  const [hiddenForTanim, setHiddenForTanim] = useState(false);
   const sliderRef = useRef<FlatList>(null);
 
   const selectedColor = colorList.find(c => c.id === selectedColorId);
@@ -110,8 +115,9 @@ export default function ModelImageModal({
   );
 
   return (
+    <>
     <Modal
-      visible={visible}
+      visible={visible && !hiddenForTanim}
       transparent
       animationType="slide"
       onRequestClose={onClose}
@@ -262,7 +268,20 @@ export default function ModelImageModal({
           <View style={styles.footer}>
             {/* Color Select */}
             <View style={styles.colorSection}>
-              <Text style={styles.colorSectionLabel}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+              <View style={styles.colorLabelRow}>
+                <Text style={styles.colorSectionLabel}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
+                <Pressable
+                  style={styles.addColorBtn}
+                  onPress={() => {
+                    setHiddenForTanim(true);
+                    setTimeout(() => setShowAddColor(true), 300);
+                  }}
+                  hitSlop={6}
+                >
+                  <Icon name="add" size={14} color={colors.primary} />
+                  <Text style={styles.addColorText}>Ekle</Text>
+                </Pressable>
+              </View>
               {colorsLoading ? (
                 <View style={styles.colorsLoadingRow}>
                   <Icon name="color-palette-outline" size={16} color={colors.textTertiary} />
@@ -420,6 +439,22 @@ export default function ModelImageModal({
         </View>
       </View>
     </Modal>
+    <AddTanimModal
+      visible={showAddColor}
+      onClose={() => {
+        setShowAddColor(false);
+        setTimeout(() => setHiddenForTanim(false), 300);
+      }}
+      tanimKodu="RENK"
+      title="Renk Yönetimi"
+      placeholder="Renk adı girin..."
+      onSuccess={(id, deger) => {
+        onColorAdded?.(id, deger);
+        setShowAddColor(false);
+        setTimeout(() => setHiddenForTanim(false), 300);
+      }}
+    />
+    </>
   );
 }
 
@@ -673,12 +708,31 @@ const createStyles = (colors: any, isDark: boolean) =>
     colorSection: {
       marginBottom: 12,
     },
+    colorLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
     colorSectionLabel: {
       fontSize: 12,
       fontWeight: '600',
       color: colors.textSecondary,
-      marginBottom: 6,
       letterSpacing: 0.5,
+    },
+    addColorBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: colors.primary + '12',
+    },
+    addColorText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primary,
     },
     selectButton: {
       flexDirection: 'row',

@@ -215,13 +215,10 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
           )}
 
           {accountTab === 'transactions' && (
-            <MenuCard
-              name="Yeni İşlem"
-              icon="add-circle-outline"
-              color="#10B981"
-              description="Gelir veya gider işlemi ekle"
-              onPress={() => {}}
-            />
+            <View style={{ alignItems: 'center', paddingTop: 60 }}>
+              <Icon name="swap-horizontal-outline" size={48} color={colors.textTertiary} />
+              <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 14 }}>Yakında eklenecek</Text>
+            </View>
           )}
         </ScrollView>
 

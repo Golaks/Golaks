@@ -24,6 +24,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import BackButton from '../components/BackButton';
 import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import ActionFormModal from '../components/ActionFormModal';
 import UserForm from '../components/UserForm';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -44,6 +46,13 @@ interface User {
     konfeksiyon?: boolean;
     magaza?: boolean;
   };
+  subeYetkileri?: string[];
+  varsayilanSube?: string;
+}
+
+interface SubeItem {
+  id: string;
+  name: string;
 }
 
 interface UserManagementScreenProps {
@@ -113,11 +122,15 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     konfeksiyon: false,
     magaza: false,
   });
+  const [formSubeYetkileri, setFormSubeYetkileri] = useState<string[]>([]);
+  const [formVarsayilanSube, setFormVarsayilanSube] = useState('');
+  const [subeler, setSubeler] = useState<SubeItem[]>([]);
 
   const styles = createStyles(colors, isDark);
 
   useEffect(() => {
     fetchUsers();
+    fetchSubeler();
   }, []);
 
   useEffect(() => {
@@ -169,6 +182,26 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       showError('Bağlantı hatası. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchSubeler = async () => {
+    try {
+      const token = await getToken();
+      const response = await fetch(API_ENDPOINTS.USER_SUBELER, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      console.log('Subeler response:', JSON.stringify(data));
+      if (data.success && data.data?.subeler) {
+        setSubeler(data.data.subeler);
+      }
+    } catch (error) {
+      console.log('Subeler fetch error:', error);
     }
   };
 
@@ -229,6 +262,14 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       konfeksiyon: false,
       magaza: false,
     });
+    // Tek şube varsa otomatik seçili ve varsayılan yap
+    if (subeler.length === 1) {
+      setFormSubeYetkileri([subeler[0].id]);
+      setFormVarsayilanSube(subeler[0].id);
+    } else {
+      setFormSubeYetkileri([]);
+      setFormVarsayilanSube('');
+    }
     setShowUserModal(true);
   };
 
@@ -248,17 +289,13 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setFormName(user.name);
     setFormEmail(user.email);
 
-    // Normalize phone number: remove +90, 90, spaces, and ensure it starts with 0
-    let normalizedPhone = (user.phone || '').replace(/\s/g, ''); // Remove spaces
-    if (normalizedPhone.startsWith('+90')) {
-      normalizedPhone = '0' + normalizedPhone.slice(3);
-    } else if (normalizedPhone.startsWith('90') && normalizedPhone.length === 12) {
-      normalizedPhone = '0' + normalizedPhone.slice(2);
-    } else if (!normalizedPhone.startsWith('0') && normalizedPhone.length === 10) {
-      normalizedPhone = '0' + normalizedPhone;
+    // Normalize phone number: remove +90, 90, leading 0, spaces — keep 10 digits for (XXX)XXX-XXXX
+    let normalizedPhone = (user.phone || '').replace(/\D/g, ''); // Only digits
+    if (normalizedPhone.startsWith('90') && normalizedPhone.length === 12) {
+      normalizedPhone = normalizedPhone.slice(2);
+    } else if (normalizedPhone.startsWith('0') && normalizedPhone.length === 11) {
+      normalizedPhone = normalizedPhone.slice(1);
     }
-    // Remove all non-digit characters for clean storage
-    normalizedPhone = normalizedPhone.replace(/\D/g, '');
 
     setFormPhone(normalizedPhone);
     setFormPassword('');
@@ -270,6 +307,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       konfeksiyon: user.permissions.konfeksiyon ?? false,
       magaza: user.permissions.magaza ?? false,
     });
+    setFormSubeYetkileri(user.subeYetkileri ?? []);
+    setFormVarsayilanSube(user.varsayilanSube ?? (user.subeYetkileri?.[0] ?? ''));
     setShowUserModal(true);
   };
 
@@ -300,6 +339,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
         role: formRole,
         defaultScreen: formDefaultScreen,
         permissions: formPermissions,
+        subeYetkileri: formSubeYetkileri,
+        varsayilanSube: formVarsayilanSube,
       };
 
       let endpoint = API_ENDPOINTS.USER_CREATE;
@@ -602,8 +643,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           leftButton={<BackButton onPress={handleBack} />}
           rightButton={
             <View style={styles.headerRight}>
-              <IconButton icon="search-outline" onPress={handleToggleSearch} />
-              <IconButton icon="add" onPress={handleAddUser} />
+              <SearchButton onPress={handleToggleSearch} />
+              <AddButton onPress={handleAddUser} />
             </View>
           }
         />
@@ -680,6 +721,9 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             formRole={formRole}
             formDefaultScreen={formDefaultScreen}
             formPermissions={formPermissions}
+            formSubeYetkileri={formSubeYetkileri}
+            formVarsayilanSube={formVarsayilanSube}
+            subeler={subeler}
             isEditMode={isEditMode}
             availablePrograms={availablePrograms}
             onNameChange={setFormName}
@@ -689,6 +733,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             onRoleChange={handleRoleChange}
             onDefaultScreenChange={setFormDefaultScreen}
             onPermissionsChange={setFormPermissions}
+            onSubeYetkileriChange={setFormSubeYetkileri}
+            onVarsayilanSubeChange={setFormVarsayilanSube}
           />
         </ActionFormModal>
 

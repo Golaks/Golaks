@@ -20,6 +20,7 @@ interface ConfectionScreenProps {
   onSales?: () => void;
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
+  onOrders?: () => void;
 }
 
 type ConfectionTab = 'reports' | 'transactions';
@@ -29,7 +30,7 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onOrders }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -92,18 +93,11 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout, onMode
           {confectionTab === 'reports' && (
             <>
               <MenuCard
-                name="Hammadde Stoklar"
-                icon="cube-outline"
-                color="#3B82F6"
-                description="Hammadde stok durumu raporu"
-                onPress={() => onHammaddeStock?.()}
-              />
-              <MenuCard
-                name="Ürün Stoklar"
-                icon="shirt-outline"
-                color="#8B5CF6"
-                description="Ürün stok durumu raporu"
-                onPress={() => onStock?.()}
+                name="Siparişler"
+                icon="clipboard-outline"
+                color="#F59E0B"
+                description="Sipariş takibi ve raporu"
+                onPress={() => onOrders?.()}
               />
               <MenuCard
                 name="Satışlar"
@@ -118,6 +112,20 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout, onMode
                 color="#8B5CF6"
                 description="Firma ve Model performans raporu"
                 onPress={() => onCompanyModelPerformance?.()}
+              />
+              <MenuCard
+                name="Ürün Stoklar"
+                icon="shirt-outline"
+                color="#8B5CF6"
+                description="Ürün stok durumu raporu"
+                onPress={() => onStock?.()}
+              />
+              <MenuCard
+                name="Hammadde Stoklar"
+                icon="cube-outline"
+                color="#3B82F6"
+                description="Hammadde stok durumu raporu"
+                onPress={() => onHammaddeStock?.()}
               />
               <MenuCard
                 name="Personel Performans"

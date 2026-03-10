@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
 import SearchInput from '../components/SearchInput';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
@@ -402,7 +402,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
         <Header
           title="Model İşlemleri"
           leftButton={<BackButton onPress={onBack} />}
-          rightButton={<IconButton icon="search-outline" onPress={handleToggleSearch} />}
+          rightButton={<SearchButton onPress={handleToggleSearch} />}
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -479,6 +479,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
           onRemovePending={handleRemovePending}
           onDeleteImage={handleDeleteImage}
           onUploadAll={handleUploadAll}
+          onColorAdded={() => loadColors()}
         />
 
       </View>

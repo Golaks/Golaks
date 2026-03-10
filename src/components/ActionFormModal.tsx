@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import Input from './Input';
+import InputPhone from './InputPhone';
 import Button from './Button';
 import BottomSheet from './BottomSheet';
 
@@ -84,23 +85,41 @@ export default function ActionFormModal({
           children
         ) : (
           fields?.map((field, index) => (
-            <Input
-              key={field.key}
-              label={field.label}
-              icon={field.icon}
-              value={field.value}
-              onChangeText={(text) => onFieldChange?.(field.key, text)}
-              placeholder={field.placeholder}
-              isPassword={field.isPassword}
-              keyboardType={field.keyboardType}
-              error={field.error}
-              shake={!!field.error}
-              clearable
-              onClear={() => onFieldChange?.(field.key, '')}
-              containerStyle={{
-                marginBottom: index === (fields?.length ?? 0) - 1 ? 0 : 16,
-              }}
-            />
+            field.keyboardType === 'phone-pad' ? (
+              <InputPhone
+                key={field.key}
+                label={field.label}
+                icon={field.icon}
+                value={field.value}
+                onChangeText={(text) => onFieldChange?.(field.key, text)}
+                placeholder={field.placeholder}
+                error={field.error}
+                shake={!!field.error}
+                clearable
+                onClear={() => onFieldChange?.(field.key, '')}
+                containerStyle={{
+                  marginBottom: index === (fields?.length ?? 0) - 1 ? 0 : 16,
+                }}
+              />
+            ) : (
+              <Input
+                key={field.key}
+                label={field.label}
+                icon={field.icon}
+                value={field.value}
+                onChangeText={(text) => onFieldChange?.(field.key, text)}
+                placeholder={field.placeholder}
+                isPassword={field.isPassword}
+                keyboardType={field.keyboardType}
+                error={field.error}
+                shake={!!field.error}
+                clearable
+                onClear={() => onFieldChange?.(field.key, '')}
+                containerStyle={{
+                  marginBottom: index === (fields?.length ?? 0) - 1 ? 0 : 16,
+                }}
+              />
+            )
           ))
         )}
       </KeyboardAvoidingView>
