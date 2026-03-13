@@ -95,6 +95,44 @@ export interface CariEkstreResponse {
   message?: string;
 }
 
+export interface BankaKomisyonTaksitOran {
+  taksit: string; // 'tek', '2', '3', ..., '12'
+  oran: number;
+}
+
+export interface BankaKomisyonOranResponse {
+  success: boolean;
+  data: {
+    cariId: number;
+    bankaAdi: string;
+    komisyonOranlar: BankaKomisyonTaksitOran[];
+  };
+  message?: string;
+}
+
+export interface BankaKomisyonItem {
+  id: number;
+  tarih: string;
+  fisNo: string;
+  bankaAdi: string;
+  aciklama: string;
+  tutar: number;
+  doviz: string;
+  islemTuru: string;
+}
+
+export interface BankaKomisyonResponse {
+  success: boolean;
+  data: {
+    items: BankaKomisyonItem[];
+    summary: {
+      toplamTutar: number;
+      count: number;
+    };
+  };
+  message?: string;
+}
+
 class AccountService {
   private getAuthHeader(token: string) {
     return {
@@ -319,6 +357,83 @@ class AccountService {
       return data;
     } catch (error: any) {
       throw new Error(error.message || 'Ekstre alınamadı');
+    }
+  }
+  /**
+   * Banka komisyon oranlarını getirir
+   */
+  async getBankaKomisyonOran(
+    token: string,
+    dataName: string,
+    cariId: number
+  ): Promise<BankaKomisyonOranResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_BANKA_KOMISYON_ORAN_GET, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, cariId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Komisyon oranları alınamadı');
+      }
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Komisyon oranları alınamadı');
+    }
+  }
+
+  /**
+   * Banka komisyon oranlarını günceller
+   */
+  async updateBankaKomisyonOran(
+    token: string,
+    dataName: string,
+    cariId: number,
+    komisyonOranlar: BankaKomisyonTaksitOran[]
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_BANKA_KOMISYON_ORAN_UPDATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, cariId, komisyonOranlar }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Komisyon oranları güncellenemedi');
+      }
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Komisyon oranları güncellenemedi');
+    }
+  }
+
+  /**
+   * Banka komisyon listesini getirir
+   */
+  async getBankaKomisyonList(
+    token: string,
+    dataName: string,
+    startDate?: string,
+    endDate?: string,
+    search?: string
+  ): Promise<BankaKomisyonResponse> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_BANKA_KOMISYON_LIST, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, startDate, endDate, search }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Banka komisyon listesi alınamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Banka komisyon listesi alınamadı');
     }
   }
 }

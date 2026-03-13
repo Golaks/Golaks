@@ -49,7 +49,7 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
         setNotifications(response.data);
       }
     } catch (error: any) {
-      showAlert('error', 'Hata', error.message || 'Bildirimler yüklenemedi');
+      showAlert('error', error.message || 'Bildirimler yüklenemedi');
     } finally {
       setLoading(false);
     }
@@ -122,9 +122,9 @@ export default function NotificationsScreen({ onTabChange, onLogout }: Notificat
       // Refresh global notification count
       refreshNotificationCount();
 
-      showAlert('success', 'Başarılı', 'Tüm bildirimler okundu olarak işaretlendi');
+      showAlert('success', 'Tüm bildirimler okundu olarak işaretlendi');
     } catch (error: any) {
-      showAlert('error', 'Hata', error.message || 'Bildirimler güncellenemedi');
+      showAlert('error', error.message || 'Bildirimler güncellenemedi');
     }
   };
 

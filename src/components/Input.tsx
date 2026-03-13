@@ -100,7 +100,7 @@ export default function Input({
           />
           {showClearButton && (
             <Pressable
-              onPress={onClear}
+              onPress={() => { onClear?.(); inputRef.current?.focus(); }}
               style={styles.eyeIcon}
             >
               <Icon

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, Image, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
@@ -25,6 +26,7 @@ interface ModelOperationsScreenProps {
 export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }: ModelOperationsScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
+  const { showError, showSuccess, showInfo } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [modelList, setModelList] = useState<ModelKart[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -189,7 +191,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
         }
       }
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Yükleme başarısız');
+      showError(err.message || 'Yükleme başarısız');
       setIsUploading(false);
       return;
     }
@@ -199,9 +201,9 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
     loadModelList();
 
     if (failCount === 0) {
-      Alert.alert('Başarılı', `${successCount} resim başarıyla yüklendi`);
+      showSuccess(`${successCount} resim başarıyla yüklendi`);
     } else {
-      Alert.alert('Bilgi', `${successCount} resim yüklendi, ${failCount} resim yüklenemedi`);
+      showInfo(`${successCount} resim yüklendi, ${failCount} resim yüklenemedi`);
     }
   };
 
@@ -213,7 +215,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
       await modelService.deleteModelImage(token, dataName, imageId);
       loadModelList();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Resim silinemedi');
+      showError(err.message || 'Resim silinemedi');
     }
   };
 

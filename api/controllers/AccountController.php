@@ -1101,4 +1101,155 @@ class AccountController {
             Response::error($e->getMessage(), 'SERVER_ERROR', 500);
         }
     }
+
+    /**
+     * POST /account/banka-komisyon-oran
+     * Bir bankanın komisyon oranlarını getirir
+     */
+    public function getBankaKomisyonOran() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $cariId = isset($data['cariId']) ? (int)$data['cariId'] : 0;
+
+        if (empty($dataName) || !$cariId) {
+            Response::error('dataName ve cariId gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $pdo = $this->getFirmaPdo($userId, $dataName);
+
+            $row = $pdo->prepare("SELECT id, unvan, banka_kart_oran FROM cariler WHERE id = ? AND aktif = 1 LIMIT 1");
+            $row->execute([$cariId]);
+            $cari = $row->fetch();
+
+            if (!$cari) {
+                Response::error('Cari bulunamadı', 'NOT_FOUND', 404);
+            }
+
+            $komisyonOranlar = [];
+            if (!empty($cari['banka_kart_oran'])) {
+                $decoded = json_decode($cari['banka_kart_oran'], true);
+                if (is_array($decoded)) {
+                    $komisyonOranlar = $decoded;
+                }
+            }
+
+            Response::success([
+                'cariId' => $cariId,
+                'bankaAdi' => $cari['unvan'],
+                'komisyonOranlar' => $komisyonOranlar,
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("BankaKomisyonOran DB Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("BankaKomisyonOran Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/banka-komisyon-oran-update
+     * Bir bankanın komisyon oranlarını günceller (banka_komisyon_oran JSON alanı)
+     */
+    public function updateBankaKomisyonOran() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $cariId = isset($data['cariId']) ? (int)$data['cariId'] : 0;
+        $komisyonOranlar = $data['komisyonOranlar'] ?? [];
+
+        if (empty($dataName) || !$cariId) {
+            Response::error('dataName ve cariId gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        if (!is_array($komisyonOranlar)) {
+            Response::error('komisyonOranlar dizi olmalıdır', 'VALIDATION_ERROR', 400);
+        }
+
+        // Sanitize: sadece taksit (string) ve oran (float) kabul et
+        $sanitized = [];
+        foreach ($komisyonOranlar as $item) {
+            if (!isset($item['taksit']) || !isset($item['oran'])) continue;
+            $sanitized[] = [
+                'taksit' => (string)$item['taksit'],
+                'oran' => (float)$item['oran'],
+            ];
+        }
+
+        try {
+            $pdo = $this->getFirmaPdo($userId, $dataName);
+
+            $stmt = $pdo->prepare("UPDATE cariler SET banka_kart_oran = ? WHERE id = ? AND aktif = 1");
+            $stmt->execute([json_encode($sanitized, JSON_UNESCAPED_UNICODE), $cariId]);
+
+            if ($stmt->rowCount() === 0) {
+                Response::error('Cari bulunamadı veya güncelleme yapılamadı', 'NOT_FOUND', 404);
+            }
+
+            Response::success(['message' => 'Komisyon oranları güncellendi', 'cariId' => $cariId]);
+
+        } catch (PDOException $e) {
+            error_log("UpdateBankaKomisyonOran DB Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("UpdateBankaKomisyonOran Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * Firma PDO bağlantısını döner (ortak yardımcı)
+     */
+    private function getFirmaPdo(int $userId, string $dataName): PDO {
+        $db = Database::getInstance();
+
+        $currentUser = $db->fetchOne(
+            "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+            [$userId]
+        );
+        if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+            throw new Exception('Kullanıcı firma bilgisi bulunamadı');
+        }
+
+        $firma = $db->fetchOne(
+            "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+            [$currentUser['mobil_firmalar_id']]
+        );
+        if (!$firma || empty($firma['firma_ayarlar'])) {
+            throw new Exception('Firma ayarları bulunamadı');
+        }
+
+        $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+        $v = $firmaAyarlar['veritabani'] ?? [];
+        $dbServer = $v['sunucu'] ?? '';
+        $dbPort   = (int)($v['port'] ?? 3306);
+        $dbUser   = $v['kullanici'] ?? '';
+        $dbPass   = $v['sifre'] ?? '';
+        $dbName   = $v['veriAdi'] ?? '';
+
+        if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+            throw new Exception('Firma veritabanı ayarları eksik');
+        }
+
+        $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+        return new PDO($dsn, $dbUser, $dbPass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    }
 }

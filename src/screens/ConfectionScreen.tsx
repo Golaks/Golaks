@@ -21,6 +21,8 @@ interface ConfectionScreenProps {
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
   onOrders?: () => void;
+  onUretimIslemleri?: () => void;
+  onMaliyetler?: () => void;
   initialTab?: ConfectionTab;
   onActiveTabChange?: (tab: ConfectionTab) => void;
 }
@@ -32,7 +34,7 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onOrders, initialTab, onActiveTabChange }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onOrders, onUretimIslemleri, onMaliyetler, initialTab, onActiveTabChange }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -136,11 +138,25 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout, onMode
                 description="Personel performans raporu"
                 onPress={() => onPersonnelPerformance?.()}
               />
+              <MenuCard
+                name="Maliyetler"
+                icon="calculator-outline"
+                color="#EF4444"
+                description="Üretim maliyet raporu"
+                onPress={() => onMaliyetler?.()}
+              />
             </>
           )}
 
           {confectionTab === 'transactions' && (
             <>
+              <MenuCard
+                name="Üretim İşlemleri"
+                icon="construct-outline"
+                color="#10B981"
+                description="Üretim süreçleri ve işlemleri"
+                onPress={() => onUretimIslemleri?.()}
+              />
               <MenuCard
                 name="Model İşlemleri"
                 icon="layers-outline"

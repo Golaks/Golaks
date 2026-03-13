@@ -29,9 +29,10 @@ interface ProfileScreenProps {
   onUserManagement?: () => void;
   onNotificationSend?: () => void;
   onCompanyManagement?: () => void;
+  onFiyatHesaplama?: () => void;
 }
 
-export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement }: ProfileScreenProps) {
+export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement, onFiyatHesaplama }: ProfileScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, user, refreshUser, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
@@ -733,6 +734,14 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               color={colors.primary}
               description="Uygulama önbelleğini temizle"
               onPress={() => setShowClearCacheModal(true)}
+            />
+            <MenuCard
+              name="Fiyat Hesaplama Algoritması"
+              icon="calculator-outline"
+              color={colors.primary}
+              description="Fiyat hesaplama kurallarını yönet"
+              onPress={onFiyatHesaplama || (() => {})}
+              disabled={user?.role === 'user' || user?.kullanici_rol === 0}
             />
             <MenuCard
               name="Genel Ayarlar"

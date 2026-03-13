@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import XButton from './XButton';
+import InModalToast, { ToastMessage } from './InModalToast';
 
 const { height } = Dimensions.get('window');
+
+export interface BottomSheetToastRef {
+  show: (toast: ToastMessage) => void;
+}
 
 interface BottomSheetProps {
   visible: boolean;
@@ -24,6 +29,7 @@ interface BottomSheetProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxHeightRatio?: number;
+  toastRef?: React.MutableRefObject<BottomSheetToastRef | null>;
 }
 
 export default function BottomSheet({
@@ -35,10 +41,29 @@ export default function BottomSheet({
   children,
   footer,
   maxHeightRatio = 0.92,
+  toastRef,
 }: BottomSheetProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const showToast = useCallback((t: ToastMessage) => {
+    setToast(null);
+    setTimeout(() => setToast(t), 50);
+  }, []);
+
+  // Expose show method via ref
+  React.useEffect(() => {
+    if (toastRef) {
+      toastRef.current = { show: showToast };
+    }
+  }, [toastRef, showToast]);
+
+  // Clear toast when modal closes
+  React.useEffect(() => {
+    if (!visible) setToast(null);
+  }, [visible]);
 
   return (
     <Modal
@@ -83,6 +108,8 @@ export default function BottomSheet({
             </View>
           )}
         </View>
+
+        <InModalToast toast={toast} onDismiss={() => setToast(null)} />
       </View>
     </Modal>
   );

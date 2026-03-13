@@ -26,8 +26,11 @@ import CompanyModelPerformanceScreen from '../screens/CompanyModelPerformanceScr
 import OrdersScreen from '../screens/OrdersScreen';
 import ReservationsScreen from '../screens/ReservationsScreen';
 import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
+import BankaKomisyonScreen from '../screens/BankaKomisyonScreen';
+import FiyatHesaplamaScreen from '../screens/FiyatHesaplamaScreen';
+import KonfeksiyonUretimScreen from '../screens/KonfeksiyonUretimScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -92,6 +95,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onUserManagement={() => setActiveScreen('userManagement')}
             onNotificationSend={() => setActiveScreen('notificationSend')}
             onCompanyManagement={() => setActiveScreen('companyManagement')}
+            onFiyatHesaplama={() => setActiveScreen('fiyatHesaplama')}
           />
         );
       case 'notifications':
@@ -116,6 +120,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onSales={() => setActiveScreen('accountSales')}
             onPersonnelPerformance={() => setActiveScreen('accountPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('accountCompanyModelPerformance')}
+            onBankaKomisyon={() => setActiveScreen('bankaKomisyon')}
             initialTab={accountTab}
             onActiveTabChange={setAccountTab}
           />
@@ -145,12 +150,14 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onTabChange={setActiveScreen}
             onLogout={onLogout}
             onModelOperations={() => { setModelOpsFrom('confection'); setActiveScreen('modelOperations'); }}
+            onUretimIslemleri={() => setActiveScreen('confectionUretimIslemleri')}
             onStock={() => setActiveScreen('confectionStock')}
             onHammaddeStock={() => setActiveScreen('confectionHammaddeStock')}
             onSales={() => setActiveScreen('confectionSales')}
             onPersonnelPerformance={() => setActiveScreen('confectionPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('confectionCompanyModelPerformance')}
             onOrders={() => setActiveScreen('confectionOrders')}
+            onMaliyetler={() => setActiveScreen('confectionMaliyetler')}
             initialTab={confectionTab}
             onActiveTabChange={setConfectionTab}
           />
@@ -214,6 +221,14 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
         return <CompanyModelPerformanceScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} modul="konfeksiyon" />;
       case 'shopAgencyPerformance':
         return <AgencyPerformanceScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'bankaKomisyon':
+        return <BankaKomisyonScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'fiyatHesaplama':
+        return <FiyatHesaplamaScreen onGoBack={() => setActiveScreen('profile')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'confectionUretimIslemleri':
+        return <KonfeksiyonUretimScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'confectionMaliyetler':
+        return <KonfeksiyonUretimScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       default:
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
     }

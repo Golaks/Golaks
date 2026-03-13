@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import AddButton from '../components/AddButton';
 import ActionFormModal from '../components/ActionFormModal';
 import UserForm from '../components/UserForm';
 import LoadingSpinner from '../components/LoadingSpinner';
+import UserPermissionsSheet, { ProgramYetkileri } from '../components/UserPermissionsSheet';
+import { ProgramKey } from '../constants/menuDefinitions';
 
 interface User {
   id: string;
@@ -48,6 +50,7 @@ interface User {
   };
   subeYetkileri?: string[];
   varsayilanSube?: string;
+  programYetkileri?: ProgramYetkileri;
 }
 
 interface SubeItem {
@@ -105,9 +108,14 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   const [showUserModal, setShowUserModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showActiveConfirm, setShowActiveConfirm] = useState(false);
+  const [showPermissionsSheet, setShowPermissionsSheet] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [formError, setFormError] = useState('');
+  const toastRef = useRef<import('../components/BottomSheet').BottomSheetToastRef | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: boolean; email?: boolean; phone?: boolean; password?: boolean }>({});
 
   // Form fields
   const [formName, setFormName] = useState('');
@@ -268,6 +276,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       setFormSubeYetkileri([]);
       setFormVarsayilanSube('');
     }
+    setFormError('');
+    setFieldErrors({});
     setShowUserModal(true);
   };
 
@@ -307,27 +317,24 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     });
     setFormSubeYetkileri(user.subeYetkileri ?? []);
     setFormVarsayilanSube(user.varsayilanSube ?? (user.subeYetkileri?.[0] ?? ''));
+    setFormError('');
+    setFieldErrors({});
     setShowUserModal(true);
   };
 
   const handleSaveUser = async () => {
     // Validasyon
-    if (!formName.trim()) {
-      showError('Ad soyad gerekli');
-      return;
-    }
+    const errors: { name?: boolean; email?: boolean; phone?: boolean; password?: boolean } = {};
+    if (!formName.trim()) errors.name = true;
+    if (!formEmail.trim() || !/\S+@\S+\.\S+/.test(formEmail)) errors.email = true;
+    if (!formPhone.trim()) errors.phone = true;
+    if (!isEditMode && !formPassword.trim()) errors.password = true;
+    setFieldErrors(errors);
 
-    if (!formEmail.trim()) {
-      showError('E-posta gerekli');
-      return;
-    }
-
-    if (!isEditMode && !formPassword.trim()) {
-      showError('Şifre gerekli');
-      return;
-    }
+    if (Object.keys(errors).length > 0) return;
 
     setIsSaving(true);
+    setFormError('');
 
     try {
       const requestBody: any = {
@@ -368,14 +375,15 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
       const data = await response.json();
 
       if (data.success) {
-        showSuccess(isEditMode ? 'Kullanıcı güncellendi' : 'Kullanıcı oluşturuldu');
         setShowUserModal(false);
+        setFormError('');
         await fetchUsers();
+        showSuccess(isEditMode ? 'Kullanıcı güncellendi' : 'Kullanıcı oluşturuldu');
       } else {
-        showError(data.error?.message || 'İşlem başarısız');
+        toastRef.current?.show({ type: 'error', text: data.error?.message || 'İşlem başarısız', duration: 4000 });
       }
     } catch (error) {
-      showError('Bağlantı hatası. Lütfen tekrar deneyin.');
+      toastRef.current?.show({ type: 'error', text: 'Bağlantı hatası. Lütfen tekrar deneyin.', duration: 4000 });
     } finally {
       setIsSaving(false);
     }
@@ -489,7 +497,47 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   };
 
   const handlePermissions = (user: User) => {
-    // TODO: Yetkiler modalını aç
+    if (user.role !== 'user') return;
+    setSelectedUser(user);
+    setShowPermissionsSheet(true);
+  };
+
+  const handleSavePermissions = async (yetkiler: ProgramYetkileri) => {
+    if (!selectedUser) return;
+    setIsSavingPermissions(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.USER_UPDATE, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${await getToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: selectedUser.id,
+          name: selectedUser.name,
+          email: selectedUser.email,
+          phone: selectedUser.phone,
+          role: selectedUser.role,
+          active: selectedUser.active,
+          permissions: selectedUser.permissions,
+          programYetkileri: yetkiler,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setUsers(prev => prev.map(u =>
+          u.id === selectedUser.id ? { ...u, programYetkileri: yetkiler } : u
+        ));
+        setShowPermissionsSheet(false);
+        showSuccess('Yetkiler kaydedildi');
+      } else {
+        showError(data.error?.message || 'Kayıt başarısız');
+      }
+    } catch {
+      showError('Bağlantı hatası');
+    } finally {
+      setIsSavingPermissions(false);
+    }
   };
 
   const getInitials = (name: string) => {
@@ -608,14 +656,16 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             size={40}
             iconSize={20}
           />
-          <IconButton
-            icon="lock-closed-outline"
-            onPress={() => handlePermissions(user)}
-            size={40}
-            iconSize={20}
-            color={colors.green}
-            backgroundColor={`${colors.green}15`}
-          />
+          {user.role === 'user' && (
+            <IconButton
+              icon="lock-closed-outline"
+              onPress={() => handlePermissions(user)}
+              size={40}
+              iconSize={20}
+              color={colors.green}
+              backgroundColor={`${colors.green}15`}
+            />
+          )}
           <IconButton
             icon="trash-outline"
             onPress={() => handleDeleteUser(user)}
@@ -710,6 +760,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           saveButtonText="Kaydet"
           cancelButtonText="İptal"
           saveDisabled={isSaving}
+          errorMessage={formError}
+          toastRef={toastRef}
         >
           <UserForm
             formName={formName}
@@ -724,15 +776,17 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             subeler={subeler}
             isEditMode={isEditMode}
             availablePrograms={availablePrograms}
-            onNameChange={setFormName}
-            onEmailChange={setFormEmail}
-            onPhoneChange={setFormPhone}
-            onPasswordChange={setFormPassword}
+            onNameChange={(v) => { setFormName(v); setFieldErrors(e => ({ ...e, name: false })); }}
+            onEmailChange={(v) => { setFormEmail(v); setFieldErrors(e => ({ ...e, email: false })); }}
+            onPhoneChange={(v) => { setFormPhone(v); setFieldErrors(e => ({ ...e, phone: false })); }}
+            onPasswordChange={(v) => { setFormPassword(v); setFieldErrors(e => ({ ...e, password: false })); }}
             onRoleChange={handleRoleChange}
             onDefaultScreenChange={setFormDefaultScreen}
             onPermissionsChange={setFormPermissions}
             onSubeYetkileriChange={setFormSubeYetkileri}
             onVarsayilanSubeChange={setFormVarsayilanSube}
+            errors={fieldErrors}
+            errorMessage={formError}
           />
         </ActionFormModal>
 
@@ -761,6 +815,19 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           onConfirm={handleActiveConfirm}
           onCancel={() => setShowActiveConfirm(false)}
         />
+
+        {/* Yetki Tanımlama Sheet */}
+        {selectedUser && (
+          <UserPermissionsSheet
+            visible={showPermissionsSheet}
+            userName={selectedUser.name}
+            activePrograms={selectedUser.permissions ?? {}}
+            initialYetkiler={selectedUser.programYetkileri ?? {}}
+            isSaving={isSavingPermissions}
+            onClose={() => setShowPermissionsSheet(false)}
+            onSave={handleSavePermissions}
+          />
+        )}
       </View>
     </SafeAreaProvider>
   );
@@ -910,7 +977,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     actionButtons: {
       flexDirection: 'row',
-      gap: 8,
+      gap: 12,
     },
     loadingContainer: {
       flex: 1,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, TextInput, StyleSheet, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,6 +17,7 @@ export default function SearchInput({
   onClear,
 }: SearchInputProps) {
   const { colors, isDark } = useTheme();
+  const inputRef = useRef<TextInput>(null);
   const styles = createStyles(colors, isDark);
 
   const handleClear = () => {
@@ -24,12 +25,14 @@ export default function SearchInput({
     if (onClear) {
       onClear();
     }
+    inputRef.current?.focus();
   };
 
   return (
     <View style={styles.container}>
       <Icon name="search-outline" size={20} color={colors.textSecondary} style={styles.icon} />
       <TextInput
+        ref={inputRef}
         style={styles.input}
         value={value}
         onChangeText={onChangeText}

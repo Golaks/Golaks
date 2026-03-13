@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAlert } from '../contexts/AlertContext';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
@@ -50,6 +51,7 @@ const FILTER_OPTIONS: FilterOption[] = [
 export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariDetayScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount, user } = useAuth();
+  const { showError, showSuccess, showWarning, showInfo, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('customers');
   const [cariList, setCariList] = useState<CariAccount[]>([]);
@@ -210,7 +212,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
 
       const response = await accountService.getCariEkstre(token, dataName, cari.id);
       if (!response.success || !response.data.transactions.length) {
-        Alert.alert('Uyarı', 'Bu cari için hareket bulunamadı');
+        showWarning('Bu cari için hareket bulunamadı');
         return;
       }
 
@@ -221,7 +223,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         transactions: response.data.transactions,
       });
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'PDF oluşturulamadı');
+      showError(err.message || 'PDF oluşturulamadı');
     }
   };
 
@@ -266,7 +268,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
 
   const handleSaveCari = async () => {
     if (!formUnvan.trim()) {
-      Alert.alert('Uyarı', 'Ünvan gereklidir');
+      showWarning('Ünvan gereklidir');
       return;
     }
 
@@ -288,20 +290,20 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         setShowFormModal(false);
         resetForm();
         loadCariList();
-        Alert.alert('Başarılı', 'Cari hesap güncellendi');
+        showSuccess('Cari hesap güncellendi');
       } catch (err: any) {
-        Alert.alert('Hata', err.message || 'Cari hesap güncellenemedi');
+        showError(err.message || 'Cari hesap güncellenemedi');
       } finally {
         setIsSaving(false);
       }
     } else {
       // Create
       if (!formHesapKodu.trim()) {
-        Alert.alert('Uyarı', 'Hesap kodu gereklidir');
+        showWarning('Hesap kodu gereklidir');
         return;
       }
       if (!formSubeId) {
-        Alert.alert('Uyarı', 'Şube seçilmelidir');
+        showWarning('Şube seçilmelidir');
         return;
       }
 
@@ -322,9 +324,9 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         setShowFormModal(false);
         resetForm();
         loadCariList();
-        Alert.alert('Başarılı', 'Cari hesap oluşturuldu');
+        showSuccess('Cari hesap oluşturuldu');
       } catch (err: any) {
-        Alert.alert('Hata', err.message || 'Cari hesap oluşturulamadı');
+        showError(err.message || 'Cari hesap oluşturulamadı');
       } finally {
         setIsSaving(false);
       }

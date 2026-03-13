@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   Pressable,
   TextInput,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAlert } from '../contexts/AlertContext';
 import { authService } from '../services/auth.service';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
 import BottomSheet from './BottomSheet';
@@ -43,6 +43,7 @@ export default function AddTanimModal({
   onUpdate,
 }: AddTanimModalProps) {
   const { colors, isDark } = useTheme();
+  const { showError, showSuccess, showWarning, showInfo, showConfirm } = useAlert();
   const styles = createStyles(colors, isDark);
 
   const [newValue, setNewValue] = useState('');
@@ -111,7 +112,7 @@ export default function AddTanimModal({
       setNewValue('');
       onSuccess(data.data.id, trimmed);
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Tanım oluşturulamadı');
+      showError(err.message || 'Tanım oluşturulamadı');
     } finally {
       setIsCreating(false);
     }
@@ -137,42 +138,42 @@ export default function AddTanimModal({
       setEditingId(null);
       onUpdate?.(id, trimmed);
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Güncellenemedi');
+      showError(err.message || 'Güncellenemedi');
     } finally {
       setSavingId(null);
     }
   };
 
   const handleDelete = (id: string, deger: string) => {
-    Alert.alert('Silme Onayı', `"${deger}" silinecek. Emin misiniz?`, [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          setSavingId(id);
-          try {
-            const token = await getToken();
-            const response = await fetch(API_ENDPOINTS.TANIMLAR_DELETE, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ id }),
-            });
-            const data = await response.json();
-            if (!response.ok) {
-              throw new Error(data.error?.message || 'Silinemedi');
-            }
-            setItems(prev => prev.filter(i => i.id !== id));
-            if (editingId === id) setEditingId(null);
-            onDelete?.(id);
-          } catch (err: any) {
-            Alert.alert('Hata', err.message || 'Silinemedi');
-          } finally {
-            setSavingId(null);
+    showConfirm({
+      title: 'Silme Onayı',
+      message: `"${deger}" silinecek. Emin misiniz?`,
+      confirmText: 'Sil',
+      icon: 'trash-outline',
+      iconColor: '#EF4444',
+      onConfirm: async () => {
+        setSavingId(id);
+        try {
+          const token = await getToken();
+          const response = await fetch(API_ENDPOINTS.TANIMLAR_DELETE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ id }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error?.message || 'Silinemedi');
           }
-        },
+          setItems(prev => prev.filter(i => i.id !== id));
+          if (editingId === id) setEditingId(null);
+          onDelete?.(id);
+        } catch (err: any) {
+          showError(err.message || 'Silinemedi');
+        } finally {
+          setSavingId(null);
+        }
       },
-    ]);
+    });
   };
 
   const startEditing = (item: TanimItem) => {

@@ -43,6 +43,10 @@ export const API_ENDPOINTS = {
   USER_DELETE: `${BASE_API_URL}/user/delete`,
   USER_SUBELER: `${BASE_API_URL}/user/subeler`,
 
+  // Fiyat Hesaplama
+  FIYAT_HESAPLAMA_GET: `${BASE_API_URL}/fiyat-hesaplama`,
+  FIYAT_HESAPLAMA_SAVE: `${BASE_API_URL}/fiyat-hesaplama`,
+
   // Company Management (Super Admin)
   COMPANY_LIST: `${BASE_API_URL}/company/list`,
   COMPANY_CREATE: `${BASE_API_URL}/company/create`,
@@ -68,6 +72,9 @@ export const API_ENDPOINTS = {
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
   ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
   ACCOUNT_CHECK_BILL_LIST: `${BASE_API_URL}/account/check-bill-list`,
+  ACCOUNT_BANKA_KOMISYON_LIST: `${BASE_API_URL}/account/banka-komisyon-list`,
+  ACCOUNT_BANKA_KOMISYON_ORAN_GET: `${BASE_API_URL}/account/banka-komisyon-oran`,
+  ACCOUNT_BANKA_KOMISYON_ORAN_UPDATE: `${BASE_API_URL}/account/banka-komisyon-oran-update`,
 
   // Sales endpoints (global - tüm modüller)
   SALES_LIST: `${BASE_API_URL}/sales/list`,

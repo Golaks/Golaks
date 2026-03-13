@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  View,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -9,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import Input from './Input';
 import InputPhone from './InputPhone';
 import Button from './Button';
-import BottomSheet from './BottomSheet';
+import BottomSheet, { BottomSheetToastRef } from './BottomSheet';
 
 export interface FormField {
   key: string;
@@ -35,6 +33,8 @@ interface ActionFormModalProps {
   saveButtonText?: string;
   cancelButtonText?: string;
   saveDisabled?: boolean;
+  errorMessage?: string;
+  toastRef?: React.MutableRefObject<BottomSheetToastRef | null>;
 }
 
 export default function ActionFormModal({
@@ -50,6 +50,7 @@ export default function ActionFormModal({
   saveButtonText = 'Kaydet',
   cancelButtonText = 'İptal',
   saveDisabled = false,
+  toastRef,
 }: ActionFormModalProps) {
   const { colors } = useTheme();
 
@@ -60,6 +61,7 @@ export default function ActionFormModal({
       title={title}
       icon={icon}
       iconColor={iconColor || colors.primary}
+      toastRef={toastRef}
       footer={
         <>
           <Button

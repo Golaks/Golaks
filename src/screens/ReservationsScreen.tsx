@@ -6,12 +6,12 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -59,6 +59,7 @@ interface ReservationsScreenProps {
 export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: ReservationsScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
+  const { showError, showSuccess, showWarning, showInfo } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
@@ -313,7 +314,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
 
   const handleSave = async () => {
     if (!formTarih) {
-      Alert.alert('Hata', 'Tarih alanı zorunludur');
+      showError('Tarih alanı zorunludur');
       return;
     }
 
@@ -357,7 +358,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       setEditingItem(null);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || (editingItem ? 'Rezervasyon güncellenemedi' : 'Rezervasyon oluşturulamadı'));
+      showError(err.message || (editingItem ? 'Rezervasyon güncellenemedi' : 'Rezervasyon oluşturulamadı'));
     } finally {
       setIsCreating(false);
     }
@@ -413,7 +414,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       });
       fetchData();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Durum güncellenemedi');
+      showError(err.message || 'Durum güncellenemedi');
     }
   };
 
@@ -439,7 +440,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       setGirisItem(null);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Giriş yapılamadı');
+      showError(err.message || 'Giriş yapılamadı');
     } finally {
       setIsGirisLoading(false);
     }
@@ -466,7 +467,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       setCikisItem(null);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Çıkış yapılamadı');
+      showError(err.message || 'Çıkış yapılamadı');
     } finally {
       setIsCikisLoading(false);
     }
@@ -475,7 +476,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   const handleIptalSubmit = async () => {
     if (!iptalItem) return;
     if (!iptalNedeni.trim()) {
-      Alert.alert('Hata', 'İptal nedeni zorunludur');
+      showError('İptal nedeni zorunludur');
       return;
     }
     setIsIptalLoading(true);
@@ -494,7 +495,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       setIptalItem(null);
       fetchData();
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'İptal yapılamadı');
+      showError(err.message || 'İptal yapılamadı');
     } finally {
       setIsIptalLoading(false);
     }

@@ -86,6 +86,8 @@ class Router {
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
         $this->post('/account/check-bill-list', 'CheckBillController', 'getList');
+        $this->post('/account/banka-komisyon-oran', 'AccountController', 'getBankaKomisyonOran');
+        $this->post('/account/banka-komisyon-oran-update', 'AccountController', 'updateBankaKomisyonOran');
 
         // Sales Routes (Global - tüm modüller için)
         $this->post('/sales/list', 'SalesController', 'getList');
@@ -116,6 +118,10 @@ class Router {
         $this->post('/model-kart/upload-image', 'ModelKartController', 'uploadImage');
         $this->post('/model-kart/delete-image', 'ModelKartController', 'deleteImage');
         $this->post('/model-kart/colors', 'ModelKartController', 'getColors');
+
+        // Fiyat Hesaplama Routes (Protected, Admin only)
+        $this->get('/fiyat-hesaplama', 'FiyatHesaplamaController', 'get');
+        $this->post('/fiyat-hesaplama', 'FiyatHesaplamaController', 'save');
 
         // Company Routes (Protected, Super Admin only)
         $this->get('/company/list', 'CompanyController', 'getList');

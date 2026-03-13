@@ -23,6 +23,7 @@ interface AccountScreenProps {
   onSales?: () => void;
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
+  onBankaKomisyon?: () => void;
   initialTab?: AccountTab;
   onActiveTabChange?: (tab: AccountTab) => void;
 }
@@ -34,7 +35,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, initialTab, onActiveTabChange }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, initialTab, onActiveTabChange }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -199,28 +200,19 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 description="Satış faturaları ve raporu"
                 onPress={() => onSales?.()}
               />
-              <MenuCard
-                name="Firma Model Performans"
-                icon="trending-up-outline"
-                color="#8B5CF6"
-                description="Firma ve Model performans raporu"
-                onPress={() => onCompanyModelPerformance?.()}
-              />
-              <MenuCard
-                name="Personel Performans"
-                icon="people-outline"
-                color="#EC4899"
-                description="Personel performans raporu"
-                onPress={() => onPersonnelPerformance?.()}
-              />
             </>
           )}
 
           {accountTab === 'transactions' && (
-            <View style={{ alignItems: 'center', paddingTop: 60 }}>
-              <Icon name="swap-horizontal-outline" size={48} color={colors.textTertiary} />
-              <Text style={{ color: colors.textSecondary, marginTop: 12, fontSize: 14 }}>Yakında eklenecek</Text>
-            </View>
+            <>
+              <MenuCard
+                name="Banka Komisyon"
+                icon="card-outline"
+                color="#3B82F6"
+                description="Banka komisyon tanımları"
+                onPress={() => onBankaKomisyon?.()}
+              />
+            </>
           )}
         </ScrollView>
 

@@ -30,8 +30,25 @@ import barcodeService, {
   ProductDistribution,
   ProductionDistribution,
 } from '../services/barcode.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface MobilAyarlar {
+  girisFiyatTipi: number;
+  girisFiyatDegeri: number;
+  maliyetFiyatTipi: number;
+  maliyetFiyatDegeri: number;
+  etiketFiyatTipi: number;
+  etiketFiyatDegeri: number;
+}
+
+function hesaplaFiyat(baseStr: string | undefined, tip: number, deger: number): string {
+  const base = parseFloat(baseStr || '0');
+  if (isNaN(base) || base === 0 || deger === 0) return baseStr || '0';
+  const result = tip === 1 ? base + deger : base * (1 + deger / 100);
+  return result.toFixed(2);
+}
 
 interface BarcodeResultScreenProps {
   queryType: 'barcode' | 'model';
@@ -81,6 +98,8 @@ export default function BarcodeResultScreen({
   const [productionSearchText, setProductionSearchText] = useState('');
   const [isDistributionSearchVisible, setIsDistributionSearchVisible] = useState(false);
   const [isProductionSearchVisible, setIsProductionSearchVisible] = useState(false);
+
+  const [mobilAyarlar, setMobilAyarlar] = useState<MobilAyarlar | null>(null);
 
   const barcodePermissions = user?.barcodePermissions;
 
@@ -180,7 +199,22 @@ export default function BarcodeResultScreen({
   // Fetch product data
   useEffect(() => {
     fetchProductData();
+    fetchMobilAyarlar();
   }, [queryValue, queryType]);
+
+  const fetchMobilAyarlar = async () => {
+    try {
+      const token = await authService.getToken();
+      const res = await fetch(API_ENDPOINTS.FIYAT_HESAPLAMA_GET, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success && json.data?.mobilAyarlar) {
+        setMobilAyarlar(json.data.mobilAyarlar);
+      }
+    } catch {}
+  };
 
   const fetchProductData = async () => {
     setIsLoading(true);
@@ -681,40 +715,49 @@ export default function BarcodeResultScreen({
                 </View>
               </View>
               <View style={styles.priceCardsContainer}>
+                {/* Giriş */}
                 <View style={[styles.priceCard, styles.priceCardEntry]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="enter-outline" size={28} color={isDark ? '#94A3B8' : '#64748B'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Giriş</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.entryPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.entryPrice === false ? 'Yetkisiz' : formatPrice(productInfo.entryPrice)}
-                  </Text>
-                  {barcodePermissions?.entryPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.entryPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.girisFiyatDegeri > 0 ? hesaplaFiyat(productInfo.entryPrice, mobilAyarlar.girisFiyatTipi, mobilAyarlar.girisFiyatDegeri) : productInfo.entryPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
+                {/* Maliyet */}
                 <View style={[styles.priceCard, styles.priceCardCost]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="calculator-outline" size={28} color={isDark ? '#F87171' : '#EF4444'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Maliyet</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.costPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.costPrice === false ? 'Yetkisiz' : formatPrice(productInfo.costPrice)}
-                  </Text>
-                  {barcodePermissions?.costPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.costPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.maliyetFiyatDegeri > 0 ? hesaplaFiyat(productInfo.costPrice, mobilAyarlar.maliyetFiyatTipi, mobilAyarlar.maliyetFiyatDegeri) : productInfo.costPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
+                {/* Etiket */}
                 <View style={[styles.priceCard, styles.priceCardLabelBg]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="pricetag-outline" size={28} color={isDark ? '#4ADE80' : '#22C55E'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Etiket</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.labelPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.labelPrice === false ? 'Yetkisiz' : formatPrice(productInfo.labelPrice)}
-                  </Text>
-                  {barcodePermissions?.labelPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.labelCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.labelPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.etiketFiyatDegeri > 0 ? hesaplaFiyat(productInfo.labelPrice, mobilAyarlar.etiketFiyatTipi, mobilAyarlar.etiketFiyatDegeri) : productInfo.labelPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.labelCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
               </View>
@@ -1759,6 +1802,23 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '600',
       color: isDark ? '#F87171' : '#DC2626',
+    },
+    priceCardOriginal: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textDecorationLine: 'line-through',
+      marginTop: 4,
+    },
+    priceCardBadge: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#10B981',
+      backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.12)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      marginTop: 3,
+      overflow: 'hidden',
     },
     // Distribution Table
     distributionSection: {

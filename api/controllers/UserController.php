@@ -77,6 +77,7 @@ class UserController {
                     'permissions' => $permissions,
                     'subeYetkileri' => $subeYetkileri,
                     'varsayilanSube' => $varsayilanSube,
+                    'programYetkileri' => $yetkiler['program_yetkileri'] ?? null,
                 ];
             }, $users);
 
@@ -163,6 +164,7 @@ class UserController {
                 'uygulamalar' => $permissions,
                 'sube_yetkileri' => array_values($subeYetkileri),
                 'varsayilan_sube' => $varsayilanSube,
+                'program_yetkileri' => new stdClass(),
             ], JSON_UNESCAPED_UNICODE);
 
             // Kullanıcıyı oluştur
@@ -177,7 +179,7 @@ class UserController {
 
         } catch (Exception $e) {
             error_log('User create error: ' . $e->getMessage());
-            Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
         }
     }
 
@@ -214,6 +216,7 @@ class UserController {
             $permissions = $data['permissions'] ?? [];
             $subeYetkileri = $data['subeYetkileri'] ?? null;
             $varsayilanSube = $data['varsayilanSube'] ?? null;
+            $programYetkileri = $data['programYetkileri'] ?? null;
             $password = $data['password'] ?? '';
 
             // Validasyon
@@ -270,6 +273,7 @@ class UserController {
                 'sube_yetkileri' => $subeYetkileri !== null ? array_values($subeYetkileri) : ($mevcutYetkiler['sube_yetkileri'] ?? []),
                 'varsayilan_sube' => $varsayilanSube !== null ? $varsayilanSube : ($mevcutYetkiler['varsayilan_sube'] ?? ''),
                 'bildirim_ayarlari' => $mevcutYetkiler['bildirim_ayarlari'] ?? [],
+                'program_yetkileri' => $programYetkileri !== null ? $programYetkileri : ($mevcutYetkiler['program_yetkileri'] ?? new stdClass()),
             ];
             $yetkilerJson = json_encode($yeniYetkiler, JSON_UNESCAPED_UNICODE);
 
@@ -300,7 +304,7 @@ class UserController {
 
         } catch (Exception $e) {
             error_log('User update error: ' . $e->getMessage());
-            Response::error('Bir hata oluştu', 'SERVER_ERROR', 500);
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
         }
     }
 

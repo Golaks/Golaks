@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import Input from './Input';
@@ -36,6 +36,8 @@ interface UserFormProps {
   subeler: SubeItem[];
   isEditMode: boolean;
   availablePrograms?: AvailablePrograms;
+  errors?: { name?: boolean; email?: boolean; phone?: boolean; password?: boolean };
+  errorMessage?: string;
   onNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
@@ -82,6 +84,8 @@ export default function UserForm({
   subeler,
   isEditMode,
   availablePrograms,
+  errors,
+  errorMessage,
   onNameChange,
   onEmailChange,
   onPhoneChange,
@@ -94,9 +98,33 @@ export default function UserForm({
 }: UserFormProps) {
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (errorMessage) {
+      Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => {
+        Animated.timing(toastAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+      }, 4000);
+    } else {
+      toastAnim.setValue(0);
+    }
+    return () => { if (toastTimer.current) clearTimeout(toastTimer.current); };
+  }, [errorMessage]);
 
   return (
     <View style={styles.container}>
+      {errorMessage ? (
+        <Animated.View style={[styles.errorToast, {
+          opacity: toastAnim,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
+        }]}>
+          <Icon name="alert-circle" size={18} color="#fff" />
+          <Text style={styles.errorToastText}>{errorMessage}</Text>
+        </Animated.View>
+      ) : null}
       <Input
         label="Ad Soyad"
         icon="person-outline"
@@ -105,6 +133,8 @@ export default function UserForm({
         onChangeText={onNameChange}
         clearable
         onClear={() => onNameChange('')}
+        error={errors?.name ? 'Ad soyad gerekli' : undefined}
+        shake={errors?.name}
       />
 
       <Input
@@ -118,6 +148,8 @@ export default function UserForm({
         clearable
         onClear={() => onEmailChange('')}
         containerStyle={{ marginTop: 2 }}
+        error={errors?.email ? 'Geçerli bir e-posta girin' : undefined}
+        shake={errors?.email}
       />
 
       <InputPhone
@@ -126,6 +158,8 @@ export default function UserForm({
         value={formPhone}
         onChangeText={onPhoneChange}
         clearable
+        error={errors?.phone ? 'Telefon gerekli' : undefined}
+        shake={errors?.phone}
         onClear={() => onPhoneChange('')}
         containerStyle={{ marginTop: 2 }}
       />
@@ -141,6 +175,8 @@ export default function UserForm({
         clearable
         onClear={() => onPasswordChange('')}
         containerStyle={{ marginTop: 2 }}
+        error={errors?.password ? 'Şifre gerekli' : undefined}
+        shake={errors?.password}
       />
 
       {/* Role Selection - Hidden for superAdmin */}
@@ -418,6 +454,7 @@ export default function UserForm({
           </View>
         </>
       )}
+
     </View>
   );
 }
@@ -576,6 +613,21 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 11,
       color: colors.textTertiary,
       marginTop: 2,
+    },
+    errorToast: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: '#EF4444',
+      borderRadius: 10,
+      padding: 12,
+      marginBottom: 12,
+    },
+    errorToastText: {
+      color: '#fff',
+      fontSize: 13,
+      fontWeight: '600' as const,
+      flex: 1,
     },
     lockIconContainer: {
       width: 36,
