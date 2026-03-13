@@ -253,7 +253,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           icon: 'call-outline',
           placeholder: 'Telefon numaranızı girin',
           keyboardType: 'phone-pad',
-          value: user.telefon || '',
+          value: (user as any).phone || user.kullanici_telefon || user.telefon || '',
         },
       ]);
     }
@@ -306,7 +306,8 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           const updatedUser = {
             ...user,
             name: result.user.name,
-            telefon: result.user.telefon,
+            telefon: result.user.phone || result.user.telefon || phone,
+            kullanici_telefon: result.user.phone || result.user.telefon || phone,
           };
           await authService.updateUser(updatedUser);
           await refreshUser();
