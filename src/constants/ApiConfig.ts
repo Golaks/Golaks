@@ -82,6 +82,18 @@ export const API_ENDPOINTS = {
   // Orders endpoints (global - tüm modüller)
   ORDERS_LIST: `${BASE_API_URL}/orders/list`,
   ORDERS_DETAIL: `${BASE_API_URL}/orders/detail`,
+  ORDERS_URETIME_AL: `${BASE_API_URL}/orders/uretime-al`,
+  ORDERS_RECETE: `${BASE_API_URL}/orders/recete`,
+  ORDERS_LOOKUPS: `${BASE_API_URL}/orders/lookups`,
+  ORDERS_CREATE: `${BASE_API_URL}/orders/create`,
+  ORDERS_UPDATE: `${BASE_API_URL}/orders/update`,
+  ORDERS_DETAIL_LOOKUPS: `${BASE_API_URL}/orders/detail-lookups`,
+  ORDERS_DETAIL_VARYANTLAR: `${BASE_API_URL}/orders/detail-varyantlar`,
+  ORDERS_ADD_DETAIL: `${BASE_API_URL}/orders/add-detail`,
+  ORDERS_CANCEL: `${BASE_API_URL}/orders/cancel`,
+
+  // Doviz endpoints
+  DOVIZ_KURLAR: `${BASE_API_URL}/doviz/kurlar`,
 
   // Reservation endpoints (mağaza)
   RESERVATIONS_LIST: `${BASE_API_URL}/reservations/list`,
@@ -93,12 +105,15 @@ export const API_ENDPOINTS = {
   STOCK_LIST: `${BASE_API_URL}/stock/list`,
   STOCK_CREATE: `${BASE_API_URL}/stock/create`,
   STOCK_BARCODE_QUERY: `${BASE_API_URL}/stock/barcode-query`,
+  STOCK_VARYANT_SEARCH: `${BASE_API_URL}/stock/varyant-search`,
 
   // Model Kart endpoints (global - tüm modüller)
   MODEL_KART_LIST: `${BASE_API_URL}/model-kart/list`,
   MODEL_KART_UPLOAD_IMAGE: `${BASE_API_URL}/model-kart/upload-image`,
   MODEL_KART_DELETE_IMAGE: `${BASE_API_URL}/model-kart/delete-image`,
   MODEL_KART_COLORS: `${BASE_API_URL}/model-kart/colors`,
+  MODEL_KART_CREATE: `${BASE_API_URL}/model-kart/create`,
+  MODEL_KART_UPDATE: `${BASE_API_URL}/model-kart/update`,
 
   // Tanimlar endpoints (global - parametrik tanımlar)
   TANIMLAR_LIST: `${BASE_API_URL}/tanimlar/list`,

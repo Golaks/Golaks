@@ -95,6 +95,15 @@ class Router {
         // Orders Routes (Global - tüm modüller için)
         $this->post('/orders/list', 'OrdersController', 'getList');
         $this->post('/orders/detail', 'OrdersController', 'getDetail');
+        $this->post('/orders/uretime-al', 'OrdersController', 'uretimeAl');
+        $this->post('/orders/recete', 'OrdersController', 'getRecete');
+        $this->post('/orders/lookups', 'OrdersController', 'getLookups');
+        $this->post('/orders/create', 'OrdersController', 'create');
+        $this->post('/orders/update', 'OrdersController', 'update');
+        $this->post('/orders/detail-lookups', 'OrdersController', 'getDetailLookups');
+        $this->post('/orders/detail-varyantlar', 'OrdersController', 'getDetailVaryantlar');
+        $this->post('/orders/add-detail', 'OrdersController', 'addDetail');
+        $this->post('/orders/cancel', 'OrdersController', 'cancel');
 
         // Reservation Routes (Mağaza)
         $this->post('/reservations/list', 'ReservationsController', 'getList');
@@ -112,12 +121,18 @@ class Router {
         $this->post('/stock/list', 'StockController', 'getList');
         $this->post('/stock/create', 'StockController', 'create');
         $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
+        $this->post('/stock/varyant-search', 'StockController', 'searchVaryant');
 
         // Model Kart Routes (Global - tüm modüller için)
         $this->post('/model-kart/list', 'ModelKartController', 'getList');
         $this->post('/model-kart/upload-image', 'ModelKartController', 'uploadImage');
         $this->post('/model-kart/delete-image', 'ModelKartController', 'deleteImage');
         $this->post('/model-kart/colors', 'ModelKartController', 'getColors');
+        $this->post('/model-kart/create', 'ModelKartController', 'create');
+        $this->post('/model-kart/update', 'ModelKartController', 'update');
+
+        // Doviz Routes (Protected)
+        $this->post('/doviz/kurlar', 'DovizController', 'getKurlar');
 
         // Fiyat Hesaplama Routes (Protected, Admin only)
         $this->get('/fiyat-hesaplama', 'FiyatHesaplamaController', 'get');

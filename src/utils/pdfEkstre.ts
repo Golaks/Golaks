@@ -155,7 +155,7 @@ function buildHTML(params: EkstreParams): string {
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: Arial, Helvetica, sans-serif; color:#1e293b; padding:12px 14px; font-size:11px; }
-    @page { margin: 8mm 6mm; }
+    @page { margin: 8mm 6mm 18mm 6mm; }
     table { width:100%; border-collapse:collapse; }
     .th {
       padding:7px 8px; font-size:9px; font-weight:700; color:#6b7280;
@@ -166,6 +166,23 @@ function buildHTML(params: EkstreParams): string {
     .desc { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .num { text-align:right; }
     .foot { padding:7px 8px; font-size:10px; border-top:2px solid #cbd5e1; }
+    .page-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 6px 14px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: #94a3b8;
+    }
+    .page-footer .copyright {
+      font-weight: 600;
+      color: #2563eb;
+    }
   </style>
 </head>
 <body>
@@ -202,20 +219,10 @@ function buildHTML(params: EkstreParams): string {
   <!-- Transaction Tables per Currency -->
   ${groups.map(g => buildCurrencyTable(g)).join('')}
 
-  <!-- Footer -->
-  <div style="margin-top:24px;border-top:2px solid #2563eb;padding-top:10px">
-    <table style="width:100%">
-      <tr>
-        <td style="text-align:left;vertical-align:middle">
-          <span style="font-size:11px;font-weight:700;color:#2563eb">GOLAKS</span>
-          <span style="font-size:9px;color:#94a3b8;margin-left:6px">Polaris Dış Ticaret Ltd. Şti.</span>
-        </td>
-        <td style="text-align:right;vertical-align:middle">
-          <span style="font-size:9px;color:#94a3b8">Sayfa</span>
-          <span style="font-size:11px;font-weight:700;color:#1e293b;margin-left:3px">1/1</span>
-        </td>
-      </tr>
-    </table>
+  <!-- Fixed Footer -->
+  <div class="page-footer">
+    <span><span class="copyright">GOLAKS</span> &copy; Polaris Dış Ticaret Ltd. Şti.</span>
+    <span>${now}</span>
   </div>
 
 </body>

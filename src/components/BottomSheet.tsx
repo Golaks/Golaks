@@ -7,6 +7,8 @@ import {
   Pressable,
   Dimensions,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -71,7 +73,10 @@ export default function BottomSheet({
       animationType="slide"
       transparent
       onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <Pressable style={styles.overlayTouchable} onPress={onClose} />
 
         <View style={[styles.sheet, { maxHeight: height * maxHeightRatio, paddingBottom: insets.bottom + 16 }]}>
@@ -98,6 +103,7 @@ export default function BottomSheet({
             style={styles.scrollView}
             showsVerticalScrollIndicator={false}
             bounces
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.scrollContent}>
             {children}
           </ScrollView>
@@ -110,7 +116,7 @@ export default function BottomSheet({
         </View>
 
         <InModalToast toast={toast} onDismiss={() => setToast(null)} />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

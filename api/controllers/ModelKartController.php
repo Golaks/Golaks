@@ -99,6 +99,12 @@ class ModelKartController {
                     mk.baz_beden,
                     mk.katsayi,
                     mk.kayit_tarihi,
+                    mk.ana_model_id,
+                    mk.model_tipi_id,
+                    mk.cinsiyet_id,
+                    mk.tarz_id,
+                    mk.sezon_id,
+                    mk.beden_setleri_id,
                     COALESCE(t_ana_model.tanim_deger, '') AS ana_model,
                     COALESCE(t_tip.tanim_deger, '') AS model_tipi,
                     COALESCE(t_cinsiyet.tanim_deger, '') AS cinsiyet,
@@ -160,18 +166,24 @@ class ModelKartController {
                     'modelAdi' => $row['model_adi'] ?: '',
                     'barkodTipi' => $row['barkod_tipi'] ?: 'tekil',
                     'anaModel' => $row['ana_model'],
+                    'anaModelId' => (int)$row['ana_model_id'],
                     'modelTipi' => $row['model_tipi'],
+                    'modelTipiId' => (int)$row['model_tipi_id'],
                     'cinsiyet' => $row['cinsiyet'],
+                    'cinsiyetId' => (int)$row['cinsiyet_id'],
                     'modelist' => $row['modelist'] ?: '',
                     'tasarimci' => $row['tasarimci'] ?: '',
                     'tarz' => $row['tarz'],
+                    'tarzId' => (int)$row['tarz_id'],
                     'sezon' => $row['sezon'],
+                    'sezonId' => (int)$row['sezon_id'],
                     'marka' => $row['marka'] ?: '',
                     'boy' => $row['boy'] ?: '',
                     'setParca' => (int)$row['set_parca'],
                     'setIcerik' => $row['set_icerik'] ?: '',
                     'aciklama' => $row['aciklama'] ?: '',
                     'bazBeden' => $row['baz_beden'] ?: '',
+                    'bedenSetleriId' => (int)$row['beden_setleri_id'],
                     'katsayi' => $row['katsayi'] ? (float)$row['katsayi'] : null,
                     'kayitTarihi' => $row['kayit_tarihi'],
                     'resimler' => $imageMap[$id] ?? [],
@@ -540,6 +552,289 @@ class ModelKartController {
             Response::serverError('Veritabanı hatası: ' . $e->getMessage());
         } catch (Exception $e) {
             Response::serverError('Renkler alınamadı: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * POST /model-kart/create
+     * Yeni model kartı oluştur
+     */
+    public function create() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        // Zorunlu alanlar
+        $modelAdi = trim($data['modelAdi'] ?? '');
+        $barkodTipi = $data['barkodTipi'] ?? 'tekil';
+        $anaModelId = (int)($data['anaModelId'] ?? 0);
+
+        if (empty($modelAdi)) {
+            Response::error('Model adı zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($anaModelId)) {
+            Response::error('Ana model zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (!in_array($barkodTipi, ['tekil', 'seri', 'cogul'])) {
+            Response::error('Geçersiz barkod tipi', 'VALIDATION_ERROR', 400);
+        }
+
+        // Opsiyonel alanlar
+        $modelTipiId = (int)($data['modelTipiId'] ?? 0);
+        $cinsiyetId = (int)($data['cinsiyetId'] ?? 0);
+        $sezonId = (int)($data['sezonId'] ?? 0);
+        $tarzId = (int)($data['tarzId'] ?? 0);
+        $marka = trim($data['marka'] ?? '');
+        $modelist = trim($data['modelist'] ?? '');
+        $tasarimci = trim($data['tasarimci'] ?? '');
+        $boy = trim($data['boy'] ?? '');
+        $bedenSetleriId = (int)($data['bedenSetleriId'] ?? 0);
+        $bazBeden = trim($data['bazBeden'] ?? '');
+        $setParca = (int)($data['setParca'] ?? 0);
+        $setIcerik = trim($data['setIcerik'] ?? '');
+        $katsayi = isset($data['katsayi']) && $data['katsayi'] !== '' ? (float)$data['katsayi'] : null;
+        $aciklama = trim($data['aciklama'] ?? '');
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbNameVal = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbNameVal)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbNameVal};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $sql = "INSERT INTO model_kartlar (
+                firma_id, ana_model_id, model_adi, barkod_tipi, model_tipi_id,
+                cinsiyet_id, sezon_id, tarz_id, marka, modelist, tasarimci,
+                boy, beden_setleri_id, baz_beden, set_parca, set_icerik,
+                katsayi, aciklama, kayit_kullanici_id, kayit_ip, aktif
+            ) VALUES (
+                :firmaId, :anaModelId, :modelAdi, :barkodTipi, :modelTipiId,
+                :cinsiyetId, :sezonId, :tarzId, :marka, :modelist, :tasarimci,
+                :boy, :bedenSetleriId, :bazBeden, :setParca, :setIcerik,
+                :katsayi, :aciklama, :kullaniciId, :ip, 1
+            )";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':firmaId' => $firmaId,
+                ':anaModelId' => $anaModelId,
+                ':modelAdi' => $modelAdi,
+                ':barkodTipi' => $barkodTipi,
+                ':modelTipiId' => $modelTipiId,
+                ':cinsiyetId' => $cinsiyetId,
+                ':sezonId' => $sezonId,
+                ':tarzId' => $tarzId,
+                ':marka' => $marka,
+                ':modelist' => $modelist,
+                ':tasarimci' => $tasarimci,
+                ':boy' => $boy,
+                ':bedenSetleriId' => $bedenSetleriId,
+                ':bazBeden' => $bazBeden,
+                ':setParca' => $setParca,
+                ':setIcerik' => $setIcerik,
+                ':katsayi' => $katsayi,
+                ':aciklama' => $aciklama,
+                ':kullaniciId' => $userId,
+                ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            ]);
+
+            $newId = (int)$pdo->lastInsertId();
+
+            Response::success(['id' => $newId], 'Model kartı başarıyla oluşturuldu');
+
+        } catch (PDOException $e) {
+            Response::serverError('Veritabanı hatası: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Response::serverError('Model kartı oluşturulamadı: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * POST /model-kart/update
+     * Model kartı güncelle
+     */
+    public function update() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        $modelId = (int)($data['id'] ?? 0);
+        if (empty($modelId)) {
+            Response::error('Model ID zorunludur', 'VALIDATION_ERROR', 400);
+        }
+
+        $modelAdi = trim($data['modelAdi'] ?? '');
+        $barkodTipi = $data['barkodTipi'] ?? 'tekil';
+        $anaModelId = (int)($data['anaModelId'] ?? 0);
+
+        if (empty($modelAdi)) {
+            Response::error('Model adı zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($anaModelId)) {
+            Response::error('Ana model zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (!in_array($barkodTipi, ['tekil', 'seri', 'cogul'])) {
+            Response::error('Geçersiz barkod tipi', 'VALIDATION_ERROR', 400);
+        }
+
+        $modelTipiId = (int)($data['modelTipiId'] ?? 0);
+        $cinsiyetId = (int)($data['cinsiyetId'] ?? 0);
+        $sezonId = (int)($data['sezonId'] ?? 0);
+        $tarzId = (int)($data['tarzId'] ?? 0);
+        $marka = trim($data['marka'] ?? '');
+        $modelist = trim($data['modelist'] ?? '');
+        $tasarimci = trim($data['tasarimci'] ?? '');
+        $boy = trim($data['boy'] ?? '');
+        $bedenSetleriId = (int)($data['bedenSetleriId'] ?? 0);
+        $bazBeden = trim($data['bazBeden'] ?? '');
+        $setParca = (int)($data['setParca'] ?? 0);
+        $setIcerik = trim($data['setIcerik'] ?? '');
+        $aciklama = trim($data['aciklama'] ?? '');
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbNameVal = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbNameVal)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbNameVal};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $sql = "UPDATE model_kartlar SET
+                ana_model_id = :anaModelId,
+                model_adi = :modelAdi,
+                barkod_tipi = :barkodTipi,
+                model_tipi_id = :modelTipiId,
+                cinsiyet_id = :cinsiyetId,
+                sezon_id = :sezonId,
+                tarz_id = :tarzId,
+                marka = :marka,
+                modelist = :modelist,
+                tasarimci = :tasarimci,
+                boy = :boy,
+                beden_setleri_id = :bedenSetleriId,
+                baz_beden = :bazBeden,
+                set_parca = :setParca,
+                set_icerik = :setIcerik,
+                aciklama = :aciklama
+            WHERE id = :id AND firma_id = :firmaId";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([
+                ':anaModelId' => $anaModelId,
+                ':modelAdi' => $modelAdi,
+                ':barkodTipi' => $barkodTipi,
+                ':modelTipiId' => $modelTipiId,
+                ':cinsiyetId' => $cinsiyetId,
+                ':sezonId' => $sezonId,
+                ':tarzId' => $tarzId,
+                ':marka' => $marka,
+                ':modelist' => $modelist,
+                ':tasarimci' => $tasarimci,
+                ':boy' => $boy,
+                ':bedenSetleriId' => $bedenSetleriId,
+                ':bazBeden' => $bazBeden,
+                ':setParca' => $setParca,
+                ':setIcerik' => $setIcerik,
+                ':aciklama' => $aciklama,
+                ':id' => $modelId,
+                ':firmaId' => $firmaId,
+            ]);
+
+            Response::success(['id' => $modelId], 'Model kartı başarıyla güncellendi');
+
+        } catch (PDOException $e) {
+            Response::serverError('Veritabanı hatası: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Response::serverError('Model kartı güncellenemedi: ' . $e->getMessage());
         }
     }
 

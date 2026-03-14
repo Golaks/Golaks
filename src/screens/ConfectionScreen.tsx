@@ -20,9 +20,9 @@ interface ConfectionScreenProps {
   onSales?: () => void;
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
-  onOrders?: () => void;
   onUretimIslemleri?: () => void;
   onMaliyetler?: () => void;
+  onSiparisIslemleri?: () => void;
   initialTab?: ConfectionTab;
   onActiveTabChange?: (tab: ConfectionTab) => void;
 }
@@ -34,7 +34,7 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onOrders, onUretimIslemleri, onMaliyetler, initialTab, onActiveTabChange }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onUretimIslemleri, onMaliyetler, onSiparisIslemleri, initialTab, onActiveTabChange }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -97,13 +97,6 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout, onMode
           {confectionTab === 'reports' && (
             <>
               <MenuCard
-                name="Siparişler"
-                icon="clipboard-outline"
-                color="#F59E0B"
-                description="Sipariş takibi ve raporu"
-                onPress={() => onOrders?.()}
-              />
-              <MenuCard
                 name="Satışlar"
                 icon="cart-outline"
                 color="#10B981"
@@ -150,6 +143,13 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout, onMode
 
           {confectionTab === 'transactions' && (
             <>
+              <MenuCard
+                name="Sipariş İşlemleri"
+                icon="receipt-outline"
+                color="#3B82F6"
+                description="Sipariş oluşturma ve yönetimi"
+                onPress={() => onSiparisIslemleri?.()}
+              />
               <MenuCard
                 name="Üretim İşlemleri"
                 icon="construct-outline"

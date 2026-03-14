@@ -36,7 +36,7 @@ export default function OrdersScreen({ onGoBack, onTabChange, onLogout }: Orders
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OrderItem[]>([]);
   const [summaryData, setSummaryData] = useState<OrderSummaryItem[]>([]);
-  const [stats, setStats] = useState<OrderStats>({ totalSatis: 0, totalSatinalma: 0, totalUretimde: 0, totalBeklemede: 0 });
+  const [stats, setStats] = useState<OrderStats>({ totalSatis: 0, totalSatinalma: 0, totalUretimde: 0, totalBeklemede: 0, totalKapali: 0, totalIptal: 0 });
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [detailData, setDetailData] = useState<Record<string, OrderDetailItem[]>>({});
   const [detailLoading, setDetailLoading] = useState<string | null>(null);
@@ -394,11 +394,11 @@ export default function OrdersScreen({ onGoBack, onTabChange, onLogout }: Orders
                             <Text style={styles.infoValue} numberOfLines={1}>{item.musteriSube}</Text>
                           </View>
                         ) : null}
-                        {item.avansTutar > 0 && (
+                        {(item.avansTutar ?? 0) > 0 && (
                           <View style={styles.infoItem}>
                             <Text style={styles.infoLabel}>Avans</Text>
                             <Text style={[styles.infoValue, { color: '#3B82F6' }]}>
-                              {formatAmount(item.avansTutar)} {item.avansDoviz}
+                              {formatAmount(item.avansTutar ?? 0)} {item.avansDoviz || ''}
                             </Text>
                           </View>
                         )}

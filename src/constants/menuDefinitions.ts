@@ -57,10 +57,12 @@ export const PROGRAM_MENUS: ProgramMenuDef[] = [
       { key: 'urunStoklar',          label: 'Ürün Stoklar',          icon: 'shirt-outline',       color: '#8B5CF6' },
       { key: 'hammaddeStoklar',      label: 'Hammadde Stoklar',      icon: 'cube-outline',        color: '#3B82F6' },
       { key: 'personelPerformans',   label: 'Personel Performans',   icon: 'people-outline',      color: '#EC4899' },
+      { key: 'maliyetler',            label: 'Maliyetler',            icon: 'calculator-outline',  color: '#EF4444' },
     ],
     islemler: [
-      { key: 'uretimIslemleri', label: 'Üretim İşlemleri', icon: 'construct-outline', color: '#10B981' },
-      { key: 'modelIslemleri',  label: 'Model İşlemleri',  icon: 'layers-outline',   color: '#F59E0B' },
+      { key: 'siparisIslemleri', label: 'Sipariş İşlemleri', icon: 'receipt-outline',    color: '#3B82F6' },
+      { key: 'uretimIslemleri',  label: 'Üretim İşlemleri',  icon: 'construct-outline',  color: '#10B981' },
+      { key: 'modelIslemleri',   label: 'Model İşlemleri',   icon: 'layers-outline',     color: '#F59E0B' },
     ],
   },
   {

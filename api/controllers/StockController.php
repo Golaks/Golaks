@@ -645,4 +645,155 @@ class StockController {
             Response::serverError('Stok kartı oluşturulamadı: ' . $e->getMessage());
         }
     }
+
+    /**
+     * POST /stock/varyant-search
+     * Stok varyant arama (barkod, varyant kodu, varyant adı)
+     */
+    public function searchVaryant() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $search = trim($data['search'] ?? '');
+        $stokGrupKodu = $data['stokGrupKodu'] ?? '';
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        // En az 1 karakter arama gerekli
+        if (strlen($search) < 1) {
+            Response::success([]);
+            return;
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Build query
+            $params = [];
+            $conditions = [
+                "sm.aktif = 1",
+                "sm.firma_id = :firmaId",
+            ];
+            $params[':firmaId'] = $firmaId;
+
+            // Arama filtresi
+            $conditions[] = "(sv.barkod LIKE :search1 OR sv.varyant_kodu LIKE :search2 OR sv.varyant_adi LIKE :search3 OR sm.stok_kodu LIKE :search4 OR sm.stok_adi LIKE :search5)";
+            $params[':search1'] = "%{$search}%";
+            $params[':search2'] = "%{$search}%";
+            $params[':search3'] = "%{$search}%";
+            $params[':search4'] = "%{$search}%";
+            $params[':search5'] = "%{$search}%";
+
+            // Opsiyonel stokGrupKodu filtresi
+            if (!empty($stokGrupKodu)) {
+                $conditions[] = "sv.stok_grup_kodu = :stokGrupKodu";
+                $params[':stokGrupKodu'] = $stokGrupKodu;
+            }
+
+            $whereClause = implode(' AND ', $conditions);
+
+            $sql = "
+                SELECT
+                    sv.id,
+                    sv.barkod,
+                    sv.varyant_kodu,
+                    sv.varyant_adi,
+                    sv.stok_grup_kodu,
+                    COALESCE(t_renk.tanim_deger, '') AS renk_adi,
+                    sv.beden,
+                    sm.stok_kodu,
+                    sm.stok_adi,
+                    COALESCE(t_birim1.tanim_deger, '') AS birim,
+                    sv.miktar1_kalan,
+                    sv.satis_fiyat,
+                    sv.satis_doviz
+                FROM stok_varyant sv
+                INNER JOIN stok_master sm ON sm.id = sv.stok_master_id
+                LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id
+                LEFT JOIN tanimlar t_birim1 ON t_birim1.id = sm.birim1_id
+                WHERE {$whereClause}
+                ORDER BY sv.varyant_adi ASC
+                LIMIT 100
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+
+            // Map rows
+            $items = [];
+            foreach ($rows as $row) {
+                $items[] = [
+                    'id' => (string)$row['id'],
+                    'barkod' => $row['barkod'] ?: '',
+                    'varyantKodu' => $row['varyant_kodu'] ?: '',
+                    'varyantAdi' => $row['varyant_adi'] ?: '',
+                    'stokGrupKodu' => $row['stok_grup_kodu'] ?: '',
+                    'renkAdi' => $row['renk_adi'],
+                    'beden' => $row['beden'] ?: '',
+                    'stokKodu' => $row['stok_kodu'] ?: '',
+                    'stokAdi' => $row['stok_adi'] ?: '',
+                    'birim' => $row['birim'],
+                    'miktar1Kalan' => (float)$row['miktar1_kalan'],
+                    'satisFiyat' => (float)$row['satis_fiyat'],
+                    'satisDoviz' => $row['satis_doviz'] ?: 'TL',
+                ];
+            }
+
+            Response::success($items);
+
+        } catch (PDOException $e) {
+            Response::serverError('Veritabanı hatası: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Response::serverError('Varyant araması yapılamadı: ' . $e->getMessage());
+        }
+    }
 }

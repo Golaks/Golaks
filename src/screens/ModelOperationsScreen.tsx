@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, ScrollView, Text, Pressable, Image, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
@@ -10,12 +10,18 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
 import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import SearchInput from '../components/SearchInput';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import ModelImageModal from '../components/ModelImageModal';
+import BottomSheet, { BottomSheetToastRef } from '../components/BottomSheet';
+import TanimSelectInput from '../components/TanimSelectInput';
+import BedenSetSelect from '../components/BedenSetSelect';
+import SelectInput from '../components/SelectInput';
 import modelService, { ModelKart, ModelColor } from '../services/model.service';
 import { authService } from '../services/auth.service';
+import ordersService, { DetailBedenSetItem } from '../services/orders.service';
 
 interface ModelOperationsScreenProps {
   onBack?: () => void;
@@ -40,6 +46,31 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
   const [colorList, setColorList] = useState<ModelColor[]>([]);
   const [colorsLoading, setColorsLoading] = useState(false);
   const [pendingPhotos, setPendingPhotos] = useState<{ uri: string; fileName: string; type: string }[]>([]);
+
+  // Form states
+  const [formVisible, setFormVisible] = useState(false);
+  const [formSaving, setFormSaving] = useState(false);
+  const [formEditingId, setFormEditingId] = useState<number | null>(null);
+  const [formAnaModelId, setFormAnaModelId] = useState('');
+  const [formModelAdi, setFormModelAdi] = useState('');
+  const [formBarkodTipi, setFormBarkodTipi] = useState('tekil');
+  const [formModelTipiId, setFormModelTipiId] = useState('');
+  const [formCinsiyetId, setFormCinsiyetId] = useState('');
+  const [formSezonId, setFormSezonId] = useState('');
+  const [formTarzId, setFormTarzId] = useState('');
+  const [formBoy, setFormBoy] = useState('');
+  const [formMarka, setFormMarka] = useState('');
+  const [formModelist, setFormModelist] = useState('');
+  const [formTasarimci, setFormTasarimci] = useState('');
+  const [formBedenSetleriId, setFormBedenSetleriId] = useState('');
+  const [formBazBeden, setFormBazBeden] = useState('');
+  const [formSetParca, setFormSetParca] = useState('');
+  const [formSetIcerik, setFormSetIcerik] = useState('');
+  const [formAciklama, setFormAciklama] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const [bedenSetleri, setBedenSetleri] = useState<DetailBedenSetItem[]>([]);
+  const [lookupsLoading, setLookupsLoading] = useState(false);
+  const formToastRef = useRef<BottomSheetToastRef | null>(null);
 
   const styles = createStyles(colors, isDark);
 
@@ -219,6 +250,138 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
     }
   };
 
+  const resetForm = () => {
+    setFormEditingId(null);
+    setFormAnaModelId('');
+    setFormModelAdi('');
+    setFormBarkodTipi('tekil');
+    setFormModelTipiId('');
+    setFormCinsiyetId('');
+    setFormSezonId('');
+    setFormTarzId('');
+    setFormBoy('');
+    setFormMarka('');
+    setFormModelist('');
+    setFormTasarimci('');
+    setFormBedenSetleriId('');
+    setFormBazBeden('');
+    setFormSetParca('');
+    setFormSetIcerik('');
+    setFormAciklama('');
+    setFormErrors({});
+  };
+
+  const fetchBedenSetleri = async () => {
+    try {
+      setLookupsLoading(true);
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || 'golaks_demo';
+      const res = await ordersService.getDetailLookups(token, dataName);
+      if (res.success && res.data) {
+        setBedenSetleri(res.data.bedenSetleri);
+      }
+    } catch {
+    } finally {
+      setLookupsLoading(false);
+    }
+  };
+
+  const handleOpenCreateForm = () => {
+    resetForm();
+    setFormVisible(true);
+    if (bedenSetleri.length === 0) {
+      fetchBedenSetleri();
+    }
+  };
+
+  const handleEditModel = (model: ModelKart) => {
+    setFormEditingId(model.id);
+    setFormAnaModelId(model.anaModelId ? String(model.anaModelId) : '');
+    setFormModelAdi(model.modelAdi);
+    setFormBarkodTipi(model.barkodTipi);
+    setFormModelTipiId(model.modelTipiId ? String(model.modelTipiId) : '');
+    setFormCinsiyetId(model.cinsiyetId ? String(model.cinsiyetId) : '');
+    setFormSezonId(model.sezonId ? String(model.sezonId) : '');
+    setFormTarzId(model.tarzId ? String(model.tarzId) : '');
+    setFormBoy(model.boy || '');
+    setFormMarka(model.marka || '');
+    setFormModelist(model.modelist || '');
+    setFormTasarimci(model.tasarimci || '');
+    setFormBedenSetleriId(model.bedenSetleriId ? String(model.bedenSetleriId) : '');
+    setFormBazBeden(model.bazBeden || '');
+    setFormSetParca(model.setParca ? String(model.setParca) : '');
+    setFormSetIcerik(model.setIcerik || '');
+    setFormAciklama(model.aciklama || '');
+    setFormErrors({});
+    setFormVisible(true);
+    if (bedenSetleri.length === 0) {
+      fetchBedenSetleri();
+    }
+  };
+
+  const handleSaveModel = async () => {
+    const errors: Record<string, boolean> = {};
+    if (!formModelAdi.trim()) errors.modelAdi = true;
+    if (!formAnaModelId) errors.anaModelId = true;
+    if (!formBarkodTipi) errors.barkodTipi = true;
+
+    setFormErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      formToastRef.current?.show({ type: 'error', message: 'Zorunlu alanları doldurunuz' });
+      return;
+    }
+
+    try {
+      setFormSaving(true);
+      const token = await authService.getToken();
+      if (!token) throw new Error('Token bulunamadı');
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || 'golaks_demo';
+
+      const modelData = {
+        modelAdi: formModelAdi.trim(),
+        barkodTipi: formBarkodTipi,
+        anaModelId: parseInt(formAnaModelId, 10),
+        modelTipiId: formModelTipiId ? parseInt(formModelTipiId, 10) : undefined,
+        cinsiyetId: formCinsiyetId ? parseInt(formCinsiyetId, 10) : undefined,
+        sezonId: formSezonId ? parseInt(formSezonId, 10) : undefined,
+        tarzId: formTarzId ? parseInt(formTarzId, 10) : undefined,
+        marka: formMarka.trim() || undefined,
+        modelist: formModelist.trim() || undefined,
+        tasarimci: formTasarimci.trim() || undefined,
+        boy: formBoy.trim() || undefined,
+        bedenSetleriId: formBedenSetleriId ? parseInt(formBedenSetleriId, 10) : undefined,
+        bazBeden: formBazBeden || undefined,
+        setParca: formSetParca ? parseInt(formSetParca, 10) : undefined,
+        setIcerik: formSetIcerik.trim() || undefined,
+        aciklama: formAciklama.trim() || undefined,
+      };
+
+      const res = formEditingId
+        ? await modelService.updateModel(token, dataName, { id: formEditingId, ...modelData })
+        : await modelService.createModel(token, dataName, modelData);
+
+      if (res.success) {
+        setFormVisible(false);
+        showSuccess(formEditingId ? 'Model kartı başarıyla güncellendi' : 'Model kartı başarıyla oluşturuldu');
+        loadModelList();
+      } else {
+        formToastRef.current?.show({ type: 'error', message: res.message || 'İşlem başarısız' });
+      }
+    } catch (err: any) {
+      formToastRef.current?.show({ type: 'error', message: err.message || 'İşlem başarısız' });
+    } finally {
+      setFormSaving(false);
+    }
+  };
+
+  // Seçili beden setinin bedenleri
+  const selectedBedenSet = bedenSetleri.find(b => b.id.toString() === formBedenSetleriId);
+  const bazBedenItems = selectedBedenSet
+    ? selectedBedenSet.bedenler.map(b => ({ id: b, label: b }))
+    : [];
+
   const renderModelCard = (model: ModelKart) => {
     const isExpanded = expandedModelId === model.id;
     const badge = getBarkodTipiBadge(model.barkodTipi);
@@ -385,12 +548,24 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
               </View>
             ) : null}
 
-            {/* Kayıt tarihi - alt bilgi */}
-            {model.kayitTarihi ? (
-              <Text style={[styles.footerDate, { color: colors.textTertiary }]}>
-                Kayıt: {new Date(model.kayitTarihi).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </Text>
-            ) : null}
+            {/* Alt bilgi + Düzenle */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+              {model.kayitTarihi ? (
+                <Text style={[styles.footerDate, { color: colors.textTertiary, marginTop: 0 }]}>
+                  Kayıt: {new Date(model.kayitTarihi).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </Text>
+              ) : <View />}
+              <Pressable
+                style={[styles.editButton, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '30' }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleEditModel(model);
+                }}
+              >
+                <Icon name="create-outline" size={14} color={colors.primary} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>Düzenle</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </Pressable>
@@ -403,7 +578,12 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
         <Header
           title="Model İşlemleri"
           leftButton={<BackButton onPress={onBack} />}
-          rightButton={<SearchButton onPress={handleToggleSearch} />}
+          rightButton={
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <SearchButton onPress={handleToggleSearch} />
+              <AddButton onPress={handleOpenCreateForm} />
+            </View>
+          }
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -482,6 +662,283 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
           onUploadAll={handleUploadAll}
           onColorAdded={() => loadColors()}
         />
+
+        {/* Yeni Model Ekle BottomSheet */}
+        <BottomSheet
+          visible={formVisible}
+          onClose={() => setFormVisible(false)}
+          title={formEditingId ? 'Model Düzenle' : 'Yeni Model Ekle'}
+          icon={formEditingId ? 'create-outline' : 'add-circle-outline'}
+          iconColor={colors.primary}
+          toastRef={formToastRef}
+          footer={
+            <>
+              <Pressable
+                style={[styles.modalBtn, styles.modalBtnCancel, { borderColor: colors.border }]}
+                onPress={() => setFormVisible(false)}
+                disabled={formSaving}
+              >
+                <Icon name="close-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>İptal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveModel}
+                disabled={formSaving}
+              >
+                {formSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="checkmark-outline" size={18} color="#fff" />
+                    <Text style={[styles.modalBtnText, { color: '#fff' }]}>{formEditingId ? 'Güncelle' : 'Kaydet'}</Text>
+                  </>
+                )}
+              </Pressable>
+            </>
+          }
+        >
+          {lookupsLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <View style={{ gap: 12 }}>
+              {/* Satır 1: Ana Model + Model Adı */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="ANA_MODEL"
+                    label="Ana Model *"
+                    placeholder="Seçiniz..."
+                    value={formAnaModelId}
+                    onSelect={setFormAnaModelId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                    error={formErrors.anaModelId}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Model Adı *</Text>
+                  <View style={[styles.formInputRow, { borderColor: formErrors.modelAdi ? '#EF4444' : colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="text-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text }]}
+                      value={formModelAdi}
+                      onChangeText={setFormModelAdi}
+                      placeholder="Model adı..."
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Satır 2: Barkod Tipi + Model Tipi */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <SelectInput
+                    label="Barkod Tipi *"
+                    icon="barcode-outline"
+                    placeholder="Seçiniz..."
+                    value={formBarkodTipi}
+                    items={[
+                      { id: 'tekil', label: 'Tekil' },
+                      { id: 'seri', label: 'Seri' },
+                      { id: 'cogul', label: 'Çoğul' },
+                    ]}
+                    onSelect={setFormBarkodTipi}
+                    noClear
+                    containerStyle={{ marginBottom: 0 }}
+                    error={formErrors.barkodTipi}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="MODEL_TIPI"
+                    label="Model Tipi"
+                    placeholder="Seçiniz..."
+                    value={formModelTipiId}
+                    onSelect={setFormModelTipiId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+              </View>
+
+              {/* Satır 3: Cinsiyet + Sezon */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="CINSIYET"
+                    label="Cinsiyet"
+                    placeholder="Seçiniz..."
+                    value={formCinsiyetId}
+                    onSelect={setFormCinsiyetId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="SEZON"
+                    label="Sezon"
+                    placeholder="Seçiniz..."
+                    value={formSezonId}
+                    onSelect={setFormSezonId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+              </View>
+
+              {/* Satır 4: Tarz + Boy */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="TARZ"
+                    label="Tarz"
+                    placeholder="Seçiniz..."
+                    value={formTarzId}
+                    onSelect={setFormTarzId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Boy</Text>
+                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="swap-vertical-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text }]}
+                      value={formBoy}
+                      onChangeText={setFormBoy}
+                      placeholder="Boy..."
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Satır 5: Marka + Modelist */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Marka</Text>
+                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="shield-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text }]}
+                      value={formMarka}
+                      onChangeText={setFormMarka}
+                      placeholder="Marka..."
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Modelist</Text>
+                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="create-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text }]}
+                      value={formModelist}
+                      onChangeText={setFormModelist}
+                      placeholder="Modelist..."
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Satır 6: Tasarımcı + Beden Seti */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Tasarımcı</Text>
+                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="brush-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text }]}
+                      value={formTasarimci}
+                      onChangeText={setFormTasarimci}
+                      placeholder="Tasarımcı..."
+                      placeholderTextColor={colors.textTertiary}
+                    />
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <BedenSetSelect
+                    label="Beden Seti"
+                    value={formBedenSetleriId}
+                    bedenSetleri={bedenSetleri}
+                    onSelect={(val) => {
+                      setFormBedenSetleriId(val);
+                      setFormBazBeden('');
+                    }}
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+              </View>
+
+              {/* Satır 7: Baz Beden + Set Parça */}
+              <View style={styles.formRow}>
+                <View style={{ flex: 1 }}>
+                  <SelectInput
+                    label="Baz Beden"
+                    icon="resize-outline"
+                    placeholder={formBedenSetleriId ? 'Seçiniz...' : 'Önce beden seti seçin'}
+                    value={formBazBeden}
+                    items={bazBedenItems}
+                    onSelect={setFormBazBeden}
+                    containerStyle={{ marginBottom: 0 }}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Set Parça Sayısı</Text>
+                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                    <Icon name="layers-outline" size={18} color={colors.textTertiary} />
+                    <TextInput
+                      style={[styles.formInputInner, { color: colors.text, textAlign: 'right' }]}
+                      value={formSetParca}
+                      onChangeText={(t) => setFormSetParca(t.replace(/[^0-9]/g, ''))}
+                      placeholder="0"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Set İçerik */}
+              <View>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Set İçerik</Text>
+                <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <Icon name="list-outline" size={18} color={colors.textTertiary} />
+                  <TextInput
+                    style={[styles.formInputInner, { color: colors.text }]}
+                    value={formSetIcerik}
+                    onChangeText={setFormSetIcerik}
+                    placeholder="Set içerik..."
+                    placeholderTextColor={colors.textTertiary}
+                  />
+                </View>
+              </View>
+
+              {/* Açıklama */}
+              <View>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Açıklama</Text>
+                <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff', height: 80, alignItems: 'flex-start', paddingTop: 14 }]}>
+                  <Icon name="document-text-outline" size={18} color={colors.textTertiary} />
+                  <TextInput
+                    style={[styles.formInputInner, { color: colors.text, textAlignVertical: 'top', height: '100%' }]}
+                    value={formAciklama}
+                    onChangeText={setFormAciklama}
+                    placeholder="Açıklama..."
+                    placeholderTextColor={colors.textTertiary}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+            </View>
+          )}
+        </BottomSheet>
 
       </View>
     </SafeAreaProvider>
@@ -756,5 +1213,55 @@ const createStyles = (colors: any, isDark: boolean) =>
       color: '#fff',
       fontSize: 14,
       fontWeight: '600',
+    },
+    formRow: {
+      flexDirection: 'row' as const,
+      gap: 10,
+    },
+    formLabel: {
+      fontSize: 13,
+      fontWeight: '600' as const,
+      marginBottom: 6,
+    },
+    formInputRow: {
+      height: 48,
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 8,
+    },
+    formInputInner: {
+      flex: 1,
+      fontSize: 14,
+      height: '100%' as any,
+      padding: 0,
+    },
+    modalBtn: {
+      flex: 1,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 6,
+      height: 48,
+      borderRadius: 12,
+    },
+    modalBtnCancel: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+    },
+    modalBtnText: {
+      fontSize: 15,
+      fontWeight: '600' as const,
+    },
+    editButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
     },
   });

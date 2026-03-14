@@ -29,8 +29,9 @@ import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
 import BankaKomisyonScreen from '../screens/BankaKomisyonScreen';
 import FiyatHesaplamaScreen from '../screens/FiyatHesaplamaScreen';
 import KonfeksiyonUretimScreen from '../screens/KonfeksiyonUretimScreen';
+import SiparisIslemleriScreen from '../screens/SiparisIslemleriScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler' | 'confectionSiparisIslemleri';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -158,6 +159,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onCompanyModelPerformance={() => setActiveScreen('confectionCompanyModelPerformance')}
             onOrders={() => setActiveScreen('confectionOrders')}
             onMaliyetler={() => setActiveScreen('confectionMaliyetler')}
+            onSiparisIslemleri={() => setActiveScreen('confectionSiparisIslemleri')}
             initialTab={confectionTab}
             onActiveTabChange={setConfectionTab}
           />
@@ -229,6 +231,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
         return <KonfeksiyonUretimScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confectionMaliyetler':
         return <KonfeksiyonUretimScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'confectionSiparisIslemleri':
+        return <SiparisIslemleriScreen onGoBack={() => { setConfectionTab('transactions'); setActiveScreen('confection'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       default:
         return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
     }

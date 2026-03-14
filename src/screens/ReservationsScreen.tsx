@@ -21,7 +21,7 @@ import Button from '../components/Button';
 import BottomSheet from '../components/BottomSheet';
 import Input from '../components/Input';
 import SelectInput, { SelectItem } from '../components/SelectInput';
-import AddTanimModal from '../components/AddTanimModal';
+import TanimSelectInput from '../components/TanimSelectInput';
 import TabBar, { TabName } from '../components/TabBar';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -90,9 +90,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   const [formSelectedMilliyet, setFormSelectedMilliyet] = useState<string>('');
   const [formSelectedSube, setFormSelectedSube] = useState<string>('');
 
-  // Tanım ekleme modal
-  const [showAddTanimModal, setShowAddTanimModal] = useState(false);
-  const [addTanimKodu, setAddTanimKodu] = useState('');
 
   // Giriş modal
   const [showGirisModal, setShowGirisModal] = useState(false);
@@ -183,11 +180,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
     [lookups.acenteler],
   );
 
-  const milliyetItems: SelectItem[] = useMemo(
-    () => lookups.milliyetler.map((m) => ({ id: m.id, label: m.deger || '' })),
-    [lookups.milliyetler],
-  );
-
   const subeItems: SelectItem[] = useMemo(
     () => lookups.subeler.map((s) => ({ id: s.id, label: s.name || '' })),
     [lookups.subeler],
@@ -258,23 +250,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
     } catch (_err) {}
   }, [user]);
 
-  const handleAddTanim = (tanimKodu: string) => {
-    setAddTanimKodu(tanimKodu);
-    setShowCreateModal(false);
-    setTimeout(() => {
-      setShowAddTanimModal(true);
-    }, 300);
-  };
-
-  const handleTanimSuccess = (id: string, deger: string) => {
-    if (addTanimKodu === 'MILLIYET') {
-      setLookups(prev => ({
-        ...prev,
-        milliyetler: [...prev.milliyetler, { id, deger }],
-      }));
-      setFormSelectedMilliyet(id);
-    }
-  };
 
   const handleOpenCreateModal = () => {
     setEditingItem(null);
@@ -955,16 +930,13 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       {/* Milliyet + Şube */}
       <View style={styles.formRow}>
         <View style={styles.formHalf}>
-          <SelectInput
+          <TanimSelectInput
+            tanimKodu="MILLIYET"
             label="Milliyet"
-            icon="flag-outline"
             placeholder="Seçiniz"
             value={formSelectedMilliyet}
-            items={milliyetItems}
             onSelect={setFormSelectedMilliyet}
-            searchPlaceholder="Milliyet ara..."
-            onAdd={() => handleAddTanim('MILLIYET')}
-            addLabel="Ekle"
+            useDbId
           />
         </View>
         <View style={styles.formHalf}>
@@ -1323,38 +1295,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         {renderCikisModal()}
         {renderIptalModal()}
 
-        <AddTanimModal
-          visible={showAddTanimModal}
-          onClose={() => {
-            setShowAddTanimModal(false);
-            setTimeout(() => setShowCreateModal(true), 300);
-          }}
-          tanimKodu={addTanimKodu}
-          title={addTanimKodu === 'MILLIYET' ? 'Milliyet Yönetimi' : undefined}
-          placeholder={addTanimKodu === 'MILLIYET' ? 'Yeni milliyet girin...' : undefined}
-          onSuccess={(id, deger) => {
-            handleTanimSuccess(id, deger);
-          }}
-          onUpdate={(id, deger) => {
-            if (addTanimKodu === 'MILLIYET') {
-              setLookups(prev => ({
-                ...prev,
-                milliyetler: prev.milliyetler.map(m => m.id === id ? { ...m, deger } : m),
-              }));
-            }
-          }}
-          onDelete={(id) => {
-            if (addTanimKodu === 'MILLIYET') {
-              setLookups(prev => ({
-                ...prev,
-                milliyetler: prev.milliyetler.filter(m => m.id !== id),
-              }));
-              if (formSelectedMilliyet === id) {
-                setFormSelectedMilliyet('');
-              }
-            }
-          }}
-        />
       </View>
     </SafeAreaProvider>
   );

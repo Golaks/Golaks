@@ -10,18 +10,24 @@ export interface ModelKart {
   modelAdi: string;
   barkodTipi: 'tekil' | 'seri' | 'cogul';
   anaModel: string;
+  anaModelId: number;
   modelTipi: string;
+  modelTipiId: number;
   cinsiyet: string;
+  cinsiyetId: number;
   modelist: string;
   tasarimci: string;
   tarz: string;
+  tarzId: number;
   sezon: string;
+  sezonId: number;
   marka: string;
   boy: string;
   setParca: number;
   setIcerik: string;
   aciklama: string;
   bazBeden: string;
+  bedenSetleriId: number;
   katsayi: number | null;
   kayitTarihi: string;
   resimler: { id: number; url: string; renkAdi?: string | null }[];
@@ -141,6 +147,90 @@ class ModelService {
       throw new Error(error.message || 'Resim yüklenemedi');
     }
   }
+  async createModel(
+    token: string,
+    dataName: string,
+    model: {
+      modelAdi: string;
+      barkodTipi: string;
+      anaModelId: number;
+      modelTipiId?: number;
+      cinsiyetId?: number;
+      sezonId?: number;
+      tarzId?: number;
+      marka?: string;
+      modelist?: string;
+      tasarimci?: string;
+      boy?: string;
+      bedenSetleriId?: number;
+      bazBeden?: string;
+      setParca?: number;
+      setIcerik?: string;
+      katsayi?: number | null;
+      aciklama?: string;
+    }
+  ): Promise<{ success: boolean; data?: { id: number }; message?: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.MODEL_KART_CREATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, ...model }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Model oluşturulamadı');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Model oluşturulamadı');
+    }
+  }
+
+  async updateModel(
+    token: string,
+    dataName: string,
+    model: {
+      id: number;
+      modelAdi: string;
+      barkodTipi: string;
+      anaModelId: number;
+      modelTipiId?: number;
+      cinsiyetId?: number;
+      sezonId?: number;
+      tarzId?: number;
+      marka?: string;
+      modelist?: string;
+      tasarimci?: string;
+      boy?: string;
+      bedenSetleriId?: number;
+      bazBeden?: string;
+      setParca?: number;
+      setIcerik?: string;
+      aciklama?: string;
+    }
+  ): Promise<{ success: boolean; data?: { id: number }; message?: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.MODEL_KART_UPDATE, {
+        method: 'POST',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ dataName, ...model }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || data.message || 'Model güncellenemedi');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Model güncellenemedi');
+    }
+  }
+
   async deleteModelImage(
     token: string,
     dataName: string,
