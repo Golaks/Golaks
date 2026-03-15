@@ -10,6 +10,7 @@ interface BedenSetSelectProps {
   compact?: boolean;
   containerStyle?: any;
   error?: boolean;
+  shake?: boolean;
 }
 
 export default function BedenSetSelect({
@@ -20,6 +21,7 @@ export default function BedenSetSelect({
   compact = false,
   containerStyle,
   error = false,
+  shake = false,
 }: BedenSetSelectProps) {
   const items = bedenSetleri.map((b) => ({
     id: b.id.toString(),
@@ -39,6 +41,7 @@ export default function BedenSetSelect({
       noClear
       containerStyle={containerStyle}
       error={error}
+      shake={shake}
     />
   );
 }

@@ -42,6 +42,7 @@ interface TanimSelectInputProps {
   noClear?: boolean;
   containerStyle?: any;
   error?: boolean;
+  shake?: boolean;
 }
 
 export default function TanimSelectInput({
@@ -56,6 +57,7 @@ export default function TanimSelectInput({
   noClear = false,
   containerStyle,
   error = false,
+  shake = false,
 }: TanimSelectInputProps) {
   const { user } = useAuth();
   const { showConfirm } = useAlert();
@@ -196,6 +198,7 @@ export default function TanimSelectInput({
       noClear={noClear}
       containerStyle={containerStyle}
       error={error}
+      shake={shake}
     />
   );
 }

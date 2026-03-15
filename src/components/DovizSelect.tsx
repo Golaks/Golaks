@@ -11,6 +11,7 @@ interface DovizSelectProps {
   shortLabel?: boolean;
   containerStyle?: any;
   error?: boolean;
+  shake?: boolean;
 }
 
 export default function DovizSelect({
@@ -22,6 +23,7 @@ export default function DovizSelect({
   shortLabel = false,
   containerStyle,
   error = false,
+  shake = false,
 }: DovizSelectProps) {
   const items = dovizTipleri.map((d) => ({
     id: d.dovizTipi,
@@ -41,6 +43,7 @@ export default function DovizSelect({
       noClear
       containerStyle={containerStyle}
       error={error}
+      shake={shake}
     />
   );
 }

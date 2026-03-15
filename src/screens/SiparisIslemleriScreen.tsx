@@ -28,6 +28,7 @@ import ordersService, { OrderItem, OrderSummaryItem, OrderStats, OrderDetailItem
 import { authService } from '../services/auth.service';
 import dovizService, { KurItem, mapKurTipi } from '../services/doviz.service';
 import InModalToast from '../components/InModalToast';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 import SelectInput from '../components/SelectInput';
 import DovizSelect from '../components/DovizSelect';
 import DatePickerModal from '../components/DatePickerModal';
@@ -99,7 +100,7 @@ export default function SiparisIslemleriScreen({
   const [formMusteriSube, setFormMusteriSube] = useState('');
   const [formTarihPickerVisible, setFormTarihPickerVisible] = useState(false);
   const [formTeslimTarihPickerVisible, setFormTeslimTarihPickerVisible] = useState(false);
-  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const formFieldErrors = useFieldErrors();
 
   // Seçili carinin kur tipi
   const activeKurTipi = useMemo(() => {
@@ -446,7 +447,7 @@ export default function SiparisIslemleriScreen({
     setFormAciklama('');
     setFormMusteriSube('');
     setFormEditingItem(null);
-    setFormErrors({});
+    formFieldErrors.clearAll();
   };
 
   const fetchLookups = async (isNewOrder = false) => {
@@ -512,17 +513,14 @@ export default function SiparisIslemleriScreen({
 
 
   const handleSaveOrder = async () => {
-    const errors: Record<string, boolean> = {};
-    if (!formSiparisKodu.trim()) errors.siparisKodu = true;
-    if (!formCariId) errors.cari = true;
-    if (!formDoviz) errors.doviz = true;
-    if (formIndirimTipi !== -1 && !formIndirimDeger.trim()) errors.indirimDeger = true;
+    const requiredFields: Record<string, string | null | undefined> = {
+      siparisKodu: formSiparisKodu.trim(),
+      cari: formCariId,
+      doviz: formDoviz,
+    };
+    if (formIndirimTipi !== -1) requiredFields.indirimDeger = formIndirimDeger.trim();
 
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-    setFormErrors({});
+    if (!formFieldErrors.validateRequired(requiredFields)) return;
 
     setFormSaving(true);
     try {
@@ -1295,12 +1293,12 @@ export default function SiparisIslemleriScreen({
               <View style={[styles.formRow, { gap: 10 }]}>
                 <View style={[styles.formField, { flex: 1 }]}>
                   <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Sipariş Kodu</Text>
-                  <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: formErrors.siparisKodu ? colors.danger : colors.inputBorder }]}>
-                    <Icon name="barcode-outline" size={18} color={formErrors.siparisKodu ? colors.danger : colors.textSecondary} style={{ marginRight: 8 }} />
+                  <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: formFieldErrors.errors.siparisKodu ? colors.danger : colors.inputBorder }]}>
+                    <Icon name="barcode-outline" size={18} color={formFieldErrors.errors.siparisKodu ? colors.danger : colors.textSecondary} style={{ marginRight: 8 }} />
                     <TextInput
                       style={[styles.formInputText, { color: colors.text }]}
                       value={formSiparisKodu}
-                      onChangeText={(v) => { setFormSiparisKodu(v); setFormErrors(prev => ({ ...prev, siparisKodu: false })); }}
+                      onChangeText={(v) => { setFormSiparisKodu(v); formFieldErrors.clearFieldError('siparisKodu'); }}
                       placeholder="ORD..."
                       placeholderTextColor={colors.placeholder}
                     />
@@ -1310,10 +1308,11 @@ export default function SiparisIslemleriScreen({
                   <DovizSelect
                     value={formDoviz}
                     dovizTipleri={formDovizTipleri}
-                    onSelect={(v) => { setFormDoviz(v); setFormErrors(prev => ({ ...prev, doviz: false })); }}
+                    onSelect={(v) => { setFormDoviz(v); formFieldErrors.clearFieldError('doviz'); }}
                     shortLabel
                     containerStyle={{ marginBottom: 0 }}
-                    error={formErrors.doviz}
+                    error={formFieldErrors.errors.doviz}
+                    shake={formFieldErrors.shakes.doviz}
                   />
                 </View>
               </View>
@@ -1327,10 +1326,11 @@ export default function SiparisIslemleriScreen({
                     placeholder="Cari seçiniz..."
                     value={formCariId}
                     items={formCariler.map(c => ({ id: c.id.toString(), label: c.unvan }))}
-                    onSelect={(v) => { setFormCariId(v); setFormErrors(prev => ({ ...prev, cari: false })); }}
+                    onSelect={(v) => { setFormCariId(v); formFieldErrors.clearFieldError('cari'); }}
                     searchPlaceholder="Cari ara..."
                     containerStyle={{ marginBottom: 0 }}
-                    error={formErrors.cari}
+                    error={formFieldErrors.errors.cari}
+                    shake={formFieldErrors.shakes.cari}
                   />
                 </View>
               </View>
@@ -1441,7 +1441,7 @@ export default function SiparisIslemleriScreen({
                     <View style={[styles.formSegment, { flex: 1 }]}>
                       <Pressable
                         style={[styles.formSegmentBtn, { flex: 1 }, formIndirimTipi === -1 && { backgroundColor: '#EF4444' }]}
-                        onPress={() => { setFormIndirimTipi(-1); setFormIndirimDeger(''); setFormErrors(prev => ({ ...prev, indirimDeger: false })); }}
+                        onPress={() => { setFormIndirimTipi(-1); setFormIndirimDeger(''); formFieldErrors.clearFieldError('indirimDeger'); }}
                       >
                         <Text style={[styles.formSegmentText, { fontSize: 16 }, formIndirimTipi === -1 && { color: '#fff' }]}>✕</Text>
                       </Pressable>
@@ -1459,14 +1459,14 @@ export default function SiparisIslemleriScreen({
                       </Pressable>
                     </View>
                     {formIndirimTipi !== -1 && (
-                      <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: formErrors.indirimDeger ? colors.danger : colors.inputBorder, flex: 1 }]}>
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: formErrors.indirimDeger ? colors.danger : colors.textSecondary, marginRight: 8 }}>
+                      <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: formFieldErrors.errors.indirimDeger ? colors.danger : colors.inputBorder, flex: 1 }]}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: formFieldErrors.errors.indirimDeger ? colors.danger : colors.textSecondary, marginRight: 8 }}>
                           {formIndirimTipi === 0 ? '%' : '$'}
                         </Text>
                         <TextInput
                           style={[styles.formInputText, { color: colors.text, textAlign: 'right' }]}
                           value={formIndirimDeger}
-                          onChangeText={(v) => { setFormIndirimDeger(v); setFormErrors(prev => ({ ...prev, indirimDeger: false })); }}
+                          onChangeText={(v) => { setFormIndirimDeger(v); formFieldErrors.clearFieldError('indirimDeger'); }}
                           placeholder="0.00"
                           placeholderTextColor={colors.placeholder}
                           keyboardType="decimal-pad"

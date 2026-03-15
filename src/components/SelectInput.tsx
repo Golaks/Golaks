@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -38,6 +39,7 @@ interface SelectInputProps {
   noClear?: boolean;
   containerStyle?: any;
   error?: boolean;
+  shake?: boolean;
 }
 
 export default function SelectInput({
@@ -60,8 +62,10 @@ export default function SelectInput({
   noClear = false,
   containerStyle,
   error = false,
+  shake = false,
 }: SelectInputProps) {
   const { colors, isDark } = useTheme();
+  const shakeAnim = useRef(new Animated.Value(0)).current;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [inlineValue, setInlineValue] = useState('');
@@ -148,6 +152,18 @@ export default function SelectInput({
     setSavingId(null);
   };
 
+  useEffect(() => {
+    if (shake && error) {
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [shake, error]);
+
   const editable = !!onItemEdit || !!onItemDelete;
   const resolvedModalTitle = modalTitleProp || label || placeholder;
   const resolvedModalIcon = modalIcon || icon;
@@ -173,27 +189,29 @@ export default function SelectInput({
           )}
         </View>
       )}
-      <Pressable style={[styles.inputWrapper, compact && styles.inputWrapperCompact, error && { borderColor: colors.danger }]} onPress={handleOpen}>
-        {icon && (
-          <Icon name={icon} size={20} color={colors.textSecondary} style={styles.icon} />
-        )}
-        <Text
-          style={[styles.inputText, compact && { fontSize: 13 }, !selectedItem && styles.placeholderText]}
-          numberOfLines={1}
-        >
-          {selectedItem ? selectedItem.label : placeholder}
-        </Text>
-        {selectedItem && !compact && !noClear && (
-          <Pressable onPress={handleClear} style={styles.clearBtn} hitSlop={8}>
-            <Icon name="close-circle" size={18} color={colors.textSecondary} />
-          </Pressable>
-        )}
-        <Icon
-          name="chevron-down"
-          size={18}
-          color={colors.textSecondary}
-        />
-      </Pressable>
+      <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
+        <Pressable style={[styles.inputWrapper, compact && styles.inputWrapperCompact, error && { borderColor: colors.danger }]} onPress={handleOpen}>
+          {icon && (
+            <Icon name={icon} size={20} color={colors.textSecondary} style={styles.icon} />
+          )}
+          <Text
+            style={[styles.inputText, compact && { fontSize: 13 }, !selectedItem && styles.placeholderText]}
+            numberOfLines={1}
+          >
+            {selectedItem ? selectedItem.label : placeholder}
+          </Text>
+          {selectedItem && !compact && !noClear && (
+            <Pressable onPress={handleClear} style={styles.clearBtn} hitSlop={8}>
+              <Icon name="close-circle" size={18} color={colors.textSecondary} />
+            </Pressable>
+          )}
+          <Icon
+            name="chevron-down"
+            size={18}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      </Animated.View>
 
       {/* Modal Dropdown */}
       <Modal

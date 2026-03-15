@@ -20,6 +20,7 @@ import Input from '../components/Input';
 import SelectInput from '../components/SelectInput';
 import Button from '../components/Button';
 import accountService, { CariAccount, CariTransaction, CariCreateData } from '../services/account.service';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 import { authService } from '../services/auth.service';
 import { generateEkstrePDF } from '../utils/pdfEkstre';
 
@@ -52,6 +53,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
   const { colors, isDark } = useTheme();
   const { logout, notificationCount, user } = useAuth();
   const { showError, showSuccess, showWarning, showInfo, showConfirm } = useAlert();
+  const cariFieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('customers');
   const [cariList, setCariList] = useState<CariAccount[]>([]);
@@ -234,6 +236,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     setFormDoviz('TL');
     setFormSubeId('');
     setEditingCari(null);
+    cariFieldErrors.clearAll();
   };
 
   const fetchNextHesapKodu = async (filterType: AccountFilterType, subeId: string) => {
@@ -267,12 +270,8 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
   };
 
   const handleSaveCari = async () => {
-    if (!formUnvan.trim()) {
-      showWarning('Ünvan gereklidir');
-      return;
-    }
-
     if (editingCari) {
+      if (!cariFieldErrors.validateRequired({ unvan: formUnvan.trim() })) return;
       // Update
       setIsSaving(true);
       try {
@@ -298,14 +297,11 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
       }
     } else {
       // Create
-      if (!formHesapKodu.trim()) {
-        showWarning('Hesap kodu gereklidir');
-        return;
-      }
-      if (!formSubeId) {
-        showWarning('Şube seçilmelidir');
-        return;
-      }
+      if (!cariFieldErrors.validateRequired({
+        unvan: formUnvan.trim(),
+        hesapKodu: formHesapKodu.trim(),
+        sube: formSubeId,
+      })) return;
 
       setIsSaving(true);
       try {
@@ -785,16 +781,20 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           <Input
             label="Hesap Kodu *"
             value={formHesapKodu}
-            onChangeText={setFormHesapKodu}
+            onChangeText={(v) => { setFormHesapKodu(v); cariFieldErrors.clearFieldError('hesapKodu'); }}
             placeholder="Otomatik oluşturulacak"
             autoCapitalize="none"
             editable={!editingCari}
+            error={cariFieldErrors.errors.hesapKodu ? ' ' : ''}
+            shake={cariFieldErrors.shakes.hesapKodu}
           />
           <Input
             label="Ünvan *"
             value={formUnvan}
-            onChangeText={setFormUnvan}
+            onChangeText={(v) => { setFormUnvan(v); cariFieldErrors.clearFieldError('unvan'); }}
             placeholder="Firma veya kişi adı"
+            error={cariFieldErrors.errors.unvan ? ' ' : ''}
+            shake={cariFieldErrors.shakes.unvan}
           />
           <Input
             label="Kısa Ünvan"
@@ -810,11 +810,14 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                   value={formSubeId}
                   onSelect={(id) => {
                     setFormSubeId(id);
+                    cariFieldErrors.clearFieldError('sube');
                     if (id) fetchNextHesapKodu(selectedFilter, id);
                   }}
                   items={subeler}
                   placeholder="Şube seçin"
                   noClear
+                  error={cariFieldErrors.errors.sube}
+                  shake={cariFieldErrors.shakes.sube}
                 />
               </View>
               <View style={styles.formRowHalf}>

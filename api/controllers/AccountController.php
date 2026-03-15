@@ -123,6 +123,7 @@ class AccountController {
                 FROM cariler c
                 INNER JOIN subeler s ON c.sube_id = s.id
                 WHERE c.aktif = 1
+                    AND c.firma_id = :firmaId
                     AND c.hesap_kodu LIKE :hesapKodu
                     AND (
                         c.unvan LIKE :search
@@ -133,6 +134,7 @@ class AccountController {
             ";
 
             $params = [
+                ':firmaId' => $firmaId,
                 ':hesapKodu' => $hesapKoduFilter,
                 ':search' => $searchTerm,
                 ':search2' => $searchTerm,

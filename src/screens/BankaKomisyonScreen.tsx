@@ -70,7 +70,7 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDef, setEditingDef] = useState<BankaKomisyonDef | null>(null); // null = yeni ekleme
   const [selectedBankaId, setSelectedBankaId] = useState('');
-  const [satirlar, setSatirlar] = useState<BankaKomisyonTaksitOran[]>([]);
+  const [satirlar, setSatirlar] = useState<{ taksit: string; oran: string }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [modalError, setModalError] = useState('');
 
@@ -122,7 +122,7 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
   const handleEdit = async (def: BankaKomisyonDef) => {
     setEditingDef(def);
     setSelectedBankaId(String(def.banka.id));
-    setSatirlar([...def.oranlar]);
+    setSatirlar(def.oranlar.map(o => ({ taksit: o.taksit, oran: o.oran ? String(o.oran) : '' })));
     setModalError('');
     setModalVisible(true);
   };
@@ -154,13 +154,14 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
     if (active) {
       setSatirlar(prev => prev.filter(r => r.taksit !== taksit));
     } else {
-      setSatirlar(prev => [...prev, { taksit, oran: 0 }]);
+      setSatirlar(prev => [...prev, { taksit, oran: '' }]);
     }
   };
 
   const handleSatirOranChange = (taksit: string, value: string) => {
+    const cleaned = value.replace(/[^0-9.,]/g, '').replace(',', '.');
     setSatirlar(prev =>
-      prev.map(r => r.taksit === taksit ? { ...r, oran: parseFloat(value.replace(',', '.')) || 0 } : r)
+      prev.map(r => r.taksit === taksit ? { ...r, oran: cleaned } : r)
     );
   };
 
@@ -183,12 +184,13 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
         return;
       }
       const cariId = Number(selectedBankaId);
-      await accountService.updateBankaKomisyonOran(token, dataName, cariId, satirlar);
+      const parsedSatirlar = satirlar.map(s => ({ taksit: s.taksit, oran: parseFloat(s.oran) || 0 }));
+      await accountService.updateBankaKomisyonOran(token, dataName, cariId, parsedSatirlar);
 
       const banka = bankalar.find(b => b.id === cariId)!;
       setTanimlar(prev => {
         const existing = prev.findIndex(d => d.banka.id === cariId);
-        const newDef: BankaKomisyonDef = { banka, oranlar: satirlar };
+        const newDef: BankaKomisyonDef = { banka, oranlar: parsedSatirlar };
         if (existing >= 0) {
           const updated = [...prev];
           updated[existing] = newDef;
@@ -217,7 +219,7 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
   const getTaksitLabel = (taksit: string) =>
     TAKSIT_SECENEKLERI.find(s => s.taksit === taksit)?.label ?? taksit;
 
-  const bankaSelectItems: SelectItem[] = bankalar.map(b => ({ id: String(b.id), label: b.unvan }));
+  const bankaSelectItems: SelectItem[] = bankalar.map(b => ({ id: String(b.id), label: b.sube ? `${b.unvan} (${b.sube})` : b.unvan }));
 
   // Ana liste kartı — accordion
   const renderItem = ({ item }: { item: BankaKomisyonDef }) => {
@@ -379,7 +381,7 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
                               borderColor: colors.primary + '60',
                               backgroundColor: colors.background,
                             }]}
-                            value={satir.oran === 0 ? '' : String(satir.oran)}
+                            value={String(satir.oran)}
                             onChangeText={v => handleSatirOranChange(taksit, v)}
                             keyboardType="decimal-pad"
                             placeholder="0.00"

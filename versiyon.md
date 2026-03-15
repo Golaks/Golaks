@@ -1,7 +1,20 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.3.4 (Build 9) / iOS v1.1.2 (Build 12)
+[GELİŞTİRME] Android v3.3.5 (Build 10) / iOS v1.1.3 (Build 13)
+==================================================================
+
+Yeni Özellikler
+-
+
+İyileştirmeler
+-
+
+Hata Düzeltmeleri
+-
+
+
+[YAYINLANDI] Android v3.3.4 (Build 9) / iOS v1.1.2 (Build 11)
 =================================================================
 
 Yeni Özellikler

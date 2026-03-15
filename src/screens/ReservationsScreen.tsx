@@ -17,6 +17,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BackButton from '../components/BackButton';
 import AddButton from '../components/AddButton';
+import SearchButton from '../components/SearchButton';
 import Button from '../components/Button';
 import BottomSheet from '../components/BottomSheet';
 import Input from '../components/Input';
@@ -24,7 +25,7 @@ import SelectInput, { SelectItem } from '../components/SelectInput';
 import TanimSelectInput from '../components/TanimSelectInput';
 import TabBar, { TabName } from '../components/TabBar';
 import DateFilter, { DatePreset } from '../components/DateFilter';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DatePickerModal from '../components/DatePickerModal';
 import reservationsService, {
   ReservationItem,
   ReservationStats,
@@ -32,6 +33,7 @@ import reservationsService, {
   LookupItem,
 } from '../services/reservations.service';
 import { authService } from '../services/auth.service';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 
 type DurumFilter = 'all' | '0' | '1' | '2' | '3';
 
@@ -59,10 +61,13 @@ interface ReservationsScreenProps {
 export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: ReservationsScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
-  const { showError, showSuccess, showWarning, showInfo } = useAlert();
+  const { showError, showSuccess } = useAlert();
+  const fieldErrors = useFieldErrors();
+  const iptalFieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
+  const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ReservationItem[]>([]);
@@ -117,11 +122,24 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   const [isIptalLoading, setIsIptalLoading] = useState(false);
 
   // Tarih filtreleri
-  const getToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
-  const getTodayEnd = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; };
-  const [startDate, setStartDate] = useState<Date>(getToday());
-  const [endDate, setEndDate] = useState<Date>(getTodayEnd());
-  const [selectedPreset, setSelectedPreset] = useState<DatePreset | null>('today');
+  const getWeekStart = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const d = new Date(now);
+    d.setDate(now.getDate() - diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  const getWeekEnd = () => {
+    const ws = getWeekStart();
+    ws.setDate(ws.getDate() + 6);
+    ws.setHours(23, 59, 59, 999);
+    return ws;
+  };
+  const [startDate, setStartDate] = useState<Date>(getWeekStart());
+  const [endDate, setEndDate] = useState<Date>(getWeekEnd());
+  const [selectedPreset, setSelectedPreset] = useState<DatePreset | null>('week');
 
   const formatDateStr = (date: Date) => {
     const d = date.getDate().toString().padStart(2, '0');
@@ -147,16 +165,27 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       case 'today':
         start.setHours(0, 0, 0, 0);
         break;
-      case 'week':
-        start.setDate(now.getDate() - now.getDay() + 1);
+      case 'week': {
+        const day = now.getDay();
+        const diff = day === 0 ? 6 : day - 1; // Pazartesi başlangıç
+        start = new Date(now);
+        start.setDate(now.getDate() - diff);
         start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
         break;
+      }
       case 'month':
         start.setDate(1);
         start.setHours(0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
         break;
       case 'year':
         start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31);
+        end.setHours(23, 59, 59, 999);
         break;
     }
     setStartDate(start);
@@ -288,10 +317,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   };
 
   const handleSave = async () => {
-    if (!formTarih) {
-      showError('Tarih alanı zorunludur');
-      return;
-    }
+    if (!fieldErrors.validateRequired({ tarih: formTarih })) return;
 
     setIsCreating(true);
     try {
@@ -330,8 +356,21 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       }
 
       setShowCreateModal(false);
+      showSuccess(editingItem ? 'Rezervasyon güncellendi' : 'Rezervasyon oluşturuldu');
+      // Eklenen/düzenlenen tarihi filtre aralığına dahil et
+      const savedDate = new Date(formTarih + 'T00:00:00');
+      if (savedDate < startDate) {
+        setStartDate(savedDate);
+        setSelectedPreset(null);
+      }
+      if (savedDate > endDate) {
+        const newEnd = new Date(savedDate);
+        newEnd.setHours(23, 59, 59, 999);
+        setEndDate(newEnd);
+        setSelectedPreset(null);
+      }
       setEditingItem(null);
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       showError(err.message || (editingItem ? 'Rezervasyon güncellenemedi' : 'Rezervasyon oluşturulamadı'));
     } finally {
@@ -413,7 +452,8 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       });
       setShowGirisModal(false);
       setGirisItem(null);
-      fetchData();
+      showSuccess('Giriş kaydedildi');
+      await fetchData();
     } catch (err: any) {
       showError(err.message || 'Giriş yapılamadı');
     } finally {
@@ -450,10 +490,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
 
   const handleIptalSubmit = async () => {
     if (!iptalItem) return;
-    if (!iptalNedeni.trim()) {
-      showError('İptal nedeni zorunludur');
-      return;
-    }
+    if (!iptalFieldErrors.validateRequired({ iptalNedeni })) return;
     setIsIptalLoading(true);
     try {
       const token = await authService.getToken();
@@ -843,31 +880,24 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       <View style={styles.formFieldContainer}>
         <Text style={styles.formLabel}>Tarih *</Text>
         <Pressable
-          style={styles.datePickerBtn}
-          onPress={() => setShowFormDatePicker(!showFormDatePicker)}
+          style={[styles.datePickerBtn, fieldErrors.errors.tarih && { borderColor: colors.danger }]}
+          onPress={() => { setShowFormDatePicker(true); fieldErrors.clearFieldError('tarih'); }}
         >
-          <Icon name="calendar-outline" size={20} color={colors.primary} />
+          <Icon name="calendar-outline" size={20} color={fieldErrors.errors.tarih ? colors.danger : colors.primary} />
           <Text style={styles.datePickerText}>{formatDateStr(formTarihDate)}</Text>
-          <Icon name={showFormDatePicker ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textSecondary} />
+          <Icon name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
-        {showFormDatePicker && (
-          <View style={styles.inlineDatePicker}>
-            <DateTimePicker
-              value={formTarihDate}
-              mode="date"
-              display="inline"
-              onChange={(_event: any, date?: Date) => {
-                if (date) {
-                  setFormTarihDate(date);
-                  setFormTarih(formatDateISO(date));
-                  setShowFormDatePicker(false);
-                }
-              }}
-              locale="tr-TR"
-              themeVariant={isDark ? 'dark' : 'light'}
-            />
-          </View>
-        )}
+        <DatePickerModal
+          visible={showFormDatePicker}
+          date={formTarihDate}
+          onConfirm={(date) => {
+            setFormTarihDate(date);
+            setFormTarih(formatDateISO(date));
+            setShowFormDatePicker(false);
+          }}
+          onClose={() => setShowFormDatePicker(false)}
+          title="Rezervasyon Tarihi"
+        />
       </View>
 
       {/* Beklenen Saat + İnfocu */}
@@ -905,7 +935,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       <View style={styles.formRow}>
         <View style={styles.formHalf}>
           <Input
-            label="Yetişkin"
+            label="Yetişkin Pax"
             icon="person-outline"
             value={formBeklenenPax}
             onChangeText={setFormBeklenenPax}
@@ -916,7 +946,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         </View>
         <View style={styles.formHalf}>
           <Input
-            label="Çocuk"
+            label="Çocuk Pax"
             icon="happy-outline"
             value={formBeklenenCocukPax}
             onChangeText={setFormBeklenenCocukPax}
@@ -1048,7 +1078,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       <View style={styles.formRow}>
         <View style={styles.formHalf}>
           <Input
-            label="Gelen Yetişkin"
+            label="Gelen Yetişkin Pax"
             icon="people-outline"
             value={girisGelenPax}
             onChangeText={setGirisGelenPax}
@@ -1059,7 +1089,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         </View>
         <View style={styles.formHalf}>
           <Input
-            label="Gelen Çocuk"
+            label="Gelen Çocuk Pax"
             icon="happy-outline"
             value={girisGelenCocukPax}
             onChangeText={setGirisGelenCocukPax}
@@ -1133,7 +1163,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       <View style={styles.formRow}>
         <View style={styles.formHalf}>
           <Input
-            label="Gelen Yetişkin"
+            label="Gelen Yetişkin Pax"
             icon="people-outline"
             value={cikisGelenPax}
             onChangeText={setCikisGelenPax}
@@ -1144,7 +1174,7 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         </View>
         <View style={styles.formHalf}>
           <Input
-            label="Gelen Çocuk"
+            label="Gelen Çocuk Pax"
             icon="happy-outline"
             value={cikisGelenCocukPax}
             onChangeText={setCikisGelenCocukPax}
@@ -1200,10 +1230,12 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         label="İptal Nedeni *"
         icon="alert-circle-outline"
         value={iptalNedeni}
-        onChangeText={setIptalNedeni}
+        onChangeText={(v) => { setIptalNedeni(v); iptalFieldErrors.clearFieldError('iptalNedeni'); }}
         placeholder="İptal nedenini yazınız..."
         multiline
         numberOfLines={3}
+        error={iptalFieldErrors.errors.iptalNedeni ? ' ' : ''}
+        shake={iptalFieldErrors.shakes.iptalNedeni}
       />
     </BottomSheet>
   );
@@ -1215,7 +1247,13 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
           title="Rezervasyonlar"
           leftButton={<BackButton onPress={onGoBack} />}
           rightButton={
-            <AddButton onPress={handleOpenCreateModal} />
+            <View style={{ flexDirection: 'row', gap: 4 }}>
+              <AddButton onPress={handleOpenCreateModal} />
+              <SearchButton onPress={() => {
+                setFilterVisible(v => !v);
+                if (filterVisible) setSearchText('');
+              }} />
+            </View>
           }
           showMenu={true}
           onLogout={handleLogout}
@@ -1232,22 +1270,24 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         </View>
 
         {/* Date Filter */}
-        <View style={styles.filterCard}>
-          <DateFilter
-            selectedPreset={selectedPreset}
-            onPresetChange={handlePresetChange}
-            startDate={formatDateStr(startDate)}
-            endDate={formatDateStr(endDate)}
-            startDateObj={startDate}
-            endDateObj={endDate}
-            onStartDateChange={handleStartDateChange}
-            onEndDateChange={handleEndDateChange}
-            showSearch={true}
-            searchValue={searchText}
-            onSearchChange={setSearchText}
-            searchPlaceholder="Acente, rehber veya milliyet ara..."
-          />
-        </View>
+        {filterVisible && (
+          <View style={styles.filterCard}>
+            <DateFilter
+              selectedPreset={selectedPreset}
+              onPresetChange={handlePresetChange}
+              startDate={formatDateStr(startDate)}
+              endDate={formatDateStr(endDate)}
+              startDateObj={startDate}
+              endDateObj={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              showSearch={true}
+              searchValue={searchText}
+              onSearchChange={setSearchText}
+              searchPlaceholder="Acente, rehber veya milliyet ara..."
+            />
+          </View>
+        )}
 
         {/* Content */}
         {isLoading ? (

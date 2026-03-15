@@ -22,6 +22,7 @@ import SelectInput from '../components/SelectInput';
 import modelService, { ModelKart, ModelColor } from '../services/model.service';
 import { authService } from '../services/auth.service';
 import ordersService, { DetailBedenSetItem } from '../services/orders.service';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 
 interface ModelOperationsScreenProps {
   onBack?: () => void;
@@ -67,7 +68,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
   const [formSetParca, setFormSetParca] = useState('');
   const [formSetIcerik, setFormSetIcerik] = useState('');
   const [formAciklama, setFormAciklama] = useState('');
-  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({});
+  const formFieldErrors = useFieldErrors();
   const [bedenSetleri, setBedenSetleri] = useState<DetailBedenSetItem[]>([]);
   const [lookupsLoading, setLookupsLoading] = useState(false);
   const formToastRef = useRef<BottomSheetToastRef | null>(null);
@@ -268,7 +269,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
     setFormSetParca('');
     setFormSetIcerik('');
     setFormAciklama('');
-    setFormErrors({});
+    formFieldErrors.clearAll();
   };
 
   const fetchBedenSetleri = async () => {
@@ -313,7 +314,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
     setFormSetParca(model.setParca ? String(model.setParca) : '');
     setFormSetIcerik(model.setIcerik || '');
     setFormAciklama(model.aciklama || '');
-    setFormErrors({});
+    formFieldErrors.clearAll();
     setFormVisible(true);
     if (bedenSetleri.length === 0) {
       fetchBedenSetleri();
@@ -321,17 +322,11 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
   };
 
   const handleSaveModel = async () => {
-    const errors: Record<string, boolean> = {};
-    if (!formModelAdi.trim()) errors.modelAdi = true;
-    if (!formAnaModelId) errors.anaModelId = true;
-    if (!formBarkodTipi) errors.barkodTipi = true;
-
-    setFormErrors(errors);
-
-    if (Object.keys(errors).length > 0) {
-      formToastRef.current?.show({ type: 'error', message: 'Zorunlu alanları doldurunuz' });
-      return;
-    }
+    if (!formFieldErrors.validateRequired({
+      modelAdi: formModelAdi.trim(),
+      anaModelId: formAnaModelId,
+      barkodTipi: formBarkodTipi,
+    })) return;
 
     try {
       setFormSaving(true);
@@ -713,17 +708,18 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                     onSelect={setFormAnaModelId}
                     useDbId
                     containerStyle={{ marginBottom: 0 }}
-                    error={formErrors.anaModelId}
+                    error={formFieldErrors.errors.anaModelId}
+                    shake={formFieldErrors.shakes.anaModelId}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Model Adı *</Text>
-                  <View style={[styles.formInputRow, { borderColor: formErrors.modelAdi ? '#EF4444' : colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: formFieldErrors.errors.modelAdi ? '#EF4444' : colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
                     <Icon name="text-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
                       value={formModelAdi}
-                      onChangeText={setFormModelAdi}
+                      onChangeText={(v) => { setFormModelAdi(v); formFieldErrors.clearFieldError('modelAdi'); }}
                       placeholder="Model adı..."
                       placeholderTextColor={colors.textTertiary}
                     />
@@ -747,7 +743,8 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                     onSelect={setFormBarkodTipi}
                     noClear
                     containerStyle={{ marginBottom: 0 }}
-                    error={formErrors.barkodTipi}
+                    error={formFieldErrors.errors.barkodTipi}
+                    shake={formFieldErrors.shakes.barkodTipi}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
