@@ -78,6 +78,7 @@ class UserController {
                     'subeYetkileri' => $subeYetkileri,
                     'varsayilanSube' => $varsayilanSube,
                     'programYetkileri' => $yetkiler['program_yetkileri'] ?? null,
+                    'barcodePermissions' => $yetkiler['barcode_permissions'] ?? null,
                 ];
             }, $users);
 
@@ -217,6 +218,7 @@ class UserController {
             $subeYetkileri = $data['subeYetkileri'] ?? null;
             $varsayilanSube = $data['varsayilanSube'] ?? null;
             $programYetkileri = $data['programYetkileri'] ?? null;
+            $barcodePermissions = $data['barcodePermissions'] ?? null;
             $password = $data['password'] ?? '';
 
             // Validasyon
@@ -274,6 +276,7 @@ class UserController {
                 'varsayilan_sube' => $varsayilanSube !== null ? $varsayilanSube : ($mevcutYetkiler['varsayilan_sube'] ?? ''),
                 'bildirim_ayarlari' => $mevcutYetkiler['bildirim_ayarlari'] ?? [],
                 'program_yetkileri' => $programYetkileri !== null ? $programYetkileri : ($mevcutYetkiler['program_yetkileri'] ?? new stdClass()),
+                'barcode_permissions' => $barcodePermissions !== null ? $barcodePermissions : ($mevcutYetkiler['barcode_permissions'] ?? null),
             ];
             $yetkilerJson = json_encode($yeniYetkiler, JSON_UNESCAPED_UNICODE);
 

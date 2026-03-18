@@ -51,6 +51,7 @@ interface User {
   subeYetkileri?: string[];
   varsayilanSube?: string;
   programYetkileri?: ProgramYetkileri;
+  barcodePermissions?: any;
 }
 
 interface SubeItem {
@@ -502,7 +503,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
     setShowPermissionsSheet(true);
   };
 
-  const handleSavePermissions = async (yetkiler: ProgramYetkileri) => {
+  const handleSavePermissions = async (yetkiler: ProgramYetkileri, barcodePerms?: any) => {
     if (!selectedUser) return;
     setIsSavingPermissions(true);
     try {
@@ -521,6 +522,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           active: selectedUser.active,
           permissions: selectedUser.permissions,
           programYetkileri: yetkiler,
+          barcodePermissions: barcodePerms,
         }),
       });
       const data = await response.json();
@@ -823,6 +825,7 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
             userName={selectedUser.name}
             activePrograms={selectedUser.permissions ?? {}}
             initialYetkiler={selectedUser.programYetkileri ?? {}}
+            initialBarcodePermissions={selectedUser.barcodePermissions}
             isSaving={isSavingPermissions}
             onClose={() => setShowPermissionsSheet(false)}
             onSave={handleSavePermissions}

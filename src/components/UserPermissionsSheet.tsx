@@ -6,6 +6,7 @@ import BottomSheet from './BottomSheet';
 import Button from './Button';
 import IOSSwitch from './IOSSwitch';
 import { PROGRAM_MENUS, ProgramKey, CategoryKey } from '../constants/menuDefinitions';
+import type { BarcodePermissions } from '../types/auth.types';
 
 // Yetki veri yapısı: her program → her kategori → her menü item key → boolean
 export type ProgramYetkileri = Partial<Record<
@@ -13,14 +14,22 @@ export type ProgramYetkileri = Partial<Record<
   Partial<Record<CategoryKey, Record<string, boolean>>>
 >>;
 
+const BARCODE_PERMISSION_ITEMS: { key: keyof BarcodePermissions; label: string; icon: string }[] = [
+  { key: 'manufacturer', label: 'Üretici', icon: 'business-outline' },
+  { key: 'entryPrice', label: 'Giriş Fiyatı', icon: 'pricetag-outline' },
+  { key: 'costPrice', label: 'Maliyet Fiyatı', icon: 'calculator-outline' },
+  { key: 'labelPrice', label: 'Etiket Fiyatı', icon: 'receipt-outline' },
+];
+
 interface UserPermissionsSheetProps {
   visible: boolean;
   userName: string;
   activePrograms: Partial<Record<ProgramKey, boolean>>;
   initialYetkiler: ProgramYetkileri;
+  initialBarcodePermissions?: BarcodePermissions;
   isSaving: boolean;
   onClose: () => void;
-  onSave: (yetkiler: ProgramYetkileri) => void;
+  onSave: (yetkiler: ProgramYetkileri, barcodePermissions?: BarcodePermissions) => void;
 }
 
 export default function UserPermissionsSheet({
@@ -28,12 +37,17 @@ export default function UserPermissionsSheet({
   userName,
   activePrograms,
   initialYetkiler,
+  initialBarcodePermissions,
   isSaving,
   onClose,
   onSave,
 }: UserPermissionsSheetProps) {
   const { colors, isDark } = useTheme();
   const [yetkiler, setYetkiler] = useState<ProgramYetkileri>({});
+  const [barcodePerms, setBarcodePerms] = useState<BarcodePermissions>({
+    manufacturer: true, year: true, info: true,
+    entryPrice: true, costPrice: true, labelPrice: true,
+  });
   // Hangi program-kategori açık: 'muhasebe-raporlar' gibi
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -54,6 +68,10 @@ export default function UserPermissionsSheet({
       });
     });
     setYetkiler(init);
+    setBarcodePerms(initialBarcodePermissions ?? {
+      manufacturer: true, year: true, info: true,
+      entryPrice: true, costPrice: true, labelPrice: true,
+    });
     setExpanded(null);
   }, [visible]);
 
@@ -170,7 +188,7 @@ export default function UserPermissionsSheet({
       footer={
         <>
           <Button text="İptal" variant="secondary" icon="close-outline" onPress={onClose} style={{ flex: 1 }} />
-          <Button text="Kaydet" icon="checkmark-outline" onPress={() => onSave(yetkiler)} loading={isSaving} style={{ flex: 1 }} />
+          <Button text="Kaydet" icon="checkmark-outline" onPress={() => onSave(yetkiler, barcodePerms)} loading={isSaving} style={{ flex: 1 }} />
         </>
       }
     >
@@ -203,6 +221,29 @@ export default function UserPermissionsSheet({
             </View>
           ))
         )}
+
+        {/* Barkod Sorgu Yetkileri */}
+        <View style={[styles.programCard, { borderColor: colors.border, marginTop: 10 }]}>
+          <View style={[styles.progHeader, { backgroundColor: isDark ? colors.card : '#F59E0B10' }]}>
+            <View style={[styles.progIconBox, { backgroundColor: '#F59E0B20' }]}>
+              <Icon name="barcode-outline" size={16} color="#F59E0B" />
+            </View>
+            <Text style={[styles.progLabel, { color: colors.text }]}>Barkod Sorgu</Text>
+          </View>
+          {BARCODE_PERMISSION_ITEMS.map(item => (
+            <View key={item.key} style={[styles.itemRow, { borderBottomColor: colors.border, paddingHorizontal: 14 }]}>
+              <Icon name={item.icon} size={15} color={barcodePerms[item.key] ? '#F59E0B' : colors.textTertiary} style={{ marginRight: 8 }} />
+              <Text style={[styles.itemLabel, { color: barcodePerms[item.key] ? colors.text : colors.textSecondary }]}>
+                {item.label}
+              </Text>
+              <IOSSwitch
+                value={barcodePerms[item.key]}
+                onValueChange={() => setBarcodePerms(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                color="#F59E0B"
+              />
+            </View>
+          ))}
+        </View>
       </View>
     </BottomSheet>
   );

@@ -83,19 +83,14 @@ export default function BarcodeScanner({
     setTimeout(() => triggerFocus(), 700);
   };
 
-  // Auto focus interval - daha sık odaklanma
+  // Başlangıçta birkaç kez focus, sonra sadece tap ile
   useEffect(() => {
-    let focusInterval: NodeJS.Timeout | null = null;
-
     if (isActive && isCameraReady && device?.supportsFocus) {
-      focusInterval = setInterval(() => triggerFocus(), 1000);
+      // İlk 3 saniyede birkaç kez dene, sonra dur
+      const t1 = setTimeout(() => triggerFocus(), 1500);
+      const t2 = setTimeout(() => triggerFocus(), 3000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
-
-    return () => {
-      if (focusInterval) {
-        clearInterval(focusInterval);
-      }
-    };
   }, [isActive, isCameraReady, device]);
 
   // Reset camera ready state when modal closes
@@ -299,10 +294,12 @@ export default function BarcodeScanner({
                 codeScanner={codeScanner}
                 torch={torchOn ? 'on' : 'off'}
                 zoom={device.minZoom}
-                {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
+                {...(Platform.OS === 'android' ? { format, videoStabilizationMode: 'off' as const } : {})}
                 onInitialized={handleCameraInitialized}
                 onError={(_e) => {}}
                 enableZoomGesture={true}
+                videoHdr={false}
+                photoHdr={false}
               />
             )}
 
