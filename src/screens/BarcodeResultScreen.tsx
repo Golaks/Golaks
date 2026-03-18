@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  FlatList,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -306,10 +307,33 @@ export default function BarcodeResultScreen({
 
   // Image navigation
   const goToPreviousImage = () => {
-    if (currentImageIndex > 0) setCurrentImageIndex(currentImageIndex - 1);
+    if (currentImageIndex > 0) {
+      const newIndex = currentImageIndex - 1;
+      setCurrentImageIndex(newIndex);
+      galleryScrollRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    }
   };
   const goToNextImage = () => {
-    if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(currentImageIndex + 1);
+    if (currentImageIndex < productImages.length - 1) {
+      const newIndex = currentImageIndex + 1;
+      setCurrentImageIndex(newIndex);
+      galleryScrollRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    }
+  };
+
+  // FlatList ref for swipe gallery
+  const galleryScrollRef = useRef<any>(null);
+  const galleryWidth = useRef(0);
+
+  const onGalleryScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const width = galleryWidth.current || event.nativeEvent.layoutMeasurement.width;
+    if (width > 0) {
+      const newIndex = Math.round(offsetX / width);
+      if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < productImages.length) {
+        setCurrentImageIndex(newIndex);
+      }
+    }
   };
   const handleArrowPressIn = () => {
     Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true }).start();
@@ -354,7 +378,25 @@ export default function BarcodeResultScreen({
         </Pressable>
         <View style={styles.fullScreenImageWrapper}>
           <View style={styles.fullScreenImageFrame}>
-            <Image source={{ uri: productImages[currentImageIndex]?.url }} style={styles.fullScreenImage} resizeMode="cover" />
+            <FlatList
+              data={productImages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={currentImageIndex}
+              onMomentumScrollEnd={(e) => {
+                const width = e.nativeEvent.layoutMeasurement.width;
+                const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < productImages.length) {
+                  setCurrentImageIndex(newIndex);
+                }
+              }}
+              getItemLayout={(_, index) => ({ length: Dimensions.get('window').width - 40, offset: (Dimensions.get('window').width - 40) * index, index })}
+              keyExtractor={(_, i) => `fs-${i}`}
+              renderItem={({ item }) => (
+                <Image source={{ uri: item.url }} style={{ width: Dimensions.get('window').width - 40, height: '100%' }} resizeMode="cover" />
+              )}
+            />
           </View>
         </View>
         <View style={styles.fullScreenNav}>
@@ -564,13 +606,27 @@ export default function BarcodeResultScreen({
                   </Animated.View>
                 </Pressable>
 
-                {/* Image */}
-                <Pressable style={styles.galleryImageContainer} onPress={() => setFullScreenVisible(true)}>
-                  <Image source={{ uri: productImages[currentImageIndex]?.url }} style={styles.galleryImage} resizeMode="cover" />
-                  <View style={styles.zoomHint}>
+                {/* Image - Swipeable */}
+                <View style={styles.galleryImageContainer} onLayout={(e) => { galleryWidth.current = e.nativeEvent.layout.width; }}>
+                  <FlatList
+                    ref={galleryScrollRef}
+                    data={productImages}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={onGalleryScroll}
+                    keyExtractor={(_, i) => String(i)}
+                    getItemLayout={(_, index) => ({ length: galleryWidth.current || 300, offset: (galleryWidth.current || 300) * index, index })}
+                    renderItem={({ item }) => (
+                      <Pressable style={{ width: galleryWidth.current || 300, height: '100%' }} onPress={() => setFullScreenVisible(true)}>
+                        <Image source={{ uri: item.url }} style={styles.galleryImage} resizeMode="cover" />
+                      </Pressable>
+                    )}
+                  />
+                  <View style={styles.zoomHint} pointerEvents="none">
                     <Icon name="expand-outline" size={16} color="#FFFFFF" />
                   </View>
-                  <View style={styles.imageCounterRow}>
+                  <View style={styles.imageCounterRow} pointerEvents="none">
                     {productImages[currentImageIndex]?.color ? (
                       <View style={styles.imageColorChip}>
                         <Icon name="color-palette" size={11} color="#FFFFFF" />
@@ -583,7 +639,7 @@ export default function BarcodeResultScreen({
                       <Text style={styles.imageCounterText}>{currentImageIndex + 1}/{productImages.length}</Text>
                     </View>
                   </View>
-                </Pressable>
+                </View>
 
                 {/* Right Arrow */}
                 <Pressable
@@ -765,7 +821,7 @@ export default function BarcodeResultScreen({
           )}
 
           {/* Distribution Table - Magaza */}
-          <View style={styles.distributionSection}>
+          {magazaDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="storefront-outline" size={22} color={colors.textSecondary} />
@@ -817,10 +873,20 @@ export default function BarcodeResultScreen({
                 <Text style={styles.emptyTableText}>Mağaza dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredMagaza.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredMagaza.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
 
           {/* Konfeksiyon Stok Dağılımı */}
-          <View style={styles.distributionSection}>
+          {konfeksiyonDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="cut-outline" size={22} color={colors.textSecondary} />
@@ -864,10 +930,20 @@ export default function BarcodeResultScreen({
                 <Text style={styles.emptyTableText}>Konfeksiyon dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredKonfeksiyon.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredKonfeksiyon.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
 
           {/* Üretim (Tabakhane) Stok Dağılımı */}
-          <View style={styles.distributionSection}>
+          {tabakhaneDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="flask-outline" size={22} color={colors.textSecondary} />
@@ -911,10 +987,20 @@ export default function BarcodeResultScreen({
                 <Text style={styles.emptyTableText}>Üretim dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredTabakhane.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredTabakhane.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
 
           {/* Muhasebe Stok Dağılımı */}
-          <View style={styles.distributionSection}>
+          {muhasebeDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="calculator-outline" size={22} color={colors.textSecondary} />
@@ -958,7 +1044,17 @@ export default function BarcodeResultScreen({
                 <Text style={styles.emptyTableText}>Muhasebe dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredMuhasebe.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredMuhasebe.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
         </ScrollView>
 
         {/* Detail Modal */}
@@ -2040,5 +2136,31 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 16,
       fontWeight: '600',
       color: '#FFFFFF',
+    },
+    tableTotalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+    },
+    tableTotalLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    tableTotalBadge: {
+      backgroundColor: colors.primary + '20',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    tableTotalText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.primary,
     },
   });

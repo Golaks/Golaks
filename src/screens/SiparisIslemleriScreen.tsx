@@ -1806,7 +1806,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderWidth: 1, borderColor: isDark ? colors.border : '#E2E8F0',
     },
     content: { flex: 1 },
-    scrollContent: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 100 },
+    scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 100 },
     emptyContainer: { flex: 1 },
     retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
     retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },

@@ -231,7 +231,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
           </ScrollView>
 
           {/* Account List */}
-          <View style={styles.listContainer}>
+          <View style={[styles.listContainer, (cariList.length === 0 || isLoading || error) && { flex: 1, justifyContent: 'center' }]}>
             {isLoading ? (
               <View style={styles.centerContainer}>
                 <LoadingSpinner />
@@ -280,6 +280,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
     },
     scrollContent: {
+      flexGrow: 1,
       padding: 16,
       paddingBottom: 100, // Space for TabBar
     },
@@ -305,6 +306,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       opacity: 0.6,
     },
     filterScroll: {
+      flexGrow: 0,
       marginBottom: 14,
     },
     filterContent: {

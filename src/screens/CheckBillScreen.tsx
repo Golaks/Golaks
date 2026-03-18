@@ -844,6 +844,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 120 : 100,
   },

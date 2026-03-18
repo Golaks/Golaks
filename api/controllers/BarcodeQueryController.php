@@ -455,66 +455,48 @@ class BarcodeQueryController {
 
         if ($tables['stok_varyant']) {
             $select .= ", sv.beden, COALESCE(t_renk.tanim_deger, '') AS color";
-            $select .= ",
-                CASE
-                    WHEN sm.barkod_tipi = 'tekil' THEN COUNT(DISTINCT sm.id)
-                    WHEN sm.barkod_tipi IN ('seri', 'cogul') THEN COALESCE(SUM(sv.miktar1_kalan), 0)
-                    ELSE 0
-                END AS quantity";
+            $select .= ", COALESCE(SUM(sv.miktar1_kalan), 0) AS quantity";
             $joins .= "
                 LEFT JOIN stok_varyant sv ON sv.stok_master_id = sm.id AND sv.firma_id = sm.firma_id AND sv.aktif = 1";
             if ($tables['tanimlar']) {
                 $joins .= " LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id";
             }
-            // Depo bilgisi - stok_detay üzerinden
             if ($tables['stok_detay'] && $tables['tanimlar']) {
-                $select .= ", COALESCE(t_depo.tanim_deger, '') AS warehouse";
-                $joins .= "
-                    LEFT JOIN stok_detay sd ON sd.stok_master_id = sm.id AND sd.aktif = 1 AND sd.gc = 1
-                    LEFT JOIN tanimlar t_depo ON t_depo.id = sd.depo_id AND t_depo.tanim_kodu = 'DEPO'";
+                $select .= ", COALESCE((
+                    SELECT t_d.tanim_deger FROM stok_detay sd2
+                    LEFT JOIN tanimlar t_d ON t_d.id = sd2.depo_id AND t_d.tanim_kodu = 'DEPO'
+                    WHERE sd2.stok_master_id = sm.id AND sd2.aktif = 1
+                    ORDER BY sd2.id DESC LIMIT 1
+                ), '') AS warehouse";
             } else {
                 $select .= ", '' AS warehouse";
             }
-            $groupBy = "sm.sube_id, sm.model_id, sm.tipi_id, sm.alt_tipi_id, sm.cinsi_id, sm.barkod_tipi,
-                CASE WHEN sm.barkod_tipi = 'cogul' THEN NULL ELSE sv.beden END,
-                sv.renk_id";
-            if ($tables['stok_detay'] && $tables['tanimlar']) {
-                $groupBy .= ", sd.depo_id";
-            }
+            $groupBy = "sm.sube_id, sv.beden, sv.renk_id, sm.tipi_id, sm.barkod_tipi";
         } else {
             $select .= ", '' AS beden, '' AS color, '' AS warehouse";
-            $select .= ",
-                CASE
-                    WHEN sm.barkod_tipi = 'tekil' THEN COUNT(DISTINCT sm.id)
-                    ELSE COALESCE(SUM(sm.miktar1_kalan), 0)
-                END AS quantity";
-            $groupBy = "sm.sube_id, sm.model_id, sm.tipi_id, sm.alt_tipi_id, sm.cinsi_id, sm.barkod_tipi";
+            $select .= ", COALESCE(SUM(sm.miktar1_kalan), 0) AS quantity";
+            $groupBy = "sm.sube_id, sm.tipi_id, sm.barkod_tipi";
         }
 
-        if ($subeId > 0) {
-            $where .= " AND sm.sube_id = :subeId";
-            $params[':subeId'] = $subeId;
-        }
+        // Şube filtresi yok - tüm şubelerin dağılımını göster (firma_id zaten filtrede)
 
-        if ($queryType === 'barcode') {
+        // Barkod veya model sorgusu - her iki durumda da model_id ile filtrele (tüm beden/renk dağılımı için)
+        if ($modelId) {
+            $where .= " AND sm.model_id = :modelId";
+            $params[':modelId'] = $modelId;
+        } elseif ($queryType === 'barcode') {
             if ($tables['stok_varyant']) {
                 $where .= " AND sv.barkod = :qv1";
                 $params[':qv1'] = $queryValue;
             } else {
-                // stok_varyant tablosu yoksa barkod sorgulanamaz
                 return [];
             }
-        } else {
-            if ($modelId) {
-                $where .= " AND sm.model_id = :modelId";
-                $params[':modelId'] = $modelId;
-            } elseif ($tables['model_kartlar']) {
-                $where .= " AND mk.model_adi = :modelName";
-                $params[':modelName'] = $queryValue;
-            }
+        } elseif ($tables['model_kartlar']) {
+            $where .= " AND mk.model_adi = :modelName";
+            $params[':modelName'] = $queryValue;
         }
 
-        $sql = "SELECT {$select} FROM stok_master sm {$joins} WHERE {$where} GROUP BY {$groupBy} ORDER BY sm.model_id, beden";
+        $sql = "SELECT {$select} FROM stok_master sm {$joins} WHERE {$where} GROUP BY {$groupBy} ORDER BY branch, color, beden";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);

@@ -983,6 +983,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '700',
   },
   listContent: {
+    flexGrow: 1,
     padding: 16,
     paddingBottom: 100,
     gap: 10,

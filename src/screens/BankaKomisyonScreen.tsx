@@ -408,7 +408,7 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
 const createStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
-    listContent: { padding: 16, paddingBottom: 100 },
+    listContent: { flexGrow: 1, padding: 16, paddingBottom: 100 },
 
     // Ana kart
     card: {

@@ -53,31 +53,42 @@ export default function BarcodeScanner({
     ]
   );
 
-  // Focus function
-  const triggerFocus = async () => {
+  // Focus function - dokunulan noktaya veya merkeze odaklan
+  const triggerFocus = async (point?: { x: number; y: number }) => {
     if (cameraRef.current && device?.supportsFocus && isCameraReady) {
       try {
-        await cameraRef.current.focus({ x: 0.5, y: 0.5 });
+        await cameraRef.current.focus(point || { x: 0.5, y: 0.5 });
       } catch (e) {
         // Focus failed, ignore
       }
     }
   };
 
+  // Tap to focus - dokunulan noktaya odaklan
+  const handleTapToFocus = (event: any) => {
+    const { locationX, locationY } = event.nativeEvent;
+    const { width, height } = event.nativeEvent.target ? event.nativeEvent : { width: 1, height: 1 };
+    if (width > 0 && height > 0) {
+      triggerFocus({ x: locationX / width, y: locationY / height });
+    } else {
+      triggerFocus();
+    }
+  };
+
   // Camera initialized callback
   const handleCameraInitialized = () => {
     setIsCameraReady(true);
-    // Initial focus after camera is ready
-    setTimeout(triggerFocus, 300);
+    // İlk focus hemen, sonra 500ms sonra tekrar
+    setTimeout(() => triggerFocus(), 200);
+    setTimeout(() => triggerFocus(), 700);
   };
 
-  // Auto focus interval - only when camera is ready
+  // Auto focus interval - daha sık odaklanma
   useEffect(() => {
     let focusInterval: NodeJS.Timeout | null = null;
 
     if (isActive && isCameraReady && device?.supportsFocus) {
-      // Periodic auto focus every 1.5 seconds for better responsiveness
-      focusInterval = setInterval(triggerFocus, 1500);
+      focusInterval = setInterval(() => triggerFocus(), 1000);
     }
 
     return () => {
@@ -277,7 +288,7 @@ export default function BarcodeScanner({
           </View>
 
           {/* Camera View - Full screen */}
-          <Pressable style={styles.cameraContainer} onPress={triggerFocus}>
+          <Pressable style={styles.cameraContainer} onPress={handleTapToFocus}>
             {/* Full screen camera */}
             {hasPermission && device && (
               <Camera
@@ -287,7 +298,7 @@ export default function BarcodeScanner({
                 isActive={isActive}
                 codeScanner={codeScanner}
                 torch={torchOn ? 'on' : 'off'}
-                zoom={device.minZoom + (device.maxZoom - device.minZoom) * 0.15}
+                zoom={device.minZoom}
                 {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
                 onInitialized={handleCameraInitialized}
                 onError={(_e) => {}}
@@ -310,6 +321,11 @@ export default function BarcodeScanner({
                 <View style={styles.overlaySide} />
                 <View style={styles.scanFrameContainer}>
                   <View style={styles.scanFrame}>
+                    {/* Corner brackets */}
+                    <View style={[styles.corner, styles.cornerTL]} />
+                    <View style={[styles.corner, styles.cornerTR]} />
+                    <View style={[styles.corner, styles.cornerBL]} />
+                    <View style={[styles.corner, styles.cornerBR]} />
                     {/* Animated scan line */}
                     <Animated.View
                       style={[
@@ -319,7 +335,7 @@ export default function BarcodeScanner({
                             {
                               translateY: scanLineAnim.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [0, 290],
+                                outputRange: [0, 298],
                               }),
                             },
                           ],
@@ -423,7 +439,7 @@ const createStyles = (colors: any) =>
     },
     overlayTop: {
       flex: 0.35,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      backgroundColor: 'transparent',
       justifyContent: 'flex-end',
       alignItems: 'center',
       paddingBottom: 40,
@@ -442,11 +458,11 @@ const createStyles = (colors: any) =>
     },
     overlaySide: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      backgroundColor: 'transparent',
     },
     overlayBottom: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      backgroundColor: 'transparent',
     },
     scanFrameContainer: {
       width: 340,
@@ -455,18 +471,54 @@ const createStyles = (colors: any) =>
     },
     scanFrame: {
       flex: 1,
-      borderWidth: 3,
-      borderColor: colors.primary,
-      borderRadius: 32,
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 24,
       overflow: 'hidden',
       backgroundColor: 'transparent',
+      position: 'relative',
+    },
+    corner: {
+      position: 'absolute',
+      width: 40,
+      height: 40,
+      borderColor: colors.primary,
+    },
+    cornerTL: {
+      top: -1,
+      left: -1,
+      borderTopWidth: 4,
+      borderLeftWidth: 4,
+      borderTopLeftRadius: 24,
+    },
+    cornerTR: {
+      top: -1,
+      right: -1,
+      borderTopWidth: 4,
+      borderRightWidth: 4,
+      borderTopRightRadius: 24,
+    },
+    cornerBL: {
+      bottom: -1,
+      left: -1,
+      borderBottomWidth: 4,
+      borderLeftWidth: 4,
+      borderBottomLeftRadius: 24,
+    },
+    cornerBR: {
+      bottom: -1,
+      right: -1,
+      borderBottomWidth: 4,
+      borderRightWidth: 4,
+      borderBottomRightRadius: 24,
     },
     scanLine: {
       position: 'absolute',
-      left: 0,
-      right: 0,
+      left: 10,
+      right: 10,
       height: 2,
       backgroundColor: colors.primary,
+      borderRadius: 1,
       zIndex: 2,
     },
     scanLineGlow: {

@@ -250,7 +250,16 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
               description={error}
             />
           ) : (
-            <View style={styles.listSection}>
+            <View style={[styles.listSection, (!loadedTabs.has(selectedTab) || (kasaList.length === 0 && bankaList.length === 0)) && { flex: 1, justifyContent: 'center' }]}>
+              {!loadedTabs.has(selectedTab) && !isLoading ? (
+                <EmptyState
+                  icon="bar-chart-outline"
+                  title="Rapor Hazır"
+                  description="Raporu görmek için yukarıdaki sekmelere tıklayın"
+                />
+              ) : kasaList.length === 0 && bankaList.length === 0 ? (
+                <EmptyState />
+              ) : (<>
               <View style={styles.listTitleContainer}>
                 <Icon
                   name={selectedTab === 'all' ? 'cash-outline' : 'business-outline'}
@@ -261,15 +270,7 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
                   {selectedTab === 'all' ? 'Döviz Bazında Kasa & Banka' : 'Şube Bazında Kasa & Banka'}
                 </Text>
               </View>
-              {!loadedTabs.has(selectedTab) && !isLoading ? (
-                <EmptyState
-                  icon="bar-chart-outline"
-                  title="Rapor Hazır"
-                  description="Raporu görmek için yukarıdaki sekmelere tıklayın"
-                />
-              ) : kasaList.length === 0 && bankaList.length === 0 ? (
-                <EmptyState />
-              ) : selectedTab === 'byBranch' ? (
+              {selectedTab === 'byBranch' ? (
                 // Şubeye göre accordion view
                 Object.entries(groupByBranch()).map(([subeName, dovizler]) => {
                   const isExpanded = expandedBranches.has(subeName);
@@ -489,7 +490,8 @@ export default function CashBankScreen({ onBack, onTabChange, onLogout }: CashBa
                   );
                 })
               )}
-            </View>
+            </>)}
+          </View>
           )}
         </ScrollView>
 
@@ -514,6 +516,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
     },
     scrollContent: {
+      flexGrow: 1,
       padding: 16,
       paddingBottom: 100, // Space for TabBar
     },

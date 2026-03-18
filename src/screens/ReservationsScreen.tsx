@@ -1404,6 +1404,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
     },
     scrollContent: {
+      flexGrow: 1,
       paddingHorizontal: 16,
       paddingTop: 10,
       paddingBottom: 100,

@@ -367,7 +367,7 @@ const createStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollView: { flex: 1 },
-    scrollContent: { padding: 16, paddingBottom: 100 },
+    scrollContent: { flexGrow: 1, padding: 16, paddingBottom: 100 },
 
     searchToggle: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
     searchBox: {
