@@ -1132,8 +1132,8 @@ export default function CompanyManagementScreen({
         leftButton={<BackButton onPress={onGoBack} />}
         rightButton={
           <View style={styles.headerRight}>
-            <SearchButton onPress={handleToggleSearch} />
             <AddButton onPress={handleOpenAddCompany} />
+            <SearchButton onPress={handleToggleSearch} />
           </View>
         }
       />

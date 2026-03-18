@@ -575,8 +575,8 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
           leftButton={<BackButton onPress={onBack} />}
           rightButton={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <SearchButton onPress={handleToggleSearch} />
               <AddButton onPress={handleOpenCreateForm} />
+              <SearchButton onPress={handleToggleSearch} />
             </View>
           }
           showMenu={true}
@@ -714,7 +714,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Model Adı *</Text>
-                  <View style={[styles.formInputRow, { borderColor: formFieldErrors.errors.modelAdi ? '#EF4444' : colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: formFieldErrors.errors.modelAdi ? '#EF4444' : colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="text-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
@@ -801,7 +801,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Boy</Text>
-                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="swap-vertical-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
@@ -818,7 +818,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
               <View style={styles.formRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Marka</Text>
-                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="shield-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
@@ -831,7 +831,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Modelist</Text>
-                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="create-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
@@ -848,7 +848,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
               <View style={styles.formRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Tasarımcı</Text>
-                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="brush-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text }]}
@@ -888,7 +888,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Set Parça Sayısı</Text>
-                  <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                  <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                     <Icon name="layers-outline" size={18} color={colors.textTertiary} />
                     <TextInput
                       style={[styles.formInputInner, { color: colors.text, textAlign: 'right' }]}
@@ -905,7 +905,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
               {/* Set İçerik */}
               <View>
                 <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Set İçerik</Text>
-                <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff' }]}>
+                <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
                   <Icon name="list-outline" size={18} color={colors.textTertiary} />
                   <TextInput
                     style={[styles.formInputInner, { color: colors.text }]}
@@ -920,7 +920,7 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
               {/* Açıklama */}
               <View>
                 <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Açıklama</Text>
-                <View style={[styles.formInputRow, { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#fff', height: 80, alignItems: 'flex-start', paddingTop: 14 }]}>
+                <View style={[styles.formInputRow, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground, height: 80, alignItems: 'flex-start', paddingTop: 14 }]}>
                   <Icon name="document-text-outline" size={18} color={colors.textTertiary} />
                   <TextInput
                     style={[styles.formInputInner, { color: colors.text, textAlignVertical: 'top', height: '100%' }]}
@@ -1222,8 +1222,8 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     formInputRow: {
       height: 48,
-      borderWidth: 1,
-      borderRadius: 10,
+      borderWidth: 1.5,
+      borderRadius: 12,
       paddingHorizontal: 12,
       flexDirection: 'row' as const,
       alignItems: 'center' as const,

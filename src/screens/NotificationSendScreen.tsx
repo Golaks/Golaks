@@ -694,11 +694,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 16,
       padding: 16,
       borderLeftWidth: 4,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
     },
     previewHeader: {
       flexDirection: 'row',

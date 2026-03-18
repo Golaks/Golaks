@@ -436,6 +436,129 @@ class AccountService {
       throw new Error(error.message || 'Banka komisyon listesi alınamadı');
     }
   }
+  async getKasaList(token: string, dataName: string, subeId?: number, kasaDurum?: string): Promise<any> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_LIST, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName, ...(subeId ? { subeId } : {}), ...(kasaDurum ? { kasaDurum } : {}) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Kasa listesi alınamadı');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Kasa listesi alınamadı');
+    }
+  }
+
+  async createKasa(token: string, dataName: string, params: {
+    kasaHesapKodu: string;
+    fisTarihi: string;
+    fisAciklama?: string;
+    subeId: number;
+  }): Promise<any> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_CREATE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName, ...params }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Kasa oluşturulamadı');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Kasa oluşturulamadı');
+    }
+  }
+
+  async getKasaCariList(token: string, dataName: string): Promise<any> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_CARI_LIST, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Kasa cari listesi alınamadı');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Kasa cari listesi alınamadı');
+    }
+  }
+  async createKasaHareket(token: string, dataName: string, params: {
+    fisMasterId: number;
+    hesapKodu: string;
+    aciklama?: string;
+    tutar: number;
+    doviz: string;
+    dovizKuru?: number;
+    muhasebeTutar?: number;
+    muhasebeDoviz?: string;
+    muhasebeKuru?: number;
+    cariTutar?: number;
+    cariDoviz?: string;
+    cariKuru?: number;
+    tip: 'giris' | 'cikis';
+    subeId: number;
+  }): Promise<any> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_HAREKET, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName, ...params }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Kasa hareketi kaydedilemedi');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Kasa hareketi kaydedilemedi');
+    }
+  }
+
+  async uploadFisDosya(token: string, dataName: string, fisDetayId: number, subeId: number, imageUri: string): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append('dataName', dataName);
+      formData.append('fisMasterId', String(fisDetayId));
+      formData.append('subeId', String(subeId));
+
+      const fileName = imageUri.split('/').pop() || 'photo.jpg';
+      const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeMap: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf' };
+
+      formData.append('file', {
+        uri: imageUri,
+        type: mimeMap[ext] || 'image/jpeg',
+        name: fileName,
+      } as any);
+
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_UPLOAD_FIS, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Dosya yüklenemedi');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Dosya yüklenemedi');
+    }
+  }
+
+  async getKasaBakiye(token: string, dataName: string, fisMasterId: number): Promise<any> {
+    try {
+      const response = await fetch(API_ENDPOINTS.ACCOUNT_KASA_BAKIYE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName, fisMasterId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error?.message || 'Kasa bakiyesi alınamadı');
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Kasa bakiyesi alınamadı');
+    }
+  }
 }
 
 export default new AccountService();

@@ -6,7 +6,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, View, ActivityIndicator } from 'react-native';
+import { StatusBar, View, ActivityIndicator, Platform } from 'react-native';
+import SpInAppUpdates, { IAUUpdateKind } from 'sp-react-native-in-app-updates';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AlertProvider } from './src/contexts/AlertContext';
@@ -58,6 +59,29 @@ function AppContent(): React.JSX.Element {
 
     return unsubscribe;
   }, [isAuthenticated]);
+
+  // In-app update check
+  useEffect(() => {
+    if (currentScreen !== 'home') return;
+
+    const checkUpdate = async () => {
+      try {
+        const inAppUpdates = new SpInAppUpdates(false);
+        const result = await inAppUpdates.checkNeedsUpdate();
+        if (result.shouldUpdate) {
+          await inAppUpdates.startUpdate({
+            updateType: Platform.OS === 'android'
+              ? IAUUpdateKind.FLEXIBLE
+              : IAUUpdateKind.IMMEDIATE,
+          });
+        }
+      } catch (_e) {
+        // Silently fail - update check is not critical
+      }
+    };
+
+    checkUpdate();
+  }, [currentScreen]);
 
   const handleSplashComplete = () => {
     setShowSplash(false);

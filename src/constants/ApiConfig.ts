@@ -75,6 +75,12 @@ export const API_ENDPOINTS = {
   ACCOUNT_BANKA_KOMISYON_LIST: `${BASE_API_URL}/account/banka-komisyon-list`,
   ACCOUNT_BANKA_KOMISYON_ORAN_GET: `${BASE_API_URL}/account/banka-komisyon-oran`,
   ACCOUNT_BANKA_KOMISYON_ORAN_UPDATE: `${BASE_API_URL}/account/banka-komisyon-oran-update`,
+  ACCOUNT_KASA_LIST: `${BASE_API_URL}/account/kasa-list`,
+  ACCOUNT_KASA_CREATE: `${BASE_API_URL}/account/kasa-create`,
+  ACCOUNT_KASA_CARI_LIST: `${BASE_API_URL}/account/kasa-cari-list`,
+  ACCOUNT_KASA_BAKIYE: `${BASE_API_URL}/account/kasa-bakiye`,
+  ACCOUNT_KASA_HAREKET: `${BASE_API_URL}/account/kasa-hareket`,
+  ACCOUNT_KASA_UPLOAD_FIS: `${BASE_API_URL}/account/kasa-upload-fis`,
 
   // Sales endpoints (global - tüm modüller)
   SALES_LIST: `${BASE_API_URL}/sales/list`,

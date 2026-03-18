@@ -548,7 +548,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingVertical: 4,
       borderRadius: 12,
       zIndex: 10,
-      elevation: 10,
     },
     slideColorText: {
       color: '#fff',
@@ -573,7 +572,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 50,
-      elevation: 50,
     },
     deleteOverlay: {
       position: 'absolute',
@@ -585,7 +583,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 100,
-      elevation: 100,
       borderRadius: 16,
     },
     deleteOverlayContent: {

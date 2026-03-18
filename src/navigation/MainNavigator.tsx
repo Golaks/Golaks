@@ -26,12 +26,14 @@ import CompanyModelPerformanceScreen from '../screens/CompanyModelPerformanceScr
 import OrdersScreen from '../screens/OrdersScreen';
 import ReservationsScreen from '../screens/ReservationsScreen';
 import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
+import CariHesaplarScreen from '../screens/CariHesaplarScreen';
 import BankaKomisyonScreen from '../screens/BankaKomisyonScreen';
+import KasaIslemleriScreen from '../screens/KasaIslemleriScreen';
 import FiyatHesaplamaScreen from '../screens/FiyatHesaplamaScreen';
 import KonfeksiyonUretimScreen from '../screens/KonfeksiyonUretimScreen';
 import SiparisIslemleriScreen from '../screens/SiparisIslemleriScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler' | 'confectionSiparisIslemleri';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cariHesaplar' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler' | 'confectionSiparisIslemleri';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -122,6 +124,8 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
             onPersonnelPerformance={() => setActiveScreen('accountPersonnelPerformance')}
             onCompanyModelPerformance={() => setActiveScreen('accountCompanyModelPerformance')}
             onBankaKomisyon={() => setActiveScreen('bankaKomisyon')}
+            onCariHesaplar={() => setActiveScreen('cariHesaplar')}
+            onKasaIslemleri={() => setActiveScreen('kasaIslemleri')}
             initialTab={accountTab}
             onActiveTabChange={setAccountTab}
           />
@@ -223,6 +227,10 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
         return <CompanyModelPerformanceScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} modul="konfeksiyon" />;
       case 'shopAgencyPerformance':
         return <AgencyPerformanceScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'cariHesaplar':
+        return <CariHesaplarScreen onGoBack={() => { setAccountTab('transactions'); setActiveScreen('account'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'kasaIslemleri':
+        return <KasaIslemleriScreen onGoBack={() => { setAccountTab('transactions'); setActiveScreen('account'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'bankaKomisyon':
         return <BankaKomisyonScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'fiyatHesaplama':

@@ -17,6 +17,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import SearchInput from '../components/SearchInput';
 import IconButton from '../components/IconButton';
 import BackButton from '../components/BackButton';
+import SearchButton from '../components/SearchButton';
 import TabBar, { TabName } from '../components/TabBar';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import salesService, { SalesItem, SalesSummaryItem } from '../services/sales.service';
@@ -49,7 +50,7 @@ export default function SalesScreen({ onGoBack, onTabChange, onLogout, modul = '
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
+  const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SalesItem[]>([]);
@@ -207,6 +208,12 @@ export default function SalesScreen({ onGoBack, onTabChange, onLogout, modul = '
         <Header
           title={MODUL_TITLES[modul]}
           leftButton={<BackButton onPress={onGoBack} />}
+          rightButton={
+            <SearchButton onPress={() => {
+              setFilterVisible(v => !v);
+              if (filterVisible) setSearchText('');
+            }} />
+          }
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -222,22 +229,24 @@ export default function SalesScreen({ onGoBack, onTabChange, onLogout, modul = '
         </View>
 
         {/* Date Filter */}
-        <View style={styles.filterCard}>
-          <DateFilter
-            selectedPreset={selectedPreset}
-            onPresetChange={handlePresetChange}
-            startDate={formatDateStr(startDate)}
-            endDate={formatDateStr(endDate)}
-            startDateObj={startDate}
-            endDateObj={endDate}
-            onStartDateChange={handleStartDateChange}
-            onEndDateChange={handleEndDateChange}
-            showSearch={true}
-            searchValue={searchText}
-            onSearchChange={setSearchText}
-            searchPlaceholder="Cari adı, seri no ara..."
-          />
-        </View>
+        {filterVisible && (
+          <View style={styles.filterCard}>
+            <DateFilter
+              selectedPreset={selectedPreset}
+              onPresetChange={handlePresetChange}
+              startDate={formatDateStr(startDate)}
+              endDate={formatDateStr(endDate)}
+              startDateObj={startDate}
+              endDateObj={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              showSearch={true}
+              searchValue={searchText}
+              onSearchChange={setSearchText}
+              searchPlaceholder="Cari adı, seri no ara..."
+            />
+          </View>
+        )}
 
 
         {/* Content */}

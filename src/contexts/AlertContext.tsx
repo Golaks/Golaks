@@ -1,5 +1,5 @@
 import React, {createContext, useContext, useState, ReactNode} from 'react';
-import {View, StyleSheet} from 'react-native';
+import {View, StyleSheet, Modal} from 'react-native';
 import AlertDialog, {AlertType} from '../components/AlertDialog';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -77,7 +77,7 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
   };
 
   const showError = (message: string, title?: string) => {
-    showAlert('error', message, title || 'Hata');
+    showAlert('error', message, title);
   };
 
   const showWarning = (message: string, title?: string) => {
@@ -144,6 +144,10 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
 };
 
 const styles = StyleSheet.create({
+  alertOverlay: {
+    flex: 1,
+    pointerEvents: 'box-none',
+  },
   alertContainer: {
     position: 'absolute',
     top: 0,

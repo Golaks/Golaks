@@ -271,11 +271,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       borderWidth: 3,
       borderColor: colors.background,
-      elevation: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
     },
     changeButtonPressed: {
       opacity: 0.8,

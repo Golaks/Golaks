@@ -276,63 +276,62 @@ export default function BarcodeScanner({
             </View>
           </View>
 
-          {/* Camera View */}
-          <View style={styles.cameraContainer}>
-            {/* Overlay with camera in the middle */}
-            <View style={styles.overlay}>
-                <View style={styles.overlayTop}>
-                  {/* Logo above scan frame */}
-                  <View style={styles.logoContainer}>
-                    <Image
-                      source={require('../assets/images/golaks-logo.png')}
-                      style={styles.logo}
-                      resizeMode="contain"
+          {/* Camera View - Full screen */}
+          <Pressable style={styles.cameraContainer} onPress={triggerFocus}>
+            {/* Full screen camera */}
+            {hasPermission && device && (
+              <Camera
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={isActive}
+                codeScanner={codeScanner}
+                torch={torchOn ? 'on' : 'off'}
+                zoom={device.minZoom + (device.maxZoom - device.minZoom) * 0.15}
+                {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
+                onInitialized={handleCameraInitialized}
+                onError={(_e) => {}}
+                enableZoomGesture={true}
+              />
+            )}
+
+            {/* Overlay with scan frame cutout */}
+            <View style={styles.overlay} pointerEvents="none">
+              <View style={styles.overlayTop}>
+                <View style={styles.logoContainer}>
+                  <Image
+                    source={require('../assets/images/golaks-logo.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+              <View style={styles.overlayMiddle}>
+                <View style={styles.overlaySide} />
+                <View style={styles.scanFrameContainer}>
+                  <View style={styles.scanFrame}>
+                    {/* Animated scan line */}
+                    <Animated.View
+                      style={[
+                        styles.scanLine,
+                        {
+                          transform: [
+                            {
+                              translateY: scanLineAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 290],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
                     />
                   </View>
                 </View>
-                <View style={styles.overlayMiddle}>
-                  <View style={styles.overlaySide} />
-                  <View style={styles.scanFrameContainer}>
-                    {/* Scanning Frame with Camera inside */}
-                    <Pressable style={styles.scanFrame} onPress={triggerFocus}>
-                      {/* Camera only in scan frame */}
-                      {hasPermission && device && (
-                        <Camera
-                          ref={cameraRef}
-                          style={StyleSheet.absoluteFill}
-                          device={device}
-                          isActive={isActive}
-                          codeScanner={codeScanner}
-                          torch={torchOn ? 'on' : 'off'}
-                          {...(Platform.OS === 'android' ? { format, exposure: 0, videoStabilizationMode: 'off' as const } : {})}
-                          onInitialized={handleCameraInitialized}
-                          onError={(_e) => {}}
-                          enableZoomGesture={false}
-                        />
-                      )}
-
-                      {/* Animated scan line */}
-                      <Animated.View
-                        style={[
-                          styles.scanLine,
-                          {
-                            transform: [
-                              {
-                                translateY: scanLineAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0, 290],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    </Pressable>
-                  </View>
-                  <View style={styles.overlaySide} />
-                </View>
-                <View style={styles.overlayBottom} />
+                <View style={styles.overlaySide} />
               </View>
+              <View style={styles.overlayBottom} />
+            </View>
 
             {/* Instructions */}
             <View style={styles.instructionsContainer}>
@@ -350,7 +349,7 @@ export default function BarcodeScanner({
                 </Text>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
       </Modal>
     </>
@@ -424,7 +423,7 @@ const createStyles = (colors: any) =>
     },
     overlayTop: {
       flex: 0.35,
-      backgroundColor: '#000000',
+      backgroundColor: 'rgba(0,0,0,0.7)',
       justifyContent: 'flex-end',
       alignItems: 'center',
       paddingBottom: 40,
@@ -443,11 +442,11 @@ const createStyles = (colors: any) =>
     },
     overlaySide: {
       flex: 1,
-      backgroundColor: '#000000',
+      backgroundColor: 'rgba(0,0,0,0.7)',
     },
     overlayBottom: {
       flex: 1,
-      backgroundColor: '#000000',
+      backgroundColor: 'rgba(0,0,0,0.7)',
     },
     scanFrameContainer: {
       width: 340,
@@ -460,15 +459,7 @@ const createStyles = (colors: any) =>
       borderColor: colors.primary,
       borderRadius: 32,
       overflow: 'hidden',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 0.5,
-      shadowRadius: 20,
-      elevation: 10,
+      backgroundColor: 'transparent',
     },
     scanLine: {
       position: 'absolute',
@@ -476,14 +467,6 @@ const createStyles = (colors: any) =>
       right: 0,
       height: 2,
       backgroundColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 8,
       zIndex: 2,
     },
     scanLineGlow: {

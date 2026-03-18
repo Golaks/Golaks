@@ -1,26 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, Text, Pressable, FlatList, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
-import { useAlert } from '../contexts/AlertContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
 import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import SearchInput from '../components/SearchInput';
+import SelectInput from '../components/SelectInput';
+import IconButton from '../components/IconButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import CariCard from '../components/CariCard';
-import SelectInput from '../components/SelectInput';
+import BottomSheet from '../components/BottomSheet';
+import Input from '../components/Input';
+import Button from '../components/Button';
 import accountService, { CariAccount, CariTransaction } from '../services/account.service';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 import { authService } from '../services/auth.service';
 import { generateEkstrePDF } from '../utils/pdfEkstre';
 
-interface CariDetayScreenProps {
-  onBack?: () => void;
+interface CariHesaplarScreenProps {
+  onGoBack: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
 }
@@ -44,32 +49,42 @@ const FILTER_OPTIONS: FilterOption[] = [
   { id: 'stocks', label: 'Stoklar', icon: 'people-outline', color: '#06B6D4' },
 ];
 
-export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariDetayScreenProps) {
+export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: CariHesaplarScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount, user } = useAuth();
-  const { showError, showWarning } = useAlert();
+  const { showError, showWarning, showSuccess } = useAlert();
+  const cariFieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('customers');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchVisible, setSearchVisible] = useState(false);
   const [cariList, setCariList] = useState<CariAccount[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [transactionSearch, setTransactionSearch] = useState('');
-  const [transactionSearchVisible, setTransactionSearchVisible] = useState(false);
-  const [searchVisible, setSearchVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Detail view state
-  const [selectedCari, setSelectedCari] = useState<CariAccount | null>(null);
-  const [transactions, setTransactions] = useState<CariTransaction[]>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  const [transactionError, setTransactionError] = useState<string | null>(null);
 
   // Branch state
   const [subeler, setSubeler] = useState<{ id: string; label: string }[]>([]);
   const [selectedSubeId, setSelectedSubeId] = useState<string>('');
   const [subelerLoaded, setSubelerLoaded] = useState(false);
+
+  // Ekstre (transaction) view state
+  const [selectedCari, setSelectedCari] = useState<CariAccount | null>(null);
+  const [transactions, setTransactions] = useState<CariTransaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [transactionSearch, setTransactionSearch] = useState('');
+  const [transactionSearchVisible, setTransactionSearchVisible] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+
+  // Create form state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formHesapKodu, setFormHesapKodu] = useState('');
+  const [formUnvan, setFormUnvan] = useState('');
+  const [formKisaUnvan, setFormKisaUnvan] = useState('');
+  const [formDoviz, setFormDoviz] = useState('TL');
+  const [formSubeId, setFormSubeId] = useState('');
 
   const styles = createStyles(colors, isDark);
 
@@ -149,8 +164,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         throw new Error(response.message || 'İşlemler alınamadı');
       }
     } catch (err: any) {
-      const errorDetail = `${err.message || 'Bir hata oluştu'}\n\nEndpoint: /account/cari-ekstre\nCari ID: ${cari.id}\nDataName: ${dataName}`;
-      setTransactionError(errorDetail);
+      setTransactionError(err.message || 'Bir hata oluştu');
     } finally {
       setIsLoadingTransactions(false);
     }
@@ -158,14 +172,48 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
 
   const handleTabPress = (tab: TabName) => {
     setActiveTab(tab);
-    if (onTabChange) onTabChange(tab);
+    onTabChange?.(tab);
   };
 
   const handleLogout = async () => {
     try {
       await logout();
-      if (onLogout) onLogout();
+      onLogout?.();
     } catch {}
+  };
+
+  const handleToggleSearch = () => {
+    if (selectedCari) {
+      setTransactionSearchVisible(!transactionSearchVisible);
+      if (transactionSearchVisible) setTransactionSearch('');
+    } else {
+      setSearchVisible(!searchVisible);
+      if (searchVisible) setSearchQuery('');
+    }
+  };
+
+  const handleCariSelect = (cari: CariAccount) => {
+    setSelectedCari(cari);
+    loadTransactions(cari);
+  };
+
+  const handleBackToList = () => {
+    setSelectedCari(null);
+    setTransactions([]);
+    setTransactionError(null);
+    setTransactionSearch('');
+    setTransactionSearchVisible(false);
+    setSummaryExpanded(false);
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    if (selectedCari) {
+      loadTransactions(selectedCari);
+      setRefreshing(false);
+    } else {
+      loadCariList();
+    }
   };
 
   const handleEkstrePDF = async (cari: CariAccount) => {
@@ -189,42 +237,63 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     }
   };
 
-  const handleToggleSearch = () => {
-    if (selectedCari) {
-      setTransactionSearchVisible(!transactionSearchVisible);
-      if (transactionSearchVisible) setTransactionSearch('');
-    } else {
-      setSearchVisible(!searchVisible);
-      if (searchVisible) setSearchQuery('');
-    }
+  const resetForm = () => {
+    setFormHesapKodu('');
+    setFormUnvan('');
+    setFormKisaUnvan('');
+    setFormDoviz('TL');
+    setFormSubeId('');
+    cariFieldErrors.clearAll();
   };
 
-  const handleFilterPress = (filterId: AccountFilterType) => {
-    setSelectedFilter(filterId);
+  const fetchNextHesapKodu = async (filterType: AccountFilterType, subeId: string) => {
+    if (!subeId || filterType === 'all') return;
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const response = await accountService.getNextHesapKodu(token, dataName, filterType, parseInt(subeId));
+      if (response.success && response.data.hesapKodu) {
+        setFormHesapKodu(response.data.hesapKodu);
+      }
+    } catch (_) {}
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    if (selectedCari) {
-      loadTransactions(selectedCari);
-      setRefreshing(false);
-    } else {
+  const handleOpenCreateModal = () => {
+    resetForm();
+    setFormSubeId(selectedSubeId);
+    setShowFormModal(true);
+    fetchNextHesapKodu(selectedFilter, selectedSubeId);
+  };
+
+  const handleSaveCari = async () => {
+    if (!cariFieldErrors.validateRequired({
+      unvan: formUnvan.trim(),
+      hesapKodu: formHesapKodu.trim(),
+      sube: formSubeId,
+    })) return;
+
+    setIsSaving(true);
+    try {
+      const token = await authService.getToken();
+      if (!token) throw new Error('Token bulunamadı');
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      await accountService.createCari(token, dataName, {
+        hesapKodu: formHesapKodu.trim(),
+        unvan: formUnvan.trim(),
+        kisaUnvan: formKisaUnvan.trim(),
+        doviz: formDoviz,
+        subeId: parseInt(formSubeId),
+      });
+      setShowFormModal(false);
+      resetForm();
       loadCariList();
+      showSuccess('Cari hesap oluşturuldu');
+    } catch (err: any) {
+      showError(err.message || 'Cari hesap oluşturulamadı');
+    } finally {
+      setIsSaving(false);
     }
-  };
-
-  const handleCariSelect = (cari: CariAccount) => {
-    setSelectedCari(cari);
-    loadTransactions(cari);
-  };
-
-  const handleBackToList = () => {
-    setSelectedCari(null);
-    setTransactions([]);
-    setTransactionError(null);
-    setTransactionSearch('');
-    setTransactionSearchVisible(false);
-    setSummaryExpanded(false);
   };
 
   const getAccountTypeInfo = (hesapKodu: string) => {
@@ -241,6 +310,11 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     return `${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${doviz}`;
   };
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const filteredTransactions = transactionSearch
     ? transactions.filter(t => {
         const q = transactionSearch.toLowerCase();
@@ -251,11 +325,6 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         );
       })
     : transactions;
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
 
   const renderTransactionItem = ({ item }: { item: CariTransaction }) => (
     <View style={styles.transactionItem}>
@@ -349,9 +418,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
 
         <View style={styles.transactionListTitleContainer}>
           <Icon name="list-outline" size={16} color={colors.textSecondary} />
-          <Text style={styles.transactionListTitle}>
-            Hesap Hareketleri ({filteredTransactions.length})
-          </Text>
+          <Text style={styles.transactionListTitle}>Hesap Hareketleri ({filteredTransactions.length})</Text>
         </View>
         {transactionSearchVisible && (
           <View style={{ marginBottom: 8 }}>
@@ -366,14 +433,15 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     <SafeAreaProvider>
       <View style={styles.container}>
         <Header
-          title={selectedCari ? 'Cari Ekstre' : 'Cari Detay'}
-          leftButton={
-            <BackButton onPress={selectedCari ? handleBackToList : (onBack || (() => {}))} />
-          }
+          title={selectedCari ? 'Cari Ekstre' : 'Cari Hesaplar'}
+          leftButton={<BackButton onPress={selectedCari ? handleBackToList : onGoBack} />}
           rightButton={
             <View style={{ flexDirection: 'row', gap: 4 }}>
               {selectedCari && (
                 <IconButton icon="document-text-outline" onPress={() => handleEkstrePDF(selectedCari)} />
+              )}
+              {!selectedCari && (
+                <AddButton onPress={handleOpenCreateModal} />
               )}
               <SearchButton onPress={handleToggleSearch} />
             </View>
@@ -401,7 +469,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                   <View style={[styles.pageTitleIcon, { backgroundColor: colors.primary + '15' }]}>
                     <Icon name="people" size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.pageTitle}>Cari Detay</Text>
+                  <Text style={styles.pageTitle}>Cari Hesaplar</Text>
                 </View>
                 {subeler.length > 1 && (
                   <View style={styles.subeSelectorContainer}>
@@ -432,7 +500,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                       styles.filterChip,
                       isSelected && { backgroundColor: filter.color, borderColor: filter.color },
                     ]}
-                    onPress={() => handleFilterPress(filter.id)}
+                    onPress={() => setSelectedFilter(filter.id)}
                   >
                     {filter.color && !isSelected && (
                       <View style={[styles.filterDot, { backgroundColor: filter.color }]} />
@@ -484,6 +552,7 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
             </View>
           </ScrollView>
         ) : (
+          /* Transaction/Ekstre View */
           <View style={styles.content}>
             {isLoadingTransactions ? (
               <View style={styles.centerContainer}>
@@ -523,6 +592,90 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
           onTabPress={handleTabPress}
           notificationCount={notificationCount}
         />
+
+        {/* Create Cari Modal */}
+        <BottomSheet
+          visible={showFormModal}
+          onClose={() => { setShowFormModal(false); resetForm(); }}
+          title="Yeni Cari Hesap"
+          icon="person-add-outline"
+          footer={
+            <>
+              <Button
+                text="İptal"
+                variant="secondary"
+                onPress={() => { setShowFormModal(false); resetForm(); }}
+                icon="close-outline"
+                style={{ flex: 1 }}
+              />
+              <Button
+                text="Kaydet"
+                variant="primary"
+                onPress={handleSaveCari}
+                icon="checkmark-outline"
+                loading={isSaving}
+                style={{ flex: 1 }}
+              />
+            </>
+          }
+        >
+          <Input
+            label="Hesap Kodu *"
+            value={formHesapKodu}
+            onChangeText={(v) => { setFormHesapKodu(v); cariFieldErrors.clearFieldError('hesapKodu'); }}
+            placeholder="Otomatik oluşturulacak"
+            autoCapitalize="none"
+            error={cariFieldErrors.errors.hesapKodu ? ' ' : ''}
+            shake={cariFieldErrors.shakes.hesapKodu}
+          />
+          <Input
+            label="Ünvan *"
+            value={formUnvan}
+            onChangeText={(v) => { setFormUnvan(v); cariFieldErrors.clearFieldError('unvan'); }}
+            placeholder="Firma veya kişi adı"
+            error={cariFieldErrors.errors.unvan ? ' ' : ''}
+            shake={cariFieldErrors.shakes.unvan}
+          />
+          <Input
+            label="Kısa Ünvan"
+            value={formKisaUnvan}
+            onChangeText={setFormKisaUnvan}
+            placeholder="Kısaltılmış ad"
+          />
+          <View style={styles.formRow}>
+            <View style={styles.formRowHalf}>
+              <SelectInput
+                label="Şube *"
+                value={formSubeId}
+                onSelect={(id) => {
+                  setFormSubeId(id);
+                  cariFieldErrors.clearFieldError('sube');
+                  if (id) fetchNextHesapKodu(selectedFilter, id);
+                }}
+                items={subeler}
+                placeholder="Şube seçin"
+                noClear
+                error={cariFieldErrors.errors.sube}
+                shake={cariFieldErrors.shakes.sube}
+              />
+            </View>
+            <View style={styles.formRowHalf}>
+              <SelectInput
+                label="Döviz"
+                value={formDoviz}
+                onSelect={setFormDoviz}
+                items={[
+                  { id: 'TL', label: 'TL' },
+                  { id: 'USD', label: 'USD' },
+                  { id: 'EUR', label: 'EUR' },
+                  { id: 'GBP', label: 'GBP' },
+                ]}
+                placeholder="Döviz seçin"
+                noClear
+              />
+            </View>
+          </View>
+        </BottomSheet>
       </View>
     </SafeAreaProvider>
   );
@@ -543,6 +696,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     scrollContent: {
       padding: 16,
       paddingBottom: 100,
+    },
+    searchContainer: {
+      paddingBottom: 12,
     },
     pageHeader: {
       marginBottom: 16,
@@ -604,11 +760,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     listContainer: {
       marginTop: 4,
     },
-    searchContainer: {
-      paddingTop: 0,
-      paddingBottom: 12,
-      backgroundColor: colors.background,
-    },
     centerContainer: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -624,6 +775,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
       alignItems: 'center',
     },
+    // Cari List Item
     cariItem: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -684,12 +836,14 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    // Transaction View
     transactionHeader: {
       marginBottom: 4,
     },
     cariCardWrapper: {
       marginBottom: 4,
     },
+    // Summary
     summaryWrapper: {
       backgroundColor: colors.card,
       borderRadius: 12,
@@ -745,6 +899,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 13,
       fontWeight: '700',
     },
+    // Transaction List
     transactionListTitleContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -807,5 +962,12 @@ const createStyles = (colors: any, isDark: boolean) =>
     transactionBakiye: {
       fontSize: 11,
       color: colors.textSecondary,
+    },
+    formRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    formRowHalf: {
+      flex: 1,
     },
   });

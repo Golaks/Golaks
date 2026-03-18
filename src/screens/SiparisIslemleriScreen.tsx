@@ -35,6 +35,9 @@ import DatePickerModal from '../components/DatePickerModal';
 import TanimSelectInput from '../components/TanimSelectInput';
 import BottomSheet, { BottomSheetToastRef } from '../components/BottomSheet';
 import SiparisDetayForm, { DetayFormData } from '../components/SiparisDetayForm';
+import Input from '../components/Input';
+import Button from '../components/Button';
+import accountService from '../services/account.service';
 import { generateSiparisPDF } from '../utils/pdfSiparis';
 
 interface SiparisIslemleriScreenProps {
@@ -101,6 +104,16 @@ export default function SiparisIslemleriScreen({
   const [formTarihPickerVisible, setFormTarihPickerVisible] = useState(false);
   const [formTeslimTarihPickerVisible, setFormTeslimTarihPickerVisible] = useState(false);
   const formFieldErrors = useFieldErrors();
+
+  // Cari ekleme state
+  const [showCariForm, setShowCariForm] = useState(false);
+  const [cariFormSaving, setCariFormSaving] = useState(false);
+  const [cariFormUnvan, setCariFormUnvan] = useState('');
+  const [cariFormKisaUnvan, setCariFormKisaUnvan] = useState('');
+  const [cariFormHesapKodu, setCariFormHesapKodu] = useState('');
+  const [cariFormDoviz, setCariFormDoviz] = useState('TL');
+  const [cariFormSubeId, setCariFormSubeId] = useState(0);
+  const cariFormFieldErrors = useFieldErrors();
 
   // Seçili carinin kur tipi
   const activeKurTipi = useMemo(() => {
@@ -450,6 +463,84 @@ export default function SiparisIslemleriScreen({
     formFieldErrors.clearAll();
   };
 
+  const handleOpenCariForm = () => {
+    setCariFormUnvan('');
+    setCariFormKisaUnvan('');
+    setCariFormHesapKodu('');
+    setCariFormDoviz('TL');
+    cariFormFieldErrors.clearAll();
+    // Sipariş formunu geçici kapat, cari formunu aç
+    setFormModalVisible(false);
+    setTimeout(() => {
+      setShowCariForm(true);
+    }, 350);
+    // Varsayılan şube ve otomatik hesap kodu al
+    (async () => {
+      try {
+        const token = await authService.getToken();
+        if (!token) return;
+        // Varsayılan şubeyi al
+        const subeRes = await fetch(
+          `${require('../config/env').BASE_URL}/user/subeler`,
+          { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
+        );
+        const subeData = await subeRes.json();
+        let subeId = 1;
+        if (subeData.success && subeData.data) {
+          subeId = subeData.data.varsayilanSube || subeData.data.subeler?.[0]?.id || 1;
+        }
+        setCariFormSubeId(subeId);
+        // Hesap kodu al
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+        const response = await accountService.getNextHesapKodu(token, dataName, 'customers', subeId);
+        if (response.success && response.data.hesapKodu) {
+          setCariFormHesapKodu(response.data.hesapKodu);
+        }
+      } catch (_) {}
+    })();
+  };
+
+  const handleCloseCariForm = () => {
+    setShowCariForm(false);
+    setTimeout(() => setFormModalVisible(true), 350);
+  };
+
+  const handleSaveCari = async () => {
+    if (!cariFormFieldErrors.validateRequired({
+      unvan: cariFormUnvan.trim(),
+      hesapKodu: cariFormHesapKodu.trim(),
+    })) return;
+
+    setCariFormSaving(true);
+    try {
+      const token = await authService.getToken();
+      if (!token) throw new Error('Token bulunamadı');
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const response = await accountService.createCari(token, dataName, {
+        hesapKodu: cariFormHesapKodu.trim(),
+        unvan: cariFormUnvan.trim(),
+        kisaUnvan: cariFormKisaUnvan.trim(),
+        doviz: cariFormDoviz,
+        subeId: cariFormSubeId || 1,
+      });
+      if (response.success) {
+        setShowCariForm(false);
+        // Lookupları yenile ve yeni cariyi seç
+        await fetchLookups();
+        if (response.data?.id) {
+          setFormCariId(response.data.id.toString());
+        }
+        setTimeout(() => {
+          setFormModalVisible(true);
+        }, 350);
+      }
+    } catch (err: any) {
+      showError(err.message || 'Cari oluşturulamadı');
+    } finally {
+      setCariFormSaving(false);
+    }
+  };
+
   const fetchLookups = async (isNewOrder = false) => {
     setFormLookupsLoading(true);
     try {
@@ -674,6 +765,7 @@ export default function SiparisIslemleriScreen({
   const totalCount = summaryData.reduce((sum, s) => sum + s.totalCount, 0);
 
   return (
+    <>
     <SafeAreaProvider>
       <View style={styles.container}>
         <Header
@@ -852,20 +944,21 @@ export default function SiparisIslemleriScreen({
                     </View>
                     <View style={styles.cardHeaderRight}>
                       <Text style={styles.cardAmount}>{formatAmount(item.tutar)} <Text style={[styles.cardCurrency, { color: colors.textSecondary }]}>{item.doviz}</Text></Text>
-                      {item.masterAvansIndirim?.avans && item.masterAvansIndirim.avans.length > 0 ? (
-                        item.masterAvansIndirim.avans.map((av, avi) => (
-                          <Text key={avi} style={{ fontSize: 11, color: '#3B82F6', textAlign: 'right', marginTop: 2 }}>
-                            Avans: {formatAmount(av.tutar)} {av.doviz}
+                      {item.masterAvansIndirim?.avans && item.masterAvansIndirim.avans.length > 0 ? (() => {
+                        const topAvans = item.masterAvansIndirim.avans.reduce((s, a) => s + (a.dovizliTutar || a.tutar), 0);
+                        return topAvans > 0 ? (
+                          <Text style={{ fontSize: 11, color: '#3B82F6', textAlign: 'right', marginTop: 2 }}>
+                            Avans: {formatAmount(topAvans)} {item.doviz}
                           </Text>
-                        ))
-                      ) : null}
+                        ) : null;
+                      })() : null}
                       {item.masterAvansIndirim?.indirim && item.masterAvansIndirim.indirim.tip !== -1 && item.masterAvansIndirim.indirim.deger > 0 ? (
                         <Text style={{ fontSize: 11, color: '#EF4444', textAlign: 'right', marginTop: 2 }}>
                           İnd. {item.masterAvansIndirim.indirim.tip === 0 ? `%${item.masterAvansIndirim.indirim.deger}` : `${formatAmount(item.masterAvansIndirim.indirim.deger)} ${item.masterAvansIndirim.indirim.doviz || item.doviz}`}
                         </Text>
                       ) : null}
                       {(() => {
-                        const avansTop = (item.masterAvansIndirim?.avans || []).reduce((s, a) => s + a.tutar, 0);
+                        const avansTop = (item.masterAvansIndirim?.avans || []).reduce((s, a) => s + (a.dovizliTutar || a.tutar), 0);
                         const ind = item.masterAvansIndirim?.indirim;
                         const indTutar = ind && ind.tip !== -1 && ind.deger > 0
                           ? (ind.tip === 0 ? item.tutar * ind.deger / 100 : ind.deger)
@@ -1319,19 +1412,31 @@ export default function SiparisIslemleriScreen({
 
               {/* Cari */}
               <View style={styles.formRow}>
-                <View style={styles.formField}>
-                  <SelectInput
-                    label="Cari"
-                    icon="person-outline"
-                    placeholder="Cari seçiniz..."
-                    value={formCariId}
-                    items={formCariler.map(c => ({ id: c.id.toString(), label: c.unvan }))}
-                    onSelect={(v) => { setFormCariId(v); formFieldErrors.clearFieldError('cari'); }}
-                    searchPlaceholder="Cari ara..."
-                    containerStyle={{ marginBottom: 0 }}
-                    error={formFieldErrors.errors.cari}
-                    shake={formFieldErrors.shakes.cari}
-                  />
+                <View style={[styles.formField, { flexDirection: 'row', alignItems: 'flex-end', gap: 8 }]}>
+                  <View style={{ flex: 1 }}>
+                    <SelectInput
+                      label="Cari"
+                      icon="person-outline"
+                      placeholder="Cari seçiniz..."
+                      value={formCariId}
+                      items={formCariler.map(c => ({ id: c.id.toString(), label: c.unvan }))}
+                      onSelect={(v) => { setFormCariId(v); formFieldErrors.clearFieldError('cari'); }}
+                      searchPlaceholder="Cari ara..."
+                      containerStyle={{ marginBottom: 0 }}
+                      error={formFieldErrors.errors.cari}
+                      shake={formFieldErrors.shakes.cari}
+                    />
+                  </View>
+                  <Pressable
+                    style={{
+                      width: 48, height: 48, borderRadius: 12,
+                      backgroundColor: colors.primary,
+                      justifyContent: 'center', alignItems: 'center',
+                    }}
+                    onPress={handleOpenCariForm}
+                  >
+                    <Icon name="add" size={22} color="#fff" />
+                  </Pressable>
                 </View>
               </View>
 
@@ -1538,9 +1643,7 @@ export default function SiparisIslemleriScreen({
                             value={row.dovizliTutar}
                             onChangeText={(v) => {
                               const updated = [...formAvansRows];
-                              const numVal = parseFloat(v) || 0;
-                              const converted = dovizService.convert(numVal, row.doviz, formDoviz, formKurlar, activeKurTipi);
-                              updated[idx] = { ...updated[idx], dovizliTutar: v, tutar: converted ? converted.toFixed(2) : '' };
+                              updated[idx] = { ...updated[idx], dovizliTutar: v };
                               setFormAvansRows(updated);
                             }}
                             placeholder="0.00"
@@ -1607,6 +1710,85 @@ export default function SiparisIslemleriScreen({
         />
       </View>
     </SafeAreaProvider>
+    {/* Cari Ekleme Modal - en dışta, BottomSheet üzerinde açılabilmesi için */}
+    <Modal visible={showCariForm} animationType="fade" transparent onRequestClose={handleCloseCariForm}>
+      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 }} onPress={handleCloseCariForm}>
+        <Pressable style={{ backgroundColor: colors.card, borderRadius: 14, padding: 20 }} onPress={(e) => e.stopPropagation()}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="person-add-outline" size={20} color={colors.primary} />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Yeni Cari Hesap</Text>
+            </View>
+            <Pressable onPress={handleCloseCariForm} hitSlop={8}>
+              <Icon name="close" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <Input
+            label="Hesap Kodu *"
+            value={cariFormHesapKodu}
+            onChangeText={(v) => { setCariFormHesapKodu(v); cariFormFieldErrors.clearFieldError('hesapKodu'); }}
+            placeholder="Otomatik oluşturulacak..."
+            autoCapitalize="none"
+            editable={false}
+            error={cariFormFieldErrors.errors.hesapKodu ? ' ' : ''}
+            shake={cariFormFieldErrors.shakes.hesapKodu}
+          />
+          <Input
+            label="Ünvan *"
+            value={cariFormUnvan}
+            onChangeText={(v) => { setCariFormUnvan(v); cariFormFieldErrors.clearFieldError('unvan'); }}
+            placeholder="Firma veya kişi adı"
+            error={cariFormFieldErrors.errors.unvan ? ' ' : ''}
+            shake={cariFormFieldErrors.shakes.unvan}
+          />
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ width: '48%' }}>
+              <Input
+                label="Kısa Ünvan"
+                value={cariFormKisaUnvan}
+                onChangeText={setCariFormKisaUnvan}
+                placeholder="Kısaltılmış ad"
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </View>
+            <View style={{ width: '48%' }}>
+              <SelectInput
+                label="Döviz"
+                value={cariFormDoviz}
+                onSelect={setCariFormDoviz}
+                items={[
+                  { id: 'TL', label: 'TL' },
+                  { id: 'USD', label: 'USD' },
+                  { id: 'EUR', label: 'EUR' },
+                  { id: 'GBP', label: 'GBP' },
+                ]}
+                placeholder="Seçin"
+                noClear
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <Button
+              text="İptal"
+              variant="secondary"
+              onPress={handleCloseCariForm}
+              icon="close-outline"
+              style={{ flex: 1 }}
+            />
+            <Button
+              text="Kaydet"
+              variant="primary"
+              onPress={handleSaveCari}
+              icon="checkmark-outline"
+              loading={cariFormSaving}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  </>
   );
 }
 
@@ -1641,7 +1823,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     statCardActive: {
       borderColor: colors.primary,
       borderWidth: 1.5,
-      shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
     },
     statLabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 4 },
     statValue: { fontSize: 18, fontWeight: '700' },

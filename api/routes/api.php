@@ -88,6 +88,12 @@ class Router {
         $this->post('/account/check-bill-list', 'CheckBillController', 'getList');
         $this->post('/account/banka-komisyon-oran', 'AccountController', 'getBankaKomisyonOran');
         $this->post('/account/banka-komisyon-oran-update', 'AccountController', 'updateBankaKomisyonOran');
+        $this->post('/account/kasa-list', 'AccountController', 'getKasaList');
+        $this->post('/account/kasa-create', 'AccountController', 'createKasa');
+        $this->post('/account/kasa-cari-list', 'AccountController', 'getKasaCariList');
+        $this->post('/account/kasa-bakiye', 'AccountController', 'getKasaBakiye');
+        $this->post('/account/kasa-hareket', 'AccountController', 'createKasaHareket');
+        $this->post('/account/kasa-upload-fis', 'AccountController', 'uploadFisDosya');
 
         // Sales Routes (Global - tüm modüller için)
         $this->post('/sales/list', 'SalesController', 'getList');

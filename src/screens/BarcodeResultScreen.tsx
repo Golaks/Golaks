@@ -1105,11 +1105,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       gap: 10,
       width: '100%',
       maxWidth: 300,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      elevation: 4,
     },
     errorPrimaryButtonText: {
       fontSize: 16,
@@ -1281,11 +1276,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       padding: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.3 : 0.08,
-      shadowRadius: 12,
-      elevation: 4,
     },
     galleryContainer: {
       flexDirection: 'row',
@@ -1302,11 +1292,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       height: 40,
       borderRadius: 20,
       overflow: 'hidden',
-      shadowColor: '#2B7FFF',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 3,
     },
     arrowGradient: {
       width: '100%',
@@ -1315,8 +1300,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     galleryArrowDisabled: {
-      shadowOpacity: 0,
-      elevation: 0,
     },
     galleryImageContainer: {
       flex: 1,
@@ -1403,11 +1386,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     thumbnailActive: {
       borderColor: colors.primary,
       opacity: 1,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 3,
     },
     thumbnailImage: {
       width: '100%',

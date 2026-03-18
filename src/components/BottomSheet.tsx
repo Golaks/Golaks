@@ -79,7 +79,7 @@ export default function BottomSheet({
       >
         <Pressable style={styles.overlayTouchable} onPress={onClose} />
 
-        <View style={[styles.sheet, { maxHeight: height * maxHeightRatio, paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.sheet, { maxHeight: height * maxHeightRatio - insets.top, paddingBottom: insets.bottom + 16 }]}>
           {/* Handle */}
           <View style={styles.handleContainer}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />

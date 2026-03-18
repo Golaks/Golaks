@@ -33,7 +33,7 @@ export default function DovizSelect({
   return (
     <SelectInput
       label={compact ? undefined : label}
-      icon={compact ? undefined : 'cash-outline'}
+      icon={compact || shortLabel ? undefined : 'cash-outline'}
       placeholder="Döviz seçiniz..."
       value={value}
       items={items}

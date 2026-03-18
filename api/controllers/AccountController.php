@@ -1217,6 +1217,784 @@ class AccountController {
     /**
      * Firma PDO bağlantısını döner (ortak yardımcı)
      */
+    /**
+     * POST /account/kasa-list
+     * Kasa fişleri listesi
+     */
+    public function getKasaList() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $subeId = isset($data['subeId']) ? (int)$data['subeId'] : 0;
+        $kasaDurum = $data['kasaDurum'] ?? 'acik';
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            // Cari hesaplarla aynı pattern: firma bilgilerini al, DB'ye bağlan
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $params = [':firma_id' => $firmaId, ':firma_id2' => $firmaId];
+            $subeFilter = '';
+            if ($subeId > 0) {
+                $subeFilter = ' AND fm.sube_id = :sube_id';
+                $params[':sube_id'] = $subeId;
+            }
+            $durumFilter = '';
+            if ($kasaDurum === 'acik') {
+                $durumFilter = ' AND fm.kasa_durum = 1';
+            } elseif ($kasaDurum === 'kapali') {
+                $durumFilter = ' AND fm.kasa_durum = 0';
+            }
+
+            $sql = "
+                SELECT
+                    fm.id,
+                    fm.fis_no,
+                    fm.fis_tipi,
+                    fm.fis_tarihi,
+                    fm.fis_aciklama,
+                    fm.kasa_hesap_kodu,
+                    fm.kasa_durum,
+                    fm.kayit_tarihi,
+                    c.unvan AS kasa_unvan,
+                    c.doviz AS kasa_doviz,
+                    s.sube_adi
+                FROM fis_master fm
+                LEFT JOIN cariler c ON c.hesap_kodu = fm.kasa_hesap_kodu AND c.firma_id = :firma_id2 AND c.sube_id = fm.sube_id AND c.aktif = 1
+                LEFT JOIN subeler s ON fm.sube_id = s.id
+                WHERE fm.firma_id = :firma_id
+                  AND fm.aktif = 0
+                  AND fm.kasa_hesap_kodu <> ''
+                  {$durumFilter}
+                  {$subeFilter}
+                GROUP BY fm.id
+                ORDER BY fm.fis_tarihi DESC, fm.id DESC
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+
+            $result = [];
+            foreach ($rows as $row) {
+                $result[] = [
+                    'id' => (int)$row['id'],
+                    'fisNo' => $row['fis_no'],
+                    'fisTipi' => $row['fis_tipi'],
+                    'fisTarihi' => $row['fis_tarihi'],
+                    'fisAciklama' => $row['fis_aciklama'],
+                    'kasaHesapKodu' => $row['kasa_hesap_kodu'],
+                    'kasaUnvan' => $row['kasa_unvan'] ?? '',
+                    'kasaDoviz' => $row['kasa_doviz'] ?? 'TL',
+                    'kasaDurum' => (int)$row['kasa_durum'],
+                    'subeAdi' => $row['sube_adi'] ?? '',
+                    'kayitTarihi' => $row['kayit_tarihi'],
+                ];
+            }
+
+            Response::success([
+                'data' => $result,
+                'count' => count($result),
+            ]);
+        } catch (PDOException $e) {
+            error_log("getKasaList Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("getKasaList Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/kasa-create
+     * Yeni kasa fişi oluştur
+     */
+    public function createKasa() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $kasaHesapKodu = $data['kasaHesapKodu'] ?? '';
+        $fisTarihi = $data['fisTarihi'] ?? '';
+        $fisAciklama = $data['fisAciklama'] ?? '';
+        $subeId = isset($data['subeId']) ? (int)$data['subeId'] : 0;
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($kasaHesapKodu)) {
+            Response::error('Kasa seçimi zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($fisTarihi)) {
+            Response::error('Tarih zorunludur', 'VALIDATION_ERROR', 400);
+        }
+        if (empty($subeId)) {
+            Response::error('Şube bilgisi zorunludur', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $pdo = $this->getFirmaPdo($userId, $dataName);
+
+            // Firma id al
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            // Aynı tarih + aynı kasa kodu ile mükerrer kayıt kontrolü
+            $fisTarihiDate = date('Y-m-d', strtotime($fisTarihi));
+            $duplicateCheck = $pdo->prepare("
+                SELECT id FROM fis_master
+                WHERE firma_id = :firma_id
+                  AND sube_id = :sube_id
+                  AND kasa_hesap_kodu = :kasa_hesap_kodu
+                  AND DATE(fis_tarihi) = :fis_tarihi
+                  AND aktif != -1
+                LIMIT 1
+            ");
+            $duplicateCheck->execute([
+                ':firma_id' => $firmaId,
+                ':sube_id' => $subeId,
+                ':kasa_hesap_kodu' => $kasaHesapKodu,
+                ':fis_tarihi' => $fisTarihiDate,
+            ]);
+            if ($duplicateCheck->fetch()) {
+                Response::error('Bu tarih ve kasa kodu ile zaten bir kasa fişi mevcut', 'DUPLICATE_ERROR', 400);
+            }
+
+            // Son fiş numarasını al ve bir sonrakini oluştur
+            $yil = date('y', strtotime($fisTarihi));
+            $prefix = $yil . '-';
+            $lastFisNo = $pdo->prepare("
+                SELECT fis_no FROM fis_master
+                WHERE fis_no LIKE :prefix
+                ORDER BY fis_no DESC
+                LIMIT 1
+            ");
+            $lastFisNo->execute([':prefix' => $prefix . '%']);
+            $lastRow = $lastFisNo->fetch();
+
+            if ($lastRow) {
+                $lastNum = (int)substr($lastRow['fis_no'], strlen($prefix));
+                $nextNum = $lastNum + 1;
+            } else {
+                $nextNum = 1;
+            }
+            $fisNo = $prefix . str_pad($nextNum, 6, '0', STR_PAD_LEFT);
+
+            // Insert
+            $stmt = $pdo->prepare("
+                INSERT INTO fis_master (
+                    firma_id, sube_id, fis_no, fis_tipi, fis_tarihi,
+                    kayit_id, kayit_tablo, resmi_gayri_resmi,
+                    fis_aciklama, kasa_hesap_kodu, kasa_durum,
+                    kayit_kullanici_id, kayit_ip, aktif
+                ) VALUES (
+                    :firma_id, :sube_id, :fis_no, 'Kasa', :fis_tarihi,
+                    0, 'diger', 0,
+                    :fis_aciklama, :kasa_hesap_kodu, 1,
+                    :kullanici_id, :ip, 0
+                )
+            ");
+
+            $stmt->execute([
+                ':firma_id' => $firmaId,
+                ':sube_id' => $subeId,
+                ':fis_no' => $fisNo,
+                ':fis_tarihi' => $fisTarihi,
+                ':fis_aciklama' => $fisAciklama,
+                ':kasa_hesap_kodu' => $kasaHesapKodu,
+                ':kullanici_id' => $userId,
+                ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            ]);
+
+            $newId = (int)$pdo->lastInsertId();
+
+            Response::success([
+                'id' => $newId,
+                'fisNo' => $fisNo,
+                'message' => 'Kasa fişi başarıyla oluşturuldu',
+            ]);
+        } catch (PDOException $e) {
+            error_log("createKasa Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("createKasa Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/kasa-bakiye
+     * Kasa bakiyesi - döviz bazında borç/alacak toplamları
+     */
+    public function getKasaBakiye() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $fisMasterId = isset($data['fisMasterId']) ? (int)$data['fisMasterId'] : 0;
+
+        if (empty($dataName) || empty($fisMasterId)) {
+            Response::error('dataName ve fisMasterId gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $firmaId = $currentUser['mobil_firmalar_id'];
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+
+            $dsn = "mysql:host={$veritabani['sunucu']};port=" . (int)($veritabani['port'] ?? 3306) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
+            $pdo = new PDO($dsn, $veritabani['kullanici'], $veritabani['sifre'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $sql = "
+                SELECT
+                    COALESCE(NULLIF(fd.dovizli_doviz, ''), 'TL') AS doviz,
+                    SUM(fd.dovizli_borc) AS toplam_borc,
+                    SUM(fd.dovizli_alacak) AS toplam_alacak,
+                    SUM(fd.dovizli_borc) - SUM(fd.dovizli_alacak) AS bakiye
+                FROM fis_detay fd
+                WHERE fd.fis_master_id = :fis_master_id
+                  AND fd.aktif != -1
+                  AND fd.hesap_kodu NOT LIKE '100%'
+                GROUP BY COALESCE(NULLIF(fd.dovizli_doviz, ''), 'TL')
+                ORDER BY doviz
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':fis_master_id' => $fisMasterId]);
+            $rows = $stmt->fetchAll();
+
+            $result = [];
+            foreach ($rows as $row) {
+                $result[] = [
+                    'doviz' => $row['doviz'],
+                    'borc' => (float)$row['toplam_borc'],
+                    'alacak' => (float)$row['toplam_alacak'],
+                    'bakiye' => (float)$row['bakiye'],
+                ];
+            }
+
+            // Hareketler - 100 ile başlayan kasa hesapları hariç
+            $sqlHareketler = "
+                SELECT
+                    fd.id,
+                    fd.hesap_kodu,
+                    fd.aciklama,
+                    fd.dovizli_borc,
+                    fd.dovizli_alacak,
+                    COALESCE(NULLIF(fd.dovizli_doviz, ''), 'TL') AS doviz,
+                    c.unvan AS cari_unvan
+                FROM fis_detay fd
+                LEFT JOIN cariler c ON c.hesap_kodu = fd.hesap_kodu AND c.firma_id = :firma_id AND c.aktif = 1
+                WHERE fd.fis_master_id = :fis_master_id2
+                  AND fd.aktif != -1
+                  AND fd.hesap_kodu NOT LIKE '100%'
+                ORDER BY fd.id
+            ";
+
+            $stmtH = $pdo->prepare($sqlHareketler);
+            $stmtH->execute([':fis_master_id2' => $fisMasterId, ':firma_id' => $firmaId]);
+            $hareketRows = $stmtH->fetchAll();
+
+            $girisler = [];
+            $cikislar = [];
+            foreach ($hareketRows as $row) {
+                $item = [
+                    'id' => (int)$row['id'],
+                    'hesapKodu' => $row['hesap_kodu'],
+                    'unvan' => $row['cari_unvan'] ?? '',
+                    'aciklama' => $row['aciklama'] ?? '',
+                    'doviz' => $row['doviz'],
+                ];
+                // Alacak = kasaya giriş, Borç = kasadan çıkış
+                if ((float)$row['dovizli_alacak'] > 0) {
+                    $item['tutar'] = (float)$row['dovizli_alacak'];
+                    $girisler[] = $item;
+                }
+                if ((float)$row['dovizli_borc'] > 0) {
+                    $item['tutar'] = (float)$row['dovizli_borc'];
+                    $cikislar[] = $item;
+                }
+            }
+
+            Response::success([
+                'data' => $result,
+                'girisler' => $girisler,
+                'cikislar' => $cikislar,
+            ]);
+        } catch (PDOException $e) {
+            error_log("getKasaBakiye Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("getKasaBakiye Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/kasa-hareket
+     * Kasa giriş/çıkış hareketi ekle
+     */
+    public function createKasaHareket() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $fisMasterId = isset($data['fisMasterId']) ? (int)$data['fisMasterId'] : 0;
+        $hesapKodu = $data['hesapKodu'] ?? '';
+        $aciklama = $data['aciklama'] ?? '';
+        $tip = $data['tip'] ?? 'giris';
+        $subeId = isset($data['subeId']) ? (int)$data['subeId'] : 0;
+
+        // Dövizli
+        $dovizliTutar = isset($data['tutar']) ? (float)$data['tutar'] : 0;
+        $dovizliDoviz = $data['doviz'] ?? 'TL';
+        $dovizliKur = isset($data['dovizKuru']) ? (float)$data['dovizKuru'] : 1;
+        // Muhasebe
+        $muhasebeTutar = isset($data['muhasebeTutar']) ? (float)$data['muhasebeTutar'] : $dovizliTutar;
+        $muhasebeDoviz = $data['muhasebeDoviz'] ?? 'TL';
+        $muhasebeKur = isset($data['muhasebeKuru']) ? (float)$data['muhasebeKuru'] : 1;
+        // Cari
+        $cariTutar = isset($data['cariTutar']) ? (float)$data['cariTutar'] : $dovizliTutar;
+        $cariDoviz = $data['cariDoviz'] ?? 'TL';
+        $cariKur = isset($data['cariKuru']) ? (float)$data['cariKuru'] : 1;
+
+        if (empty($dataName) || empty($fisMasterId) || empty($hesapKodu) || $dovizliTutar <= 0) {
+            Response::error('Zorunlu alanlar eksik', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $firmaId = $currentUser['mobil_firmalar_id'];
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+
+            $dsn = "mysql:host={$veritabani['sunucu']};port=" . (int)($veritabani['port'] ?? 3306) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
+            $pdo = new PDO($dsn, $veritabani['kullanici'], $veritabani['sifre'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Giriş: karşı hesap alacak, kasa borç
+            // Çıkış: karşı hesap borç, kasa alacak
+            $muhBorc = $tip === 'cikis' ? $muhasebeTutar : 0;
+            $muhAlacak = $tip === 'giris' ? $muhasebeTutar : 0;
+            $dovBorc = $tip === 'cikis' ? $dovizliTutar : 0;
+            $dovAlacak = $tip === 'giris' ? $dovizliTutar : 0;
+            $carBorc = $tip === 'cikis' ? $cariTutar : 0;
+            $carAlacak = $tip === 'giris' ? $cariTutar : 0;
+
+            // Random: iki ayağı eşleştirmek için
+            $random = bin2hex(random_bytes(18));
+
+            // Karşı hesap kaydı
+            $insertSql = "
+                INSERT INTO fis_detay (
+                    firma_id, sube_id, fis_master_id, hesap_kodu, aciklama,
+                    borc, alacak, doviz, doviz_kuru,
+                    dovizli_borc, dovizli_alacak, dovizli_doviz, dovizli_kur,
+                    cari_borc, cari_alacak, cari_doviz, cari_kur,
+                    random, kayit_kullanici_id, kayit_ip, aktif
+                ) VALUES (
+                    :firma_id, :sube_id, :fis_master_id, :hesap_kodu, :aciklama,
+                    :borc, :alacak, :doviz, :doviz_kuru,
+                    :dovizli_borc, :dovizli_alacak, :dovizli_doviz, :dovizli_kur,
+                    :cari_borc, :cari_alacak, :cari_doviz, :cari_kur,
+                    :random, :kullanici_id, :ip, 1
+                )
+            ";
+
+            $stmt = $pdo->prepare($insertSql);
+            $stmt->execute([
+                ':firma_id' => $firmaId,
+                ':sube_id' => $subeId,
+                ':fis_master_id' => $fisMasterId,
+                ':hesap_kodu' => $hesapKodu,
+                ':aciklama' => $aciklama,
+                ':borc' => $muhBorc,
+                ':alacak' => $muhAlacak,
+                ':doviz' => $muhasebeDoviz,
+                ':doviz_kuru' => $muhasebeKur,
+                ':dovizli_borc' => $dovBorc,
+                ':dovizli_alacak' => $dovAlacak,
+                ':dovizli_doviz' => $dovizliDoviz,
+                ':dovizli_kur' => $dovizliKur,
+                ':cari_borc' => $carBorc,
+                ':cari_alacak' => $carAlacak,
+                ':cari_doviz' => $cariDoviz,
+                ':cari_kur' => $cariKur,
+                ':random' => $random,
+                ':kullanici_id' => $userId,
+                ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+            ]);
+
+            $karsiHesapId = (int)$pdo->lastInsertId();
+
+            // Kasa hesap kaydı (ters yön)
+            $kasaRow = $pdo->prepare("SELECT kasa_hesap_kodu FROM fis_master WHERE id = ?");
+            $kasaRow->execute([$fisMasterId]);
+            $kasaHesapKodu = $kasaRow->fetchColumn();
+
+            if ($kasaHesapKodu) {
+                $kasaMuhBorc = $tip === 'giris' ? $muhasebeTutar : 0;
+                $kasaMuhAlacak = $tip === 'cikis' ? $muhasebeTutar : 0;
+                $kasaDovBorc = $tip === 'giris' ? $dovizliTutar : 0;
+                $kasaDovAlacak = $tip === 'cikis' ? $dovizliTutar : 0;
+                $kasaCarBorc = $tip === 'giris' ? $cariTutar : 0;
+                $kasaCarAlacak = $tip === 'cikis' ? $cariTutar : 0;
+
+                $stmt2 = $pdo->prepare($insertSql);
+                $stmt2->execute([
+                    ':firma_id' => $firmaId,
+                    ':sube_id' => $subeId,
+                    ':fis_master_id' => $fisMasterId,
+                    ':hesap_kodu' => $kasaHesapKodu,
+                    ':aciklama' => $aciklama,
+                    ':borc' => $kasaMuhBorc,
+                    ':alacak' => $kasaMuhAlacak,
+                    ':doviz' => $muhasebeDoviz,
+                    ':doviz_kuru' => $muhasebeKur,
+                    ':dovizli_borc' => $kasaDovBorc,
+                    ':dovizli_alacak' => $kasaDovAlacak,
+                    ':dovizli_doviz' => $dovizliDoviz,
+                    ':dovizli_kur' => $dovizliKur,
+                    ':cari_borc' => $kasaCarBorc,
+                    ':cari_alacak' => $kasaCarAlacak,
+                    ':cari_doviz' => $cariDoviz,
+                    ':cari_kur' => $cariKur,
+                    ':random' => $random,
+                    ':kullanici_id' => $userId,
+                    ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+                ]);
+            }
+
+            Response::success([
+                'message' => 'Kasa hareketi başarıyla kaydedildi',
+                'fisDetayId' => $karsiHesapId,
+            ]);
+        } catch (PDOException $e) {
+            error_log("createKasaHareket Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("createKasaHareket Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/kasa-cari-list
+     * Kasalar (hesap_kodu LIKE 100%) cari listesi
+     */
+    public function getKasaCariList() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+
+            $dsn = "mysql:host={$veritabani['sunucu']};port=" . (int)($veritabani['port'] ?? 3306) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
+            $pdo = new PDO($dsn, $veritabani['kullanici'], $veritabani['sifre'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            $sql = "
+                SELECT c.id, c.hesap_kodu, c.unvan, s.sube_adi
+                FROM cariler c
+                LEFT JOIN subeler s ON c.sube_id = s.id
+                WHERE c.aktif = 1
+                  AND c.firma_id = :firmaId
+                  AND c.hesap_kodu LIKE '100%'
+                ORDER BY c.unvan
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([':firmaId' => $firmaId]);
+            $rows = $stmt->fetchAll();
+
+            $result = [];
+            foreach ($rows as $row) {
+                $result[] = [
+                    'id' => (int)$row['id'],
+                    'hesapKodu' => $row['hesap_kodu'],
+                    'unvan' => $row['unvan'],
+                    'subeAdi' => $row['sube_adi'] ?? '',
+                ];
+            }
+
+            Response::success([
+                'data' => $result,
+                'count' => count($result),
+            ]);
+        } catch (PDOException $e) {
+            error_log("getKasaCariList Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("getKasaCariList Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/kasa-upload-fis
+     * Kasa fişi görseli yükle
+     */
+    public function uploadFisDosya() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $fisMasterId = $_POST['fisMasterId'] ?? '';
+        $dataName = $_POST['dataName'] ?? '';
+        $subeId = isset($_POST['subeId']) ? (int)$_POST['subeId'] : 0;
+
+        if (empty($fisMasterId) || empty($dataName)) {
+            Response::error('fisMasterId ve dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            Response::error('Dosya gereklidir', 'FILE_REQUIRED', 400);
+        }
+
+        $file = $_FILES['file'];
+
+        if ($file['size'] > 10 * 1024 * 1024) {
+            Response::error('Dosya boyutu 10MB\'dan büyük olamaz', 'FILE_TOO_LARGE', 400);
+        }
+
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mimeType, $allowedTypes)) {
+            Response::error('Geçersiz dosya tipi. JPG, PNG, WebP ve PDF kabul edilir.', 'INVALID_FILE_TYPE', 400);
+        }
+
+        try {
+            $db = Database::getInstance();
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+
+            $dsn = "mysql:host={$veritabani['sunucu']};port=" . (int)($veritabani['port'] ?? 3306) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
+            $pdo = new PDO($dsn, $veritabani['kullanici'], $veritabani['sifre'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Domain bilgisi
+            $url = $firmaAyarlar['url'] ?? [];
+            $domain = $url['domain'] ?? '';
+            if (empty($domain)) {
+                Response::error('Firma domain bilgisi bulunamadı', 'DOMAIN_NOT_FOUND', 400);
+            }
+
+            // Dosya uzantısı
+            $extMap = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
+            $ext = $extMap[$mimeType] ?? 'jpg';
+
+            $fileName = bin2hex(random_bytes(32)) . '.' . $ext;
+
+            $subdomain = explode('.', $domain)[0];
+            $uploadDir = '/home/golakscom/public_html/' . $subdomain . '/upload/' . $firmaId . '/fis_dosya/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $filePath = $uploadDir . $fileName;
+            $publicUrl = 'https://' . $domain . '/upload/' . $firmaId . '/fis_dosya/' . $fileName;
+
+            if (!move_uploaded_file($file['tmp_name'], $filePath)) {
+                Response::error('Dosya yüklenemedi', 'UPLOAD_FAILED', 500);
+            }
+
+            // Resim optimizasyonu (PDF hariç)
+            if ($mimeType !== 'application/pdf') {
+                $this->optimizeFisImage($filePath, $mimeType);
+                $file['size'] = filesize($filePath);
+            }
+
+            // dosyalar tablosuna kaydet
+            $dosyaBoyutuMB = round($file['size'] / (1024 * 1024), 2);
+            $stmt = $pdo->prepare("
+                INSERT INTO dosyalar (firma_id, sube_id, modul, modul_kayit_id, tanim_id, dosya_adi, dosya_yolu, dosya_tipi, dosya_boyutu, aciklama, kayit_tarihi, kullanici_kayit_id, kayit_ip, aktif)
+                VALUES (?, ?, 'fis_detay', ?, 0, ?, ?, ?, ?, '', NOW(), ?, ?, 1)
+            ");
+            $stmt->execute([
+                $firmaId,
+                $subeId ?: 1,
+                (int)$fisMasterId,
+                $file['name'],
+                $publicUrl,
+                $ext,
+                $dosyaBoyutuMB,
+                $userId,
+                $_SERVER['REMOTE_ADDR'] ?? '',
+            ]);
+
+            Response::success([
+                'id' => (int)$pdo->lastInsertId(),
+                'url' => $publicUrl,
+                'dosyaAdi' => $file['name'],
+            ]);
+        } catch (PDOException $e) {
+            error_log("uploadFisDosya Error: " . $e->getMessage());
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            error_log("uploadFisDosya Error: " . $e->getMessage());
+            Response::error($e->getMessage(), 'SERVER_ERROR', 500);
+        }
+    }
+
+    private function optimizeFisImage(string $filePath, string $mimeType): void {
+        if (!extension_loaded('gd')) return;
+
+        $maxWidth = 1200;
+        $maxHeight = 1200;
+        $jpegQuality = 70;
+
+        $source = null;
+        switch ($mimeType) {
+            case 'image/jpeg': $source = @imagecreatefromjpeg($filePath); break;
+            case 'image/png': $source = @imagecreatefrompng($filePath); break;
+            case 'image/webp': $source = @imagecreatefromwebp($filePath); break;
+        }
+
+        if (!$source) return;
+
+        $origWidth = imagesx($source);
+        $origHeight = imagesy($source);
+        $ratio = min($maxWidth / $origWidth, $maxHeight / $origHeight, 1.0);
+        $newWidth = (int)round($origWidth * $ratio);
+        $newHeight = (int)round($origHeight * $ratio);
+
+        $resized = imagecreatetruecolor($newWidth, $newHeight);
+        if ($mimeType === 'image/png' || $mimeType === 'image/webp') {
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+        }
+        imagecopyresampled($resized, $source, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+        imagedestroy($source);
+        imagejpeg($resized, $filePath, $jpegQuality);
+        imagedestroy($resized);
+    }
+
     private function getFirmaPdo(int $userId, string $dataName): PDO {
         $db = Database::getInstance();
 

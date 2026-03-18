@@ -691,8 +691,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
           leftButton={<BackButton onPress={handleBack} />}
           rightButton={
             <View style={styles.headerRight}>
-              <SearchButton onPress={handleToggleSearch} />
               <AddButton onPress={handleAddUser} />
+              <SearchButton onPress={handleToggleSearch} />
             </View>
           }
         />

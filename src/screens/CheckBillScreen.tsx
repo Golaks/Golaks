@@ -16,6 +16,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import BackButton from '../components/BackButton';
+import SearchButton from '../components/SearchButton';
 import TabBar, { TabName } from '../components/TabBar';
 import checkBillService, { CheckBillItem, CheckBillMovement } from '../services/checkbill.service';
 import { authService } from '../services/auth.service';
@@ -366,12 +367,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
 
   // Filter button for header
   const FilterButton = (
-    <Pressable
-      style={styles.filterButton}
-      onPress={() => setFilterVisible(!filterVisible)}
-    >
-      <Icon name={filterVisible ? 'close' : 'filter'} size={20} color={colors.text} />
-    </Pressable>
+    <SearchButton onPress={() => setFilterVisible(!filterVisible)} />
   );
 
   return (
@@ -1151,11 +1147,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 1000,
     overflow: 'hidden',
   },

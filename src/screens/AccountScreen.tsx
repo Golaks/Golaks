@@ -24,6 +24,8 @@ interface AccountScreenProps {
   onPersonnelPerformance?: () => void;
   onCompanyModelPerformance?: () => void;
   onBankaKomisyon?: () => void;
+  onCariHesaplar?: () => void;
+  onKasaIslemleri?: () => void;
   initialTab?: AccountTab;
   onActiveTabChange?: (tab: AccountTab) => void;
 }
@@ -35,7 +37,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, initialTab, onActiveTabChange }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, onCariHesaplar, onKasaIslemleri, initialTab, onActiveTabChange }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -205,6 +207,20 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
 
           {accountTab === 'transactions' && (
             <>
+              <MenuCard
+                name="Cari Hesaplar"
+                icon="people-outline"
+                color="#8B5CF6"
+                description="Cari hesap işlemleri"
+                onPress={() => onCariHesaplar?.()}
+              />
+              <MenuCard
+                name="Kasa İşlemleri"
+                icon="cash-outline"
+                color="#10B981"
+                description="Kasa giriş/çıkış işlemleri"
+                onPress={() => onKasaIslemleri?.()}
+              />
               <MenuCard
                 name="Banka Komisyon"
                 icon="card-outline"

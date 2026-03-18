@@ -15,6 +15,7 @@ import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BackButton from '../components/BackButton';
+import SearchButton from '../components/SearchButton';
 import TabBar, { TabName } from '../components/TabBar';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import ordersService, { OrderItem, OrderSummaryItem, OrderStats, OrderDetailItem } from '../services/orders.service';
@@ -32,6 +33,7 @@ export default function OrdersScreen({ onGoBack, onTabChange, onLogout }: Orders
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
+  const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OrderItem[]>([]);
@@ -207,6 +209,12 @@ export default function OrdersScreen({ onGoBack, onTabChange, onLogout }: Orders
         <Header
           title="Konfeksiyon Siparişler"
           leftButton={<BackButton onPress={onGoBack} />}
+          rightButton={
+            <SearchButton onPress={() => {
+              setFilterVisible(v => !v);
+              if (filterVisible) setSearchText('');
+            }} />
+          }
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -222,22 +230,24 @@ export default function OrdersScreen({ onGoBack, onTabChange, onLogout }: Orders
         </View>
 
         {/* Date Filter */}
-        <View style={styles.filterCard}>
-          <DateFilter
-            selectedPreset={selectedPreset}
-            onPresetChange={handlePresetChange}
-            startDate={formatDateStr(startDate)}
-            endDate={formatDateStr(endDate)}
-            startDateObj={startDate}
-            endDateObj={endDate}
-            onStartDateChange={handleStartDateChange}
-            onEndDateChange={handleEndDateChange}
-            showSearch={true}
-            searchValue={searchText}
-            onSearchChange={setSearchText}
-            searchPlaceholder="Müşteri, sipariş kodu ara..."
-          />
-        </View>
+        {filterVisible && (
+          <View style={styles.filterCard}>
+            <DateFilter
+              selectedPreset={selectedPreset}
+              onPresetChange={handlePresetChange}
+              startDate={formatDateStr(startDate)}
+              endDate={formatDateStr(endDate)}
+              startDateObj={startDate}
+              endDateObj={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              showSearch={true}
+              searchValue={searchText}
+              onSearchChange={setSearchText}
+              searchPlaceholder="Müşteri, sipariş kodu ara..."
+            />
+          </View>
+        )}
 
         {/* Content */}
         {isLoading ? (

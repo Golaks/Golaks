@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
+import SearchButton from '../components/SearchButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
@@ -253,19 +254,10 @@ export default function KonfeksiyonUretimScreen({
           title="Üretim İşlemleri"
           leftButton={<BackButton onPress={onGoBack} />}
           rightButton={
-            <Pressable
-              style={styles.searchToggle}
-              onPress={() => {
-                setSearchVisible(v => !v);
-                if (searchVisible) handleSearch('');
-              }}
-            >
-              <Icon
-                name={searchVisible ? 'close-outline' : 'search-outline'}
-                size={22}
-                color={colors.text}
-              />
-            </Pressable>
+            <SearchButton onPress={() => {
+              setSearchVisible(v => !v);
+              if (searchVisible) handleSearch('');
+            }} />
           }
           showMenu
           onLogout={handleLogout}
