@@ -25,6 +25,7 @@ interface HeaderProps {
   onRightIconPress?: () => void;
   showMenu?: boolean;
   onLogout?: () => void;
+  onCheckUpdate?: () => void;
   showLogo?: boolean;
   leftButton?: React.ReactNode;
   rightButton?: React.ReactNode;
@@ -39,6 +40,7 @@ export default function Header({
   onRightIconPress,
   showMenu = false,
   onLogout,
+  onCheckUpdate,
   showLogo = true,
   leftButton,
   rightButton,
@@ -175,6 +177,37 @@ export default function Header({
 
               {/* Divider */}
               <View style={styles.menuDivider} />
+
+              {/* Update Check Option */}
+              {onCheckUpdate && (
+                <>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.menuOption,
+                      pressed && styles.menuOptionPressed,
+                    ]}
+                    onPress={() => {
+                      setShowMenuModal(false);
+                      setTimeout(() => onCheckUpdate(), 300);
+                    }}
+                  >
+                    <View style={[styles.menuIconContainer, { backgroundColor: '#3B82F620' }]}>
+                      <Icon name="arrow-up-circle-outline" size={20} color="#3B82F6" />
+                    </View>
+                    <View style={styles.menuTextContainer}>
+                      <Text style={styles.menuOptionText}>
+                        Güncelleme Kontrol
+                      </Text>
+                      <Text style={styles.menuOptionSubtext}>
+                        Yeni sürüm olup olmadığını kontrol et
+                      </Text>
+                    </View>
+                    <Icon name="chevron-forward" size={18} color={colors.textTertiary} />
+                  </Pressable>
+
+                  <View style={styles.menuDivider} />
+                </>
+              )}
 
               {/* Logout Option */}
               <Pressable

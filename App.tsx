@@ -28,6 +28,7 @@ function AppContent(): React.JSX.Element {
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [showSplash, setShowSplash] = useState(true);
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [upToDateVisible, setUpToDateVisible] = useState(false);
   const [updateStoreUrl, setUpdateStoreUrl] = useState('');
   const [updateMinVersion, setUpdateMinVersion] = useState('');
   const navigatorRef = useRef<MainNavigatorRef>(null);
@@ -65,26 +66,30 @@ function AppContent(): React.JSX.Element {
     return unsubscribe;
   }, [isAuthenticated]);
 
-  // Güncelleme kontrolü
+  const checkUpdate = async (manual = false) => {
+    try {
+      const version = DeviceInfo.getVersion();
+      const platform = Platform.OS;
+      const res = await fetch(
+        `${API_ENDPOINTS.VERSION_CHECK}?platform=${platform}&version=${version}`,
+      );
+      const data = await res.json();
+      if (data.success && data.data?.needsUpdate) {
+        setUpdateMinVersion(data.data.minVersion);
+        setUpdateStoreUrl(data.data.storeUrl);
+        setUpdateModalVisible(true);
+      } else if (manual) {
+        setUpdateMinVersion(version);
+        setUpdateModalVisible(false);
+        // Güncel olduğunu göster - kısa süreliğine modal
+        setUpToDateVisible(true);
+      }
+    } catch {}
+  };
+
+  // Otomatik güncelleme kontrolü
   useEffect(() => {
     if (currentScreen !== 'home') return;
-
-    const checkUpdate = async () => {
-      try {
-        const version = DeviceInfo.getVersion();
-        const platform = Platform.OS;
-        const res = await fetch(
-          `${API_ENDPOINTS.VERSION_CHECK}?platform=${platform}&version=${version}`,
-        );
-        const data = await res.json();
-        if (data.success && data.data?.needsUpdate) {
-          setUpdateMinVersion(data.data.minVersion);
-          setUpdateStoreUrl(data.data.storeUrl);
-          setUpdateModalVisible(true);
-        }
-      } catch {}
-    };
-
     checkUpdate();
   }, [currentScreen]);
 
@@ -134,7 +139,7 @@ function AppContent(): React.JSX.Element {
       case 'forgot-password':
         return <ForgotPasswordScreen onBackToLogin={handleBackToLogin} />;
       case 'home':
-        return <MainNavigator ref={navigatorRef} onLogout={handleLogout} />;
+        return <MainNavigator ref={navigatorRef} onLogout={handleLogout} onCheckUpdate={() => checkUpdate(true)} />;
       default:
         return null;
     }
@@ -176,6 +181,28 @@ function AppContent(): React.JSX.Element {
               onPress={() => setUpdateModalVisible(false)}
             >
               <Text style={[updateStyles.laterButtonText, { color: colors.textSecondary }]}>Daha Sonra</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Güncel Modalı */}
+      <Modal visible={upToDateVisible} transparent animationType="fade">
+        <View style={updateStyles.overlay}>
+          <View style={[updateStyles.content, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={updateStyles.iconWrapper}>
+              <Icon name="checkmark-circle" size={48} color="#22C55E" />
+            </View>
+            <Text style={[updateStyles.title, { color: colors.text }]}>Uygulamanız Güncel</Text>
+            <Text style={[updateStyles.message, { color: colors.textSecondary }]}>
+              En son sürümü kullanıyorsunuz (v{DeviceInfo.getVersion()}).
+            </Text>
+            <Pressable
+              style={[updateStyles.updateButton, { backgroundColor: '#22C55E' }]}
+              onPress={() => setUpToDateVisible(false)}
+            >
+              <Icon name="checkmark" size={20} color="#FFFFFF" />
+              <Text style={updateStyles.updateButtonText}>Tamam</Text>
             </Pressable>
           </View>
         </View>

@@ -37,13 +37,14 @@ type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cariHes
 
 interface MainNavigatorProps {
   onLogout?: () => void;
+  onCheckUpdate?: () => void;
 }
 
 export interface MainNavigatorRef {
   navigateTo: (screen: AppScreen) => void;
 }
 
-function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
+function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
   const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
   const [modelOpsFrom, setModelOpsFrom] = useState<'shop' | 'confection'>('shop');
@@ -76,7 +77,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
   const renderScreen = () => {
     switch (activeScreen) {
       case 'dashboard':
-        return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
+        return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} onCheckUpdate={onCheckUpdate} />;
       case 'aiChat':
         return <AIChatScreen onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'qrScan':
@@ -242,7 +243,7 @@ function MainNavigatorInner({ onLogout }: MainNavigatorProps, ref: React.Ref<Mai
       case 'confectionSiparisIslemleri':
         return <SiparisIslemleriScreen onGoBack={() => { setConfectionTab('transactions'); setActiveScreen('confection'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       default:
-        return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} />;
+        return <ApplicationsScreen onTabChange={setActiveScreen} onLogout={onLogout} onAppPress={handleAppNavigation} onCheckUpdate={onCheckUpdate} />;
     }
   };
 

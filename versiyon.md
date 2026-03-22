@@ -1,7 +1,22 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.3.7 (Build 12) / iOS v1.1.4 (Build 17)
+[GELİŞTİRME] Android v3.3.8 (Build 13) / iOS v1.1.5 (Build 18)
+==================================================================
+
+Yeni Özellikler
+- Türkçe güncelleme uyarı modalı eklendi (iOS ve Android)
+- Backend versiyon kontrol endpoint'i eklendi (GET /health/version-check)
+
+İyileştirmeler
+- sp-react-native-in-app-updates kaldırıldı, kendi Türkçe güncelleme sistemi eklendi
+- "Güncelle" butonu App Store / Play Store'a yönlendiriyor
+
+Hata Düzeltmeleri
+- iOS'ta güncelleme uyarısı İngilizce geliyordu, Türkçe özel modal ile değiştirildi
+
+
+[YAYINLANDI] Android v3.3.7 (Build 12) / iOS v1.1.4 (Build 17)
 ==================================================================
 
 Yeni Özellikler
@@ -10,13 +25,17 @@ Yeni Özellikler
 - Ürün görseli göster/gizle ayarı eklendi
 - Filtreleme bölümü göster/gizle ayarı eklendi
 - Ekran ayarları kullanıcı bazlı veritabanına kaydediliyor (kullanici_yetkiler.ekran_ayarlari)
+- Türkçe güncelleme uyarı modalı eklendi (iOS ve Android)
+- Backend versiyon kontrol endpoint'i eklendi (GET /health/version-check)
 
 İyileştirmeler
 - AuthContext'e updateUserYetkiler metodu eklendi (yetkiler hem lokale hem backend'e yazılıyor)
 - UserController updateProfile endpoint'i yetkiler güncellemesini destekliyor
+- sp-react-native-in-app-updates kaldırıldı, kendi Türkçe güncelleme sistemi eklendi
+- "Güncelle" butonu App Store / Play Store'a yönlendiriyor
 
 Hata Düzeltmeleri
--
+- iOS'ta güncelleme uyarısı İngilizce geliyordu, Türkçe özel modal ile değiştirildi
 
 
 [YAYINLANDI] Android v3.3.5 (Build 10) / iOS v1.1.3 (Build 15)

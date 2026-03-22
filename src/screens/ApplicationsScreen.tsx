@@ -56,9 +56,10 @@ interface ApplicationsScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
   onAppPress?: (appId: string) => void;
+  onCheckUpdate?: () => void;
 }
 
-export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }: ApplicationsScreenProps) {
+export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress, onCheckUpdate }: ApplicationsScreenProps) {
   const { colors, isDark, theme, setTheme } = useTheme();
   const { logout, user, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -136,6 +137,7 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
           title="Uygulamalar"
           showMenu={true}
           onLogout={handleLogout}
+          onCheckUpdate={onCheckUpdate}
         />
 
         {/* Content Area */}

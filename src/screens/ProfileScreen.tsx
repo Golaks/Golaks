@@ -744,14 +744,6 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               onPress={onFiyatHesaplama || (() => {})}
               disabled={user?.role === 'user' || user?.kullanici_rol === 0}
             />
-            <MenuCard
-              name="Genel Ayarlar"
-              icon="options-outline"
-              color={colors.primary}
-              description="Genel uygulama ayarları"
-              onPress={() => {}}
-              disabled={user?.role === 'user' || user?.kullanici_rol === 0}
-            />
           </View>
 
           {/* About Section */}
