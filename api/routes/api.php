@@ -163,6 +163,7 @@ class Router {
 
         // Health Check
         $this->get('/health', 'HealthController', 'check');
+        $this->get('/health/version-check', 'HealthController', 'versionCheck');
     }
 
     /**

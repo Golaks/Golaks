@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { AppState, AppStateStatus } from 'react-native';
 import { authService } from '../services/auth.service';
 import { UserInfo } from '../types/auth.types';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 import notificationService from '../services/notification.service';
 import pushNotificationService from '../services/pushNotification.service';
 
@@ -19,6 +20,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshNotificationCount: () => Promise<void>;
+  updateUserYetkiler: (key: string, value: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -145,6 +147,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateUserYetkiler = async (key: string, value: any) => {
+    if (!user) return;
+    const updatedYetkiler = {
+      ...user.yetkiler,
+      [key]: value,
+    };
+    const updatedUser = {
+      ...user,
+      yetkiler: updatedYetkiler,
+    };
+    setUser(updatedUser);
+    await authService.updateUser(updatedUser);
+
+    // Backend'e kaydet
+    try {
+      const token = await authService.getToken();
+      if (token) {
+        await fetch(API_ENDPOINTS.UPDATE_USER_PROFILE, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ yetkiler: updatedYetkiler }),
+        });
+      }
+    } catch {}
+  };
+
   const refreshNotificationCount = async () => {
     try {
       const token = await authService.getToken();
@@ -176,6 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         refreshUser,
         refreshNotificationCount,
+        updateUserYetkiler,
       }}
     >
       {children}

@@ -6,12 +6,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StatusBar, View, ActivityIndicator, Platform } from 'react-native';
-import SpInAppUpdates, { IAUUpdateKind } from 'sp-react-native-in-app-updates';
+import { StatusBar, View, ActivityIndicator, Platform, Modal, Text, Pressable, StyleSheet, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import DeviceInfo from 'react-native-device-info';
+import Icon from 'react-native-vector-icons/Ionicons';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AlertProvider } from './src/contexts/AlertContext';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { API_ENDPOINTS } from './src/constants/ApiConfig';
 import SplashScreen from './src/components/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -25,6 +27,9 @@ function AppContent(): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('splash');
   const [showSplash, setShowSplash] = useState(true);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateStoreUrl, setUpdateStoreUrl] = useState('');
+  const [updateMinVersion, setUpdateMinVersion] = useState('');
   const navigatorRef = useRef<MainNavigatorRef>(null);
 
   useEffect(() => {
@@ -60,24 +65,24 @@ function AppContent(): React.JSX.Element {
     return unsubscribe;
   }, [isAuthenticated]);
 
-  // In-app update check
+  // Güncelleme kontrolü
   useEffect(() => {
     if (currentScreen !== 'home') return;
 
     const checkUpdate = async () => {
       try {
-        const inAppUpdates = new SpInAppUpdates(false);
-        const result = await inAppUpdates.checkNeedsUpdate();
-        if (result.shouldUpdate) {
-          await inAppUpdates.startUpdate({
-            updateType: Platform.OS === 'android'
-              ? IAUUpdateKind.FLEXIBLE
-              : IAUUpdateKind.IMMEDIATE,
-          });
+        const version = DeviceInfo.getVersion();
+        const platform = Platform.OS;
+        const res = await fetch(
+          `${API_ENDPOINTS.VERSION_CHECK}?platform=${platform}&version=${version}`,
+        );
+        const data = await res.json();
+        if (data.success && data.data?.needsUpdate) {
+          setUpdateMinVersion(data.data.minVersion);
+          setUpdateStoreUrl(data.data.storeUrl);
+          setUpdateModalVisible(true);
         }
-      } catch (_e) {
-        // Silently fail - update check is not critical
-      }
+      } catch {}
     };
 
     checkUpdate();
@@ -143,9 +148,97 @@ function AppContent(): React.JSX.Element {
         translucent
       />
       {renderScreen()}
+
+      {/* Güncelleme Modalı */}
+      <Modal visible={updateModalVisible} transparent animationType="fade">
+        <View style={updateStyles.overlay}>
+          <View style={[updateStyles.content, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={updateStyles.iconWrapper}>
+              <Icon name="arrow-up-circle" size={48} color="#3B82F6" />
+            </View>
+            <Text style={[updateStyles.title, { color: colors.text }]}>Güncelleme Mevcut</Text>
+            <Text style={[updateStyles.message, { color: colors.textSecondary }]}>
+              Yeni bir sürüm yayınlandı (v{updateMinVersion}).{'\n'}
+              Daha iyi bir deneyim için lütfen uygulamayı güncelleyin.
+            </Text>
+            <Pressable
+              style={updateStyles.updateButton}
+              onPress={() => {
+                setUpdateModalVisible(false);
+                Linking.openURL(updateStoreUrl);
+              }}
+            >
+              <Icon name="download-outline" size={20} color="#FFFFFF" />
+              <Text style={updateStyles.updateButtonText}>Güncelle</Text>
+            </Pressable>
+            <Pressable
+              style={updateStyles.laterButton}
+              onPress={() => setUpdateModalVisible(false)}
+            >
+              <Text style={[updateStyles.laterButtonText, { color: colors.textSecondary }]}>Daha Sonra</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaProvider>
   );
 }
+
+const updateStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  iconWrapper: {
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  message: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  updateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    width: '100%',
+    gap: 8,
+  },
+  updateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  laterButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+  },
+  laterButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+});
 
 export default function App(): React.JSX.Element {
   return (

@@ -1,14 +1,19 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.3.6 (Build 11) / iOS v1.1.4 (Build 16)
+[GELİŞTİRME] Android v3.3.7 (Build 12) / iOS v1.1.4 (Build 17)
 ==================================================================
 
 Yeni Özellikler
--
+- Barkod sonuç ekranına ekran ayarları modalı eklendi (Header'da ayar ikonu)
+- Stok dağılım tablo kolonları (Şube, Depo, Tip, Renk, Beden, Adet) kullanıcı tarafından göster/gizle yapılabilir
+- Ürün görseli göster/gizle ayarı eklendi
+- Filtreleme bölümü göster/gizle ayarı eklendi
+- Ekran ayarları kullanıcı bazlı veritabanına kaydediliyor (kullanici_yetkiler.ekran_ayarlari)
 
 İyileştirmeler
--
+- AuthContext'e updateUserYetkiler metodu eklendi (yetkiler hem lokale hem backend'e yazılıyor)
+- UserController updateProfile endpoint'i yetkiler güncellemesini destekliyor
 
 Hata Düzeltmeleri
 -

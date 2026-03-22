@@ -127,6 +127,9 @@ export const API_ENDPOINTS = {
   TANIMLAR_UPDATE: `${BASE_API_URL}/tanimlar/update`,
   TANIMLAR_DELETE: `${BASE_API_URL}/tanimlar/delete`,
 
+  // Version Check
+  VERSION_CHECK: `${BASE_API_URL}/health/version-check`,
+
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak
   DASHBOARD: `${BASE_API_URL}/data/dashboard`,

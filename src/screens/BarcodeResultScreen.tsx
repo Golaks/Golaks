@@ -13,6 +13,7 @@ import {
   Modal,
   Animated,
   FlatList,
+  Switch,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -44,6 +45,28 @@ interface MobilAyarlar {
   etiketFiyatDegeri: number;
 }
 
+interface BarkodEkranAyarlari {
+  resim: boolean;
+  filtreleme: boolean;
+  sube: boolean;
+  depo: boolean;
+  tip: boolean;
+  renk: boolean;
+  beden: boolean;
+  adet: boolean;
+}
+
+const defaultEkranAyarlari: BarkodEkranAyarlari = {
+  resim: true,
+  filtreleme: true,
+  sube: true,
+  depo: true,
+  tip: true,
+  renk: true,
+  beden: true,
+  adet: true,
+};
+
 function hesaplaFiyat(baseStr: string | undefined, tip: number, deger: number): string {
   const base = parseFloat(baseStr || '0');
   if (isNaN(base) || base === 0 || deger === 0) return baseStr || '0';
@@ -67,7 +90,7 @@ export default function BarcodeResultScreen({
   onLogout,
 }: BarcodeResultScreenProps) {
   const { colors, isDark } = useTheme();
-  const { user, logout, notificationCount } = useAuth();
+  const { user, logout, notificationCount, updateUserYetkiler } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -101,6 +124,8 @@ export default function BarcodeResultScreen({
   const [isProductionSearchVisible, setIsProductionSearchVisible] = useState(false);
 
   const [mobilAyarlar, setMobilAyarlar] = useState<MobilAyarlar | null>(null);
+  const [ekranAyarlari, setEkranAyarlari] = useState<BarkodEkranAyarlari>(defaultEkranAyarlari);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
 
   const barcodePermissions = user?.barcodePermissions;
 
@@ -195,6 +220,20 @@ export default function BarcodeResultScreen({
         onLogout();
       }
     } catch {}
+  };
+
+  // Ekran ayarlarını yetkilerden yükle
+  useEffect(() => {
+    const stored = user?.yetkiler?.ekran_ayarlari;
+    if (stored) {
+      setEkranAyarlari({ ...defaultEkranAyarlari, ...stored });
+    }
+  }, [user?.yetkiler?.ekran_ayarlari]);
+
+  const toggleEkranAyar = (key: keyof BarkodEkranAyarlari) => {
+    const updated = { ...ekranAyarlari, [key]: !ekranAyarlari[key] };
+    setEkranAyarlari(updated);
+    updateUserYetkiler('ekran_ayarlari', updated);
   };
 
   // Fetch product data
@@ -577,11 +616,21 @@ export default function BarcodeResultScreen({
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
-        <Header title="Ürün Bilgisi" showMenu={true} onLogout={handleLogout} leftButton={<BackButton onPress={onGoBack} />} />
+        <Header
+          title="Ürün Bilgisi"
+          showMenu={true}
+          onLogout={handleLogout}
+          leftButton={<BackButton onPress={onGoBack} />}
+          rightButton={
+            <Pressable onPress={() => setSettingsModalVisible(true)} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="settings-outline" size={22} color={colors.text} />
+            </Pressable>
+          }
+        />
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Image Gallery */}
-          {productImages.length > 0 ? (
+          {ekranAyarlari.resim && productImages.length > 0 ? (
             <View style={styles.galleryWrapper}>
               <View style={styles.galleryContainer}>
                 {/* Left Arrow */}
@@ -666,42 +715,44 @@ export default function BarcodeResultScreen({
 
               {productImages.length > 1 && renderThumbnails()}
             </View>
-          ) : (
+          ) : ekranAyarlari.resim ? (
             <View style={styles.noImageContainer}>
               <View style={styles.noImageIconWrapper}>
                 <Icon name="image-outline" size={48} color={colors.textTertiary} />
               </View>
               <Text style={styles.noImageText}>Ürün görseli bulunamadı</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Full Screen Modal */}
           {renderFullScreenModal()}
 
           {/* Filter Section */}
-          <Pressable style={styles.filterSection} onPress={() => setIsFilterExpanded(!isFilterExpanded)}>
-            <View style={styles.filterLeft}>
-              <Icon name="options-outline" size={20} color={colors.text} />
-              <Text style={styles.filterText}>Filtrele</Text>
-            </View>
-            <Icon name={isFilterExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
-          </Pressable>
+          {ekranAyarlari.filtreleme && <>
+            <Pressable style={styles.filterSection} onPress={() => setIsFilterExpanded(!isFilterExpanded)}>
+              <View style={styles.filterLeft}>
+                <Icon name="options-outline" size={20} color={colors.text} />
+                <Text style={styles.filterText}>Filtrele</Text>
+              </View>
+              <Icon name={isFilterExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
+            </Pressable>
 
-          {isFilterExpanded && (
-            <View style={styles.filterContent}>
-              {renderFilterChips('Şube', filterOptions.branches, selectedBranches, setSelectedBranches)}
-              {renderFilterChips('Depo', filterOptions.warehouses, selectedWarehouses, setSelectedWarehouses)}
-              {renderFilterChips('Tip', filterOptions.types, selectedTypes, setSelectedTypes)}
-              {renderFilterChips('Renk', filterOptions.colors, selectedColors, setSelectedColors)}
-              {renderFilterChips('Beden', filterOptions.sizes, selectedSizes, setSelectedSizes)}
-              {hasActiveFilters && (
-                <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
-                  <Icon name="close-circle-outline" size={18} color={colors.primary} />
-                  <Text style={styles.clearFiltersText}>Filtreleri Temizle</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
+            {isFilterExpanded && (
+              <View style={styles.filterContent}>
+                {renderFilterChips('Şube', filterOptions.branches, selectedBranches, setSelectedBranches)}
+                {renderFilterChips('Depo', filterOptions.warehouses, selectedWarehouses, setSelectedWarehouses)}
+                {renderFilterChips('Tip', filterOptions.types, selectedTypes, setSelectedTypes)}
+                {renderFilterChips('Renk', filterOptions.colors, selectedColors, setSelectedColors)}
+                {renderFilterChips('Beden', filterOptions.sizes, selectedSizes, setSelectedSizes)}
+                {hasActiveFilters && (
+                  <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
+                    <Icon name="close-circle-outline" size={18} color={colors.primary} />
+                    <Text style={styles.clearFiltersText}>Filtreleri Temizle</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </>}
 
           {/* Product Info Section */}
           {productInfo && (
@@ -838,12 +889,12 @@ export default function BarcodeResultScreen({
             )}
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
             {filteredMagaza.length > 0 ? (
               filteredMagaza.map((item: any, index: number) => (
@@ -855,16 +906,16 @@ export default function BarcodeResultScreen({
                   <View style={styles.tableCellDetail}>
                     <Icon name="chevron-forward-circle-outline" size={18} color={colors.primary} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
                     <View style={styles.quantityBadge}>
                       <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
@@ -895,12 +946,12 @@ export default function BarcodeResultScreen({
             </View>
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
             {filteredKonfeksiyon.length > 0 ? (
               filteredKonfeksiyon.map((item: any, index: number) => (
@@ -912,16 +963,16 @@ export default function BarcodeResultScreen({
                   <View style={styles.tableCellDetail}>
                     <Icon name="cube-outline" size={18} color={colors.green} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
                     <View style={styles.quantityBadge}>
                       <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
@@ -952,12 +1003,12 @@ export default function BarcodeResultScreen({
             </View>
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
             {filteredTabakhane.length > 0 ? (
               filteredTabakhane.map((item: any, index: number) => (
@@ -969,16 +1020,16 @@ export default function BarcodeResultScreen({
                   <View style={styles.tableCellDetail}>
                     <Icon name="cube-outline" size={18} color={colors.green} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
                     <View style={styles.quantityBadge}>
                       <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
@@ -1009,12 +1060,12 @@ export default function BarcodeResultScreen({
             </View>
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
             {filteredMuhasebe.length > 0 ? (
               filteredMuhasebe.map((item: any, index: number) => (
@@ -1026,16 +1077,16 @@ export default function BarcodeResultScreen({
                   <View style={styles.tableCellDetail}>
                     <Icon name="cube-outline" size={18} color={colors.green} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
                     <View style={styles.quantityBadge}>
                       <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
@@ -1157,6 +1208,71 @@ export default function BarcodeResultScreen({
                 <Icon name="close-circle" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
                 <Text style={styles.detailModalCloseButtonText}>Kapat</Text>
               </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Settings Modal */}
+        <Modal visible={settingsModalVisible} transparent animationType="fade" onRequestClose={() => setSettingsModalVisible(false)}>
+          <Pressable style={styles.settingsModalOverlay} onPress={() => setSettingsModalVisible(false)}>
+            <Pressable style={styles.settingsModalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.settingsModalHeader}>
+                <View style={styles.settingsModalTitleRow}>
+                  <Icon name="settings-outline" size={22} color={colors.primary} />
+                  <Text style={styles.settingsModalTitle}>Ekran Ayarları</Text>
+                </View>
+                <Pressable onPress={() => setSettingsModalVisible(false)} style={styles.settingsModalCloseIcon}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <View style={styles.settingsModalDivider} />
+              <Text style={styles.settingsModalSectionTitle}>Genel</Text>
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowLeft}>
+                  <Icon name="image-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.settingsRowLabel}>Ürün Görseli</Text>
+                </View>
+                <Switch
+                  value={ekranAyarlari.resim}
+                  onValueChange={() => toggleEkranAyar('resim')}
+                  trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowLeft}>
+                  <Icon name="options-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.settingsRowLabel}>Filtreleme</Text>
+                </View>
+                <Switch
+                  value={ekranAyarlari.filtreleme}
+                  onValueChange={() => toggleEkranAyar('filtreleme')}
+                  trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <Text style={[styles.settingsModalSectionTitle, { marginTop: 16 }]}>Stok Dağılım Kolonları</Text>
+              {([
+                { key: 'sube' as const, label: 'Şube', icon: 'business-outline' },
+                { key: 'depo' as const, label: 'Depo', icon: 'archive-outline' },
+                { key: 'tip' as const, label: 'Tip', icon: 'pricetag-outline' },
+                { key: 'renk' as const, label: 'Renk', icon: 'color-palette-outline' },
+                { key: 'beden' as const, label: 'Beden', icon: 'resize-outline' },
+                { key: 'adet' as const, label: 'Adet', icon: 'cube-outline' },
+              ]).map((col) => (
+                <View key={col.key} style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Icon name={col.icon} size={18} color={colors.textSecondary} />
+                    <Text style={styles.settingsRowLabel}>{col.label}</Text>
+                  </View>
+                  <Switch
+                    value={ekranAyarlari[col.key]}
+                    onValueChange={() => toggleEkranAyar(col.key)}
+                    trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                    thumbColor={ekranAyarlari[col.key] ? '#FFFFFF' : '#FFFFFF'}
+                  />
+                </View>
+              ))}
             </Pressable>
           </Pressable>
         </Modal>
@@ -2162,5 +2278,77 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 14,
       fontWeight: '700',
       color: colors.primary,
+    },
+    // Settings Modal
+    settingsModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    settingsModalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 20,
+      width: '100%',
+      maxWidth: 400,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    settingsModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    settingsModalTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    settingsModalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    settingsModalCloseIcon: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 18,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+    },
+    settingsModalDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginBottom: 16,
+    },
+    settingsModalSectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    settingsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border + '40',
+    },
+    settingsRowLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    settingsRowLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
     },
   });

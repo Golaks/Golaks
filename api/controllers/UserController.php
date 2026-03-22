@@ -441,6 +441,32 @@ class UserController {
 
             $name = $data['name'] ?? '';
             $phone = $data['phone'] ?? '';
+            $yetkilerUpdate = $data['yetkiler'] ?? null;
+
+            // Eğer sadece yetkiler güncelleniyorsa (ekran ayarları vb.)
+            if ($yetkilerUpdate !== null && empty($name)) {
+                $user = $db->fetchOne(
+                    "SELECT kullanici_yetkiler FROM mobil_kullanici WHERE id = ?",
+                    [$userId]
+                );
+                $mevcutYetkiler = [];
+                if ($user && !empty($user['kullanici_yetkiler'])) {
+                    $mevcutYetkiler = json_decode($user['kullanici_yetkiler'], true) ?? [];
+                }
+                $mevcutYetkiler = array_merge($mevcutYetkiler, $yetkilerUpdate);
+                $yetkilerJson = json_encode($mevcutYetkiler, JSON_UNESCAPED_UNICODE);
+
+                $db->execute(
+                    "UPDATE mobil_kullanici
+                     SET kullanici_yetkiler = ?,
+                         son_aktivite_tarihi = NOW()
+                     WHERE id = ?",
+                    [$yetkilerJson, $userId]
+                );
+
+                Response::success(['message' => 'Ayarlar güncellendi']);
+                return;
+            }
 
             // Validasyon
             if (empty($name)) {
@@ -448,14 +474,37 @@ class UserController {
             }
 
             // Kullanıcı bilgilerini güncelle
-            $db->execute(
-                "UPDATE mobil_kullanici
-                 SET ad_soyad = ?,
-                     kullanici_telefon = ?,
-                     son_aktivite_tarihi = NOW()
-                 WHERE id = ?",
-                [$name, $phone, $userId]
-            );
+            if ($yetkilerUpdate !== null) {
+                $userRow = $db->fetchOne(
+                    "SELECT kullanici_yetkiler FROM mobil_kullanici WHERE id = ?",
+                    [$userId]
+                );
+                $mevcutYetkiler = [];
+                if ($userRow && !empty($userRow['kullanici_yetkiler'])) {
+                    $mevcutYetkiler = json_decode($userRow['kullanici_yetkiler'], true) ?? [];
+                }
+                $mevcutYetkiler = array_merge($mevcutYetkiler, $yetkilerUpdate);
+                $yetkilerJson = json_encode($mevcutYetkiler, JSON_UNESCAPED_UNICODE);
+
+                $db->execute(
+                    "UPDATE mobil_kullanici
+                     SET ad_soyad = ?,
+                         kullanici_telefon = ?,
+                         kullanici_yetkiler = ?,
+                         son_aktivite_tarihi = NOW()
+                     WHERE id = ?",
+                    [$name, $phone, $yetkilerJson, $userId]
+                );
+            } else {
+                $db->execute(
+                    "UPDATE mobil_kullanici
+                     SET ad_soyad = ?,
+                         kullanici_telefon = ?,
+                         son_aktivite_tarihi = NOW()
+                     WHERE id = ?",
+                    [$name, $phone, $userId]
+                );
+            }
 
             // Güncellenmiş kullanıcı bilgilerini getir
             $user = $db->fetchOne(
