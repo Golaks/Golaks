@@ -18,13 +18,15 @@ import { useTheme, ThemeColors } from '../contexts/ThemeContext';
 import TabBar, { TabName } from '../components/TabBar';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
 import { useAlert } from '../contexts/AlertContext';
+import { useFieldErrors } from '../hooks/useFieldErrors';
 import SaveButton from '../components/SaveButton';
 import CancelButton from '../components/CancelButton';
 import ConfirmButton from '../components/ConfirmButton';
 import SearchInput from '../components/SearchInput';
 import Header from '../components/Header';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
+import AddButton from '../components/AddButton';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Input from '../components/Input';
@@ -105,6 +107,7 @@ export default function CompanyManagementScreen({
   const { colors, isDark } = useTheme();
   const styles = createStyles(colors, isDark);
   const alert = useAlert();
+  const companyFieldErrors = useFieldErrors();
 
   // State
   const [companies, setCompanies] = useState<CompanyLicense[]>([]);
@@ -487,29 +490,13 @@ export default function CompanyManagementScreen({
 
   // Firma Ekleme
   const handleAddCompany = async () => {
-    // Validasyon
-    if (!firmaUnvani.trim()) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
-
-    // Varsayılan kullanıcı validasyonları
-    if (!defaultUser.adSoyad.trim()) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
-    if (!defaultUser.email.trim()) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
-    if (!defaultUser.telefon.trim()) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
-    if (!defaultUser.sifre.trim() || defaultUser.sifre.length < 6) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
+    if (!companyFieldErrors.validateRequired({
+      firmaUnvani: firmaUnvani.trim(),
+      adSoyad: defaultUser.adSoyad.trim(),
+      email: defaultUser.email.trim(),
+      telefon: defaultUser.telefon.trim(),
+      sifre: defaultUser.sifre.trim().length >= 6 ? defaultUser.sifre : '',
+    })) return;
 
     setIsAddingCompany(true);
     try {
@@ -562,11 +549,9 @@ export default function CompanyManagementScreen({
   const handleUpdateCompany = async () => {
     if (!editingCompanyId) return;
 
-    // Validasyon
-    if (!firmaUnvani.trim()) {
-      alert.showError('Hata', 'Lütfen gerekli alanları doldurun');
-      return;
-    }
+    if (!companyFieldErrors.validateRequired({
+      firmaUnvani: firmaUnvani.trim(),
+    })) return;
 
     setIsAddingCompany(true);
     try {
@@ -676,8 +661,10 @@ export default function CompanyManagementScreen({
                   label="Firma Ünvanı"
                   icon="business-outline"
                   value={firmaUnvani}
-                  onChangeText={setFirmaUnvani}
+                  onChangeText={(v) => { setFirmaUnvani(v); companyFieldErrors.clearFieldError('firmaUnvani'); }}
                   placeholder="Firma ünvanını giriniz"
+                  error={companyFieldErrors.errors.firmaUnvani ? ' ' : ''}
+                  shake={companyFieldErrors.shakes.firmaUnvani}
                 />
 
                 {/* Lisans Anahtarı */}
@@ -1062,8 +1049,10 @@ export default function CompanyManagementScreen({
                     label="Ad Soyad"
                     icon="person-outline"
                     value={defaultUser.adSoyad}
-                    onChangeText={(text) => setDefaultUser(prev => ({ ...prev, adSoyad: text }))}
+                    onChangeText={(text) => { setDefaultUser(prev => ({ ...prev, adSoyad: text })); companyFieldErrors.clearFieldError('adSoyad'); }}
                     placeholder="Kullanıcı adı soyadı"
+                    error={companyFieldErrors.errors.adSoyad ? ' ' : ''}
+                    shake={companyFieldErrors.shakes.adSoyad}
                   />
 
                   {/* E-posta */}
@@ -1071,19 +1060,21 @@ export default function CompanyManagementScreen({
                     label="E-posta"
                     icon="mail-outline"
                     value={defaultUser.email}
-                    onChangeText={(text) => setDefaultUser(prev => ({ ...prev, email: text }))}
+                    onChangeText={(text) => { setDefaultUser(prev => ({ ...prev, email: text })); companyFieldErrors.clearFieldError('email'); }}
                     placeholder="kullanici@firma.com"
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    error={companyFieldErrors.errors.email ? ' ' : ''}
+                    shake={companyFieldErrors.shakes.email}
                   />
 
                   {/* Telefon */}
                   <InputPhone
                     label="Telefon"
                     value={defaultUser.telefon}
-                    onChangeText={(text) => setDefaultUser(prev => ({ ...prev, telefon: text }))}
-                    placeholder="0 5__ ___ ____"
+                    onChangeText={(text) => { setDefaultUser(prev => ({ ...prev, telefon: text })); companyFieldErrors.clearFieldError('telefon'); }}
+                    placeholder="(5__) ___-____"
                   />
 
                   {/* Şifre */}
@@ -1091,12 +1082,14 @@ export default function CompanyManagementScreen({
                     label="Şifre"
                     icon="lock-closed-outline"
                     value={defaultUser.sifre}
-                    onChangeText={(text) => setDefaultUser(prev => ({ ...prev, sifre: text.replace(/[^0-9]/g, '').slice(0, 6) }))}
+                    onChangeText={(text) => { setDefaultUser(prev => ({ ...prev, sifre: text.replace(/[^0-9]/g, '').slice(0, 6) })); companyFieldErrors.clearFieldError('sifre'); }}
                     placeholder="123456"
                     keyboardType="numeric"
                     maxLength={6}
                     rightIcon="refresh"
                     onRightIconPress={() => setDefaultUser(prev => ({ ...prev, sifre: generatePassword() }))}
+                    error={companyFieldErrors.errors.sifre ? ' ' : ''}
+                    shake={companyFieldErrors.shakes.sifre}
                   />
 
                   {/* Bilgi Notu */}
@@ -1139,8 +1132,8 @@ export default function CompanyManagementScreen({
         leftButton={<BackButton onPress={onGoBack} />}
         rightButton={
           <View style={styles.headerRight}>
-            <IconButton icon="search-outline" onPress={handleToggleSearch} />
-            <IconButton icon="add" onPress={handleOpenAddCompany} />
+            <AddButton onPress={handleOpenAddCompany} />
+            <SearchButton onPress={handleToggleSearch} />
           </View>
         }
       />
@@ -1337,7 +1330,7 @@ const createStyles = (colors: ThemeColors, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

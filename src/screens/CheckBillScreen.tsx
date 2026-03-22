@@ -16,6 +16,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter, { DatePreset } from '../components/DateFilter';
 import BackButton from '../components/BackButton';
+import SearchButton from '../components/SearchButton';
 import TabBar, { TabName } from '../components/TabBar';
 import checkBillService, { CheckBillItem, CheckBillMovement } from '../services/checkbill.service';
 import { authService } from '../services/auth.service';
@@ -102,19 +103,19 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
   // Get document type label
   const getDocumentTypeLabel = (type: string): string => {
     if (!type) return '';
-    const normalized = type.toUpperCase().trim();
+    const normalized = type.toLocaleUpperCase('tr-TR').trim();
     const mapping: { [key: string]: string } = {
       'ÇEK': 'Çek',
       'CEK': 'Çek',
       'SENET': 'Senet',
     };
-    return mapping[normalized] || type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    return mapping[normalized] || type.charAt(0).toLocaleUpperCase('tr-TR') + type.slice(1).toLowerCase();
   };
 
   // Get document location label
   const getDocumentLocationLabel = (location: string): string => {
     if (!location) return '';
-    const normalized = location.toUpperCase().replace(/_/g, ' ').trim();
+    const normalized = location.toLocaleUpperCase('tr-TR').replace(/_/g, ' ').trim();
     const mapping: { [key: string]: string } = {
       'PORTFÖY': 'Portföy',
       'PORTFÖYDE': 'Portföy',
@@ -366,12 +367,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
 
   // Filter button for header
   const FilterButton = (
-    <Pressable
-      style={styles.filterButton}
-      onPress={() => setFilterVisible(!filterVisible)}
-    >
-      <Icon name={filterVisible ? 'close' : 'filter'} size={20} color={colors.text} />
-    </Pressable>
+    <SearchButton onPress={() => setFilterVisible(!filterVisible)} />
   );
 
   return (
@@ -773,7 +769,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                   {/* Footer - Always visible */}
                   <View style={styles.cardFooter}>
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>TUTAR</Text>
+                      <Text style={styles.amountLabel}>{'TUTAR'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: cardColor }]}>
                         {item.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -782,7 +778,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                     <View style={styles.footerDivider} />
 
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>ÖDENEN</Text>
+                      <Text style={styles.amountLabel}>{'ÖDENEN'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: colors.success }]}>
                         {(item.paid || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -791,7 +787,7 @@ export default function CheckBillScreen({ onGoBack, onTabChange, onLogout }: Che
                     <View style={styles.footerDivider} />
 
                     <View style={styles.amountSection}>
-                      <Text style={styles.amountLabel}>KALAN</Text>
+                      <Text style={styles.amountLabel}>{'KALAN'.toLocaleUpperCase('tr-TR')}</Text>
                       <Text style={[styles.amountValue, { color: colors.warning }]}>
                         {item.remaining.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -848,6 +844,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     padding: 16,
     paddingBottom: Platform.OS === 'ios' ? 120 : 100,
   },
@@ -979,7 +976,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   amountValue: {
     fontSize: 14,
@@ -1152,11 +1148,6 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 1000,
     overflow: 'hidden',
   },

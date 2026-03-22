@@ -1,5 +1,6 @@
 import { generatePDF } from 'react-native-html-to-pdf';
 import Share from 'react-native-share';
+import { Platform } from 'react-native';
 import { CariTransaction } from '../services/account.service';
 
 interface EkstreParams {
@@ -80,9 +81,9 @@ function buildSummaryCards(groups: CurrencyGroup[]): string {
     const balLabel = isBorc ? 'Borç Bakiye' : 'Alacak Bakiye';
 
     return `
-    <div style="flex:1;min-width:200px;background:${balBg};border:1px solid ${balBorder};border-radius:10px;padding:14px 18px">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#9ca3af;margin-bottom:4px">${g.doviz} ${balLabel}</div>
-      <div style="font-size:20px;font-weight:800;color:${balColor};letter-spacing:-0.5px">${formatNumber(Math.abs(g.bakiye))}</div>
+    <div style="flex:1;min-width:200px;background:${balBg};border:1px solid ${balBorder};padding:14px 18px">
+      <div style="font-size:9px;text-transform:uppercase;color:#9ca3af;margin-bottom:4px">${g.doviz} ${balLabel}</div>
+      <div style="font-size:20px;font-weight:800;color:${balColor}">${formatNumber(Math.abs(g.bakiye))}</div>
       <div style="margin-top:8px;display:flex;gap:16px">
         <div>
           <span style="font-size:8px;color:#9ca3af;text-transform:uppercase">Borc</span>
@@ -107,9 +108,9 @@ function buildCurrencyTable(group: CurrencyGroup): string {
   return `
     <div style="margin-bottom:28px">
       <div style="margin-bottom:6px;text-align:left">
-        <span style="display:inline-block;width:4px;height:14px;background:#2563eb;border-radius:2px;vertical-align:middle;margin-right:6px"></span>
+        <span style="display:inline-block;width:4px;height:14px;background:#2563eb;vertical-align:middle;margin-right:6px"></span>
         <span style="font-size:13px;font-weight:700;color:#1e293b;vertical-align:middle">${group.doviz} Hesap Hareketleri</span>
-        <span style="font-size:10px;color:#9ca3af;vertical-align:middle;margin-left:4px">(${group.transactions.length} işlem)</span>
+        <span style="font-size:10px;color:#6b7280;font-weight:500;vertical-align:middle;margin-left:4px">(${group.transactions.length} işlem)</span>
       </div>
 
       <table>
@@ -150,32 +151,50 @@ function buildHTML(params: EkstreParams): string {
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif; color:#1e293b; padding:28px 32px; font-size:11px; }
-    @page { margin: 16mm 14mm; }
+    body { font-family: Arial, Helvetica, sans-serif; color:#1e293b; padding:12px 14px; font-size:11px; }
+    @page { margin: 8mm 6mm 18mm 6mm; }
     table { width:100%; border-collapse:collapse; }
     .th {
       padding:7px 8px; font-size:9px; font-weight:700; color:#6b7280;
-      text-transform:uppercase; letter-spacing:0.5px;
+      text-transform:uppercase;
       border-bottom:2px solid #2563eb; text-align:left;
     }
     .cell { padding:5px 8px; font-size:10px; border-bottom:1px solid #eef0f3; color:#374151; }
     .desc { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .num { text-align:right; font-variant-numeric:tabular-nums; }
+    .num { text-align:right; }
     .foot { padding:7px 8px; font-size:10px; border-top:2px solid #cbd5e1; }
+    .page-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 6px 14px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8px;
+      color: #94a3b8;
+    }
+    .page-footer .copyright {
+      font-weight: 600;
+      color: #2563eb;
+    }
   </style>
 </head>
 <body>
 
   <!-- Header Card -->
-  <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:16px 20px;margin-bottom:18px">
+  <div style="background:#f8fafc;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:14px">
     <table style="width:100%">
       <tr>
         <td style="width:55%;vertical-align:top">
-          <div style="font-size:18px;font-weight:800;color:#1e293b;letter-spacing:-0.5px">${params.unvan}</div>
+          <div style="font-size:18px;font-weight:800;color:#1e293b">${params.unvan}</div>
           <div style="font-size:10px;color:#6b7280;margin-top:2px">${params.hesapKodu}${params.sube ? ' . ' + params.sube : ''}</div>
-          <div style="font-size:10px;color:#2563eb;text-transform:uppercase;letter-spacing:2px;margin-top:4px;font-weight:700">Hesap Ekstresi</div>
+          <div style="font-size:10px;color:#2563eb;text-transform:uppercase;margin-top:4px;font-weight:700">Hesap Ekstresi</div>
         </td>
         <td style="width:45%;text-align:right;vertical-align:top">
           <table style="width:auto;margin-left:auto">
@@ -200,10 +219,10 @@ function buildHTML(params: EkstreParams): string {
   <!-- Transaction Tables per Currency -->
   ${groups.map(g => buildCurrencyTable(g)).join('')}
 
-  <!-- Footer -->
-  <div style="margin-top:20px;padding:12px 16px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-    <div style="font-size:10px;color:#475569;font-weight:500">1995-${new Date().getFullYear()} Polaris Dış Ticaret Ltd. Şti. / Golaks</div>
-    <div style="font-size:10px;color:#475569;font-weight:600">Sayfa: 1/1</div>
+  <!-- Fixed Footer -->
+  <div class="page-footer">
+    <span><span class="copyright">GOLAKS</span> &copy; Polaris Dış Ticaret Ltd. Şti.</span>
+    <span>${now}</span>
   </div>
 
 </body>
@@ -213,20 +232,32 @@ function buildHTML(params: EkstreParams): string {
 export async function generateEkstrePDF(params: EkstreParams): Promise<void> {
   const html = buildHTML(params);
 
-  const file = await generatePDF({
+  const pdfOptions: any = {
     html,
     fileName: `ekstre_${params.hesapKodu.replace(/\./g, '_')}_${Date.now()}`,
-    directory: 'Documents',
     base64: false,
-    width: 595,
-    height: 842,
-  });
+  };
 
-  if (file.filePath) {
-    await Share.open({
-      url: `file://${file.filePath}`,
-      type: 'application/pdf',
-      title: `${params.unvan} - Hesap Ekstresi`,
-    });
+  // Android: directory belirtmeyerek cache dir kullanmasını sağlıyoruz (FileProvider uyumlu)
+  // iOS: Documents klasörüne yazıyoruz
+  if (Platform.OS === 'ios') {
+    pdfOptions.directory = 'Documents';
+    pdfOptions.width = 595;
+    pdfOptions.height = 842;
   }
+
+  const file = await generatePDF(pdfOptions);
+
+  if (!file.filePath) {
+    throw new Error('PDF dosyası oluşturulamadı');
+  }
+
+  const fileUrl = `file://${file.filePath}`;
+
+  await Share.open({
+    url: fileUrl,
+    type: 'application/pdf',
+    title: `${params.unvan} - Hesap Ekstresi`,
+    failOnCancel: false,
+  });
 }

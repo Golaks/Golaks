@@ -206,10 +206,6 @@ const createStyles = (isDark: boolean) => StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: isDark ? '#60A5FA' : '#3B82F6',
-    shadowColor: isDark ? '#60A5FA' : '#3B82F6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
   },
   dotPosition1: {
     top: 0,

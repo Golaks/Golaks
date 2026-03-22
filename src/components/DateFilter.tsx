@@ -190,20 +190,17 @@ export default function DateFilter({
 
 const createStyles = (colors: any) => StyleSheet.create({
   filterArea: {
-    backgroundColor: colors.card,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   searchContainer: {
     width: '100%',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dateRangeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   compactDateInput: {
     flex: 1,

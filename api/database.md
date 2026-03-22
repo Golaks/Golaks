@@ -1,0 +1,2458 @@
+/* SQL Manager for MySQL                              5.9.1.55826 */
+/* -------------------------------------------------------------- */
+/* Host     : 45.43.154.230                                       */
+/* Port     : 3306                                                */
+/* Database : developer_web_app                                   */
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES 'utf8mb4' */;
+
+SET FOREIGN_KEY_CHECKS=0;
+
+CREATE DATABASE `developer_web_app`
+    CHARACTER SET 'utf8mb4'
+    COLLATE 'utf8mb4_0900_ai_ci';
+
+USE `developer_web_app`;
+
+/* Structure for the `firmalar` table : */
+
+CREATE TABLE `firmalar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'FİRMA ADI - ŞİRKET ÜNVANI',
+  `firma_yetkili` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA YETKİLİ KİŞİ ADI SOYADI',
+  `telefon` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA İLETİŞİM TELEFON NUMARASI',
+  `satis_tipi` ENUM('Direkt','Bayi') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Direkt' COMMENT 'SATIŞ TİPİ: Direkt, Bayi',
+  `bayi_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'BAĞLI BAYİ ID - BAYİ ÜZERİNDEN SATIŞLARDA. İLİŞKİ: bayiler.id',
+  `varsayilan_kur_anahtar` ENUM('tr','ru','ua') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tr' COMMENT 'FİRMANIN KULLANACAĞI KUR YERİ: tr, ru, ua',
+  `varsayilan_kur_yeri` TINYINT NOT NULL DEFAULT 0 COMMENT 'FİRMANIN KULLANACAĞI KUR TABLOSU: 0=doviz_kurlari, 1=firma_kurlari',
+  `sube_sayisi` INTEGER NOT NULL DEFAULT 1 COMMENT 'FİRMA ŞUBE SAYISI',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - FİRMA OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KAYDI YAPAN KULLANICI IP ADRESİ',
+  `bayi_kodu` VARCHAR(6) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BAYİ KODU - 6 HANELİ BAYİ TANIMA KODU',
+  `firma_vergi_tc_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA VERGİ NUMARASI VEYA KİMLİK NUMARASI',
+  `firma_vergi_dairesi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA VERGİ DAİRESİ',
+  `firma_fatura_tipi` ENUM('Kurumsal','Bireysel') COLLATE utf8mb4_unicode_ci DEFAULT 'Kurumsal' COMMENT 'FATURA TİPİ: Kurumsal, Bireysel',
+  `firma_fatura_adresi` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA FATURA ADRESİ',
+  `firma_ulke` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA ADRES ÜLKE BİLGİSİ',
+  `firma_il` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA ADRES İL BİLGİSİ',
+  `firma_ilce` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİRMA ADRES İLÇE BİLGİSİ',
+  `firma_ayarlar` JSON DEFAULT NULL COMMENT 'FİRMA AYAR BİLGİLERİ (VERİTABANI, FTP, EMAIL GİBİ). JSON FORMATINDA ANAHTAR-DEĞER ÇİFTLERİYLE TUTULUR',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_firma_id` USING BTREE (`id`),
+  KEY `idx_firma_adi` USING BTREE (`firma_adi`),
+  KEY `idx_satis_tipi` USING BTREE (`satis_tipi`),
+  KEY `idx_bayi_id` USING BTREE (`bayi_id`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_telefon` USING BTREE (`telefon`),
+  KEY `idx_firma_yetkili` USING BTREE (`firma_yetkili`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=1012 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİRMALAR - SİSTEMDE KAYITLI TÜM FİRMALARIN ANA BİLGİ TABLOSU. MULTİ-TENANT YAPININ TEMEL TABLOSUDUR. TÜM MODÜLLERDE FİRMA BAZLI AYRIM İÇİN KULLANILIR. BAYİ SİSTEMİ DESTEĞİ MEVCUTTUR';
+
+/* Structure for the `subeler` table : */
+
+CREATE TABLE `subeler` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU FİRMA ID - ŞUBE SAHİBİ FİRMA. İLİŞKİ: firmalar.id',
+  `sube_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ŞUBE ADI - ŞUBE TANIMI',
+  `sube_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ŞUBE KODU - BENZERSİZ ŞUBE TANIMLAYICI',
+  `telefon` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TELEFON NUMARASI - ŞUBE İLETİŞİM',
+  `eposta` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'E-POSTA ADRESİ - ŞUBE İLETİŞİM',
+  `adres` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ŞUBE ADRESİ - FİZİKİ KONUM',
+  `yetkili_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YETKİLİ ADI - ŞUBE SORUMLUSU',
+  `yetkili_telefon` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YETKİLİ TELEFON - SORUMLU İLETİŞİM',
+  `varsayilan_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ŞUBE VARSAYILAN DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `varsayilan_kur_anahtar` ENUM('tr','ru','ua') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tr' COMMENT 'ŞUBENIN KULLANACAĞI KUR YERİ: tr, ru, ua',
+  `varsayilan_kur_yeri` TINYINT NOT NULL DEFAULT 0 COMMENT 'ŞUBENIN KULLANACAĞI KUR TABLOSU: 0=doviz_kurlari, 1=firma_kurlari',
+  `cek_senet_ayar` JSON DEFAULT NULL COMMENT 'ÇEK SENET AYARLARI - GÜN AYARLARI VE HESAP KODU AYARLARI (JSON FORMATINDA)',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - ŞUBE OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `sube_maraz_tanimlari` JSON DEFAULT NULL COMMENT 'ŞUBE MARAZ TANIMLARI (JSON FORMATINDA)',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_sube_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_kodu` USING BTREE (`sube_kodu`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `sube_adi` USING BTREE (`sube_adi`),
+  CONSTRAINT `fk_sube_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=20 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ŞUBELER - FİRMALARA BAĞLI ŞUBE BİLGİLERİNİ TUTAR. HER FİRMA BİRDEN FAZLA ŞUBE AÇABİLİR. STOK, MUHASEBE VE SAYIM İŞLEMLERİ ŞUBE BAZINDA AYRIŞTIRILABİLİR. MERKEZ-ŞUBE HİYERARŞİSİ DESTEKLENİR';
+
+/* Structure for the `kullanicilar` table : */
+
+CREATE TABLE `kullanicilar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `giris_ip` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '%' COMMENT 'GİRİŞ YAPILAN IP ADRESİ - GÜVENLİK',
+  `kullanici_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KULLANICI ADI - SİSTEME GİRİŞ İÇİN BENZERSİZ',
+  `sifre` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KULLANICI ŞİFRESİ - BCRYPT İLE ŞİFRELENMİŞ',
+  `ad_soyad` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KULLANICI AD SOYAD - TAM ADI',
+  `resim_yolu` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'PROFİL RESMİ DOSYA YOLU',
+  `telefon` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KULLANICI TELEFON NUMARASI - İLETİŞİM',
+  `kullanici_rol_id` INTEGER UNSIGNED NOT NULL COMMENT 'KULLANICI ROLÜ - YETKİ SEVİYESİ. İLİŞKİ: roller.id',
+  `firma_rol_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'FİRMA ROL ID - KULLANICININ FİRMA BAZLI ROLÜ. İLİŞKİ: firma_roller.id',
+  `ozel_yetkiler` JSON DEFAULT NULL COMMENT 'KULLANICIYA ÖZEL YETKİLER - ROL YETKİLERİNİ EZER (OVERRIDE)',
+  `fatura_yetkileri` JSON DEFAULT NULL COMMENT 'KULLANICININ YETKİLİ OLDUĞU FATURA TÜRLERİ',
+  `aktivasyon_kodu` VARCHAR(6) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SMS VEYA EMAIL AKTİVASYON KODU - 6 HANELİ DOĞRULAMA',
+  `aktivasyon_kodu_sure` DATETIME DEFAULT NULL COMMENT 'AKTİVASYON KODU GEÇERLİLİK SÜRESİ (24 SAAT)',
+  `son_giris_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KULLANICI SON GİRİŞ IP ADRESİ',
+  `son_giris_tarihi` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'KULLANICI SON GİRİŞ TARİHİ',
+  `mobil_uygulama` TINYINT NOT NULL DEFAULT 1 COMMENT 'KULLANICI MOBİL UYGULAMA KULLANABİLİR Mİ? 0=HAYIR, 1=EVET',
+  `sube_hesap` JSON DEFAULT NULL COMMENT 'KULLANICI ŞUBE HESAP YETKİLERİ - JSON FORMATINDA',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - KULLANICI OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_kullanici_id` USING BTREE (`id`),
+  UNIQUE KEY `uk_kullanici_adi` USING BTREE (`kullanici_adi`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `idx_telefon` USING BTREE (`telefon`),
+  KEY `idx_sms_aktivasyon` USING BTREE (`aktivasyon_kodu`),
+  CONSTRAINT `fk_kullanici_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_kullanici_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=126 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='KULLANICILAR - SİSTEM KULLANICILARI ANA TABLOSU. FİRMA VE ŞUBE BAZLI KULLANICI YÖNETİMİ, ROL TABANLI YETKİLENDİRME, SMS AKTİVASYON VE GÜVENLİ ŞİFRE YÖNETİMİ ÖZELLİKLERİ İÇERİR';
+
+/* Structure for the `barkod_sablonlar` table : */
+
+CREATE TABLE `barkod_sablonlar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY, OTOMATİK ARTAN)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'ŞABLONUN AİT OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'ŞABLONUN AİT OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'ŞABLONUN KULLANICI BAZLI ÇALIŞACAĞI KULLANICI ID. İLİŞKİ: kullanicilar.id',
+  `program_modul` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'BU ŞABLONUN KULLANILDIĞI PROGRAM MODÜLÜ. ÖRNEKLER: \"KONFEKSİYON-STOKLAR\", \"BAYİ-SATIŞLAR\". BOŞ = TÜM MODÜLLERDE KULLANILABİLİR',
+  `program_alt_modul` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'ŞABLONUN KULLANILDIĞI STOK TİPİ. ÖRNEKLER: \"DERİ\", \"AV\", \"TEKSTİL\", \"SARF\". BOŞ = TÜM STOK TİPLERİ',
+  `yazici_id` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '0' COMMENT 'ŞABLONUN OPTİMİZE EDİLDİĞİ YAZICI ID. BOŞ = TÜM YAZICILAR İÇİN GENEL ŞABLON. İLİŞKİ: yazici_tanimlari.id',
+  `baglanti_tipi` ENUM('Network','USB','Bluetooth') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Network' COMMENT 'YAZICI BAĞLANTI TÜRÜ. Network=LAN/WiFi İLE IP ÜZERİNDEN, USB=USB KABLOSU İLE, Bluetooth=KABLOSUZ BT BAĞLANTISI İLE',
+  `ip_adresi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'NETWORK BAĞLANTISINDA YAZICININ IP ADRESİ. IPv4 ÖRNEK: \"192.168.1.100\". SADECE baglanti_tipi=Network İSE GEREKLİ',
+  `port` INTEGER DEFAULT 9100 COMMENT 'NETWORK BAĞLANTISINDA YAZICININ DİNLEDİĞİ TCP PORTU. ZEBRA VARSAYILAN: 9100. SADECE baglanti_tipi=Network İSE KULLANILIR',
+  `usb_port` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'USB BAĞLANTISINDA YAZICININ BAĞLI OLDUĞU PORT. Windows: \"COM1\", Linux: \"/dev/usb/lp0\". SADECE baglanti_tipi=USB İSE GEREKLİ',
+  `toplam_baski` INTEGER DEFAULT 0 COMMENT 'BU ŞABLONDAN TOPLAM KAÇ KEZ BASKI YAPILDI (BAŞARILI + BAŞARISIZ). HER PRINT KOMUTU BU SAYACI ARTTIRIR',
+  `basarili_baski` INTEGER DEFAULT 0 COMMENT 'BU ŞABLONDAN BAŞARIYLA TAMAMLANAN BASKI SAYISI. (toplam_baski - basarili_baski) = BAŞARISIZ BASKI SAYISI',
+  `sablon_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ŞABLONA VERİLEN KULLANICI DOSTU İSİM. ÖRNEKLER: \"STANDART DERİ ETİKETİ\", \"KÜÇÜK FİYAT ETİKETİ\", \"RFID ETİKET\"',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ŞABLON HAKKINDA DETAYLI AÇIKLAMA. NE İÇİN KULLANILIR, HANGİ BİLGİLERİ İÇERİR, ÖZEL NOTLAR',
+  `genislik` DECIMAL(5,1) NOT NULL DEFAULT 50.0 COMMENT 'ETİKET FİZİKSEL GENİŞLİĞİ (MİLİMETRE). ÖRNEKLER: 50.0mm, 100.0mm. YAZICININ MAX GENİŞLİĞİNDEN KÜÇÜK VEYA EŞİT OLMALI',
+  `yukseklik` DECIMAL(5,1) NOT NULL DEFAULT 30.0 COMMENT 'ETİKET FİZİKSEL YÜKSEKLİĞİ (MİLİMETRE). ÖRNEKLER: 30.0mm, 25.0mm. ETİKET RULOLARININ BOY ÖLÇÜSÜ',
+  `rfid_destekli` TINYINT DEFAULT 0 COMMENT 'BU ŞABLON RFID CHİP KODLAMASI YAPAR MI? 1=EVET (RFID KOMUTLARI İÇERİR), 0=HAYIR (SADECE GÖRSEL BASKI)',
+  `rfid_veri_formati` JSON DEFAULT NULL COMMENT 'RFID CHİPİNE YAZILACAK VERİ FORMATI (JSON). EPC STANDARDI 96-BİT YAPI. DEĞİŞKENLER RUNTIME DA DOLDURULUR',
+  `tasarim_json` JSON DEFAULT NULL COMMENT 'GÖRSEL TASARIMCI İLE OLUŞTURULAN TASARIM (JSON FORMAT). ELEMENTLER: text, barcode, qrcode, image, line, box. FRONTEND TASARIMCIDA DÜZENLENİR',
+  `zpl_sablonu` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ZEBRA YAZICILAR İÇİN ZPL KOMUT ŞABLONU. DEĞİŞKENLER SÜSLİ PARANTEZ İÇİNDE: {FIRMA_ADI}, {BARKOD}, {RENK} vb. RUNTIME DA GERÇEK VERİLERLE DEĞİŞTİRİLİR',
+  `escp_sablonu` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ESC/POS YAZICILAR İÇİN KOMUT ŞABLONU. EPSON VE FİŞ YAZICILARI İÇİN. ESC/POS KOMUT DİZİSİ VE DEĞİŞKENLER İÇERİR',
+  `barkod_sql` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'BARKOD ETİKETİNDE KULLANILACAK VERİLERİ ÇEKEN SQL SORGUSUDUR. ALANLAR BURADA BELİRLENİR',
+  `kayit_tarihi` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'ŞABLONUN SİSTEME EKLENDİĞİ TARİH VE SAAT. OTOMATİK OLUŞTURULUR',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'BU ŞABLONU SİSTEME EKLEYEN KULLANICI ID. İLİŞKİ: kullanicilar.id. TAKİP VE DENETİM İÇİN',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_modul` USING BTREE (`program_modul`, `program_alt_modul`),
+  KEY `barkod_sablonlar_subeler` USING BTREE (`sube_id`),
+  KEY `barkod_sablonlar_kullanicilar` USING BTREE (`kullanici_id`),
+  KEY `barkod_sablonlar_firmalar` USING BTREE (`firma_id`),
+  CONSTRAINT `barkod_sablonlar_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `barkod_sablonlar_kullanicilar` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `barkod_sablonlar_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=13 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='BARKOD ETİKET ŞABLONLARI - ETİKET TASARIMLARI VE RFID FORMATLARI';
+
+/* Structure for the `barkod_yazicilar` table : */
+
+CREATE TABLE `barkod_yazicilar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `yazici_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'YAZICIYA VERİLEN KULLANICI DOSTU İSİM. ÖRNEKLER: \"DEPO ANA YAZICI\", \"KASA BARKOD YAZICI\"',
+  `yazici_marka` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'YAZICI ÜRETİCİSİ. ÖRNEKLER: \"ZEBRA\", \"TSC\", \"EPSON\", \"CITIZEN\"',
+  `yazici_model` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'YAZICI MODEL KODU. ÖRNEKLER: \"ZD220\", \"TTP-244\", \"ZD500R\", \"TM-T20III\"',
+  `yazici_tipi` ENUM('ZPL','ESC','TSPL') COLLATE utf8mb4_unicode_ci DEFAULT 'ZPL' COMMENT 'YAZICININ ANLADIĞI KOMUT DİLİ. ZPL=ZEBRA YAZICILAR, ESC=EPSON TERMAL FİŞ YAZICILAR, TSPL=TSC YAZICILAR',
+  `dpi` SMALLINT DEFAULT 203 COMMENT 'YAZICI ÇÖZÜNÜRLÜĞÜ (DOTS PER INCH). 203=STANDART KALİTE, 300=YÜKSEK KALİTE, 600=ÇOK YÜKSEK KALİTE. BARKOD NETLİĞİNİ ETKİLER',
+  `max_genislik` INTEGER DEFAULT 0 COMMENT 'YAZICININ BASABİLECEĞİ MAKSİMUM ETİKET GENİŞLİĞİ (MİLİMETRE). ETİKET TASARIMI BU DEĞERDEN BÜYÜK OLAMAZ',
+  `rfid_destekli` TINYINT(1) DEFAULT 0 COMMENT 'YAZICI RFID CHİP KODLAMA YAPABİLİR Mİ? 1=EVET (ZD500R, ZT411R GİBİ MODELLER), 0=HAYIR (SADECE BARKOD BASAR)',
+  `rfid_frekans` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAZICININ DESTEKLEDİĞİ RFID FREKASI. UHF=860-960 MHz, HF=13.56 MHz (NFC), LF=125 KHz. SADECE rfid_destekli=1 İSE DOLU',
+  `toplam_baski` INTEGER DEFAULT 0 COMMENT 'BU YAZICIDAN TOPLAM KAÇ KEZ BASKI YAPILDI (BAŞARILI + BAŞARISIZ). HER PRINT KOMUTU BU SAYACI ARTTIRIR',
+  `basarili_baski` INTEGER DEFAULT 0 COMMENT 'BU YAZICIDAN BAŞARIYLA TAMAMLANAN BASKI SAYISI. (toplam_baski - basarili_baski) = BAŞARISIZ BASKI SAYISI',
+  `son_baski_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'BU YAZICIDAN EN SON NE ZAMAN BASKI YAPILDI. NULL = HİÇ KULLANILMAMIŞ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=14 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='YAZICI TEKNİK ÖZELLİKLERİ - GENEL SİSTEM TANIMLARI (MARKA, MODEL, DPI, RFID)';
+
+/* Structure for the `beden_setleri` table : */
+
+CREATE TABLE `beden_setleri` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - SET SAHİBİ. İLİŞKİ: firmalar.id',
+  `set_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SET TİPİ - BEDEN SET KATEGORİSİ',
+  `baz_beden` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BAZ BEDEN - TEMEL BEDEN ÖLÇÜSÜ',
+  `baz_beden_miktar` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'BAZ BEDEN MİKTARI',
+  `b1` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BİRİNCİ BEDEN',
+  `b2` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'İKİNCİ BEDEN',
+  `b3` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜÇÜNCÜ BEDEN',
+  `b4` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DÖRDÜNCÜ BEDEN',
+  `b5` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BEŞİNCİ BEDEN',
+  `b6` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ALTINCI BEDEN',
+  `b7` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YEDİNCİ BEDEN',
+  `b8` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SEKİZİNCİ BEDEN',
+  `b9` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DOKUZUNCU BEDEN',
+  `b10` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ONUNCU BEDEN',
+  `b11` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ON BİRİNCİ BEDEN',
+  `b12` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ON İKİNCİ BEDEN',
+  `b1f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'BİRİNCİ BEDEN FARK DEĞERİ',
+  `b2f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'İKİNCİ BEDEN FARK DEĞERİ',
+  `b3f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'ÜÇÜNCÜ BEDEN FARK DEĞERİ',
+  `b4f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'DÖRDÜNCÜ BEDEN FARK DEĞERİ',
+  `b5f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'BEŞİNCİ BEDEN FARK DEĞERİ',
+  `b6f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'ALTINCI BEDEN FARK DEĞERİ',
+  `b7f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'YEDİNCİ BEDEN FARK DEĞERİ',
+  `b8f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'SEKİZİNCİ BEDEN FARK DEĞERİ',
+  `b9f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'DOKUZUNCU BEDEN FARK DEĞERİ',
+  `b10f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'ONUNCU BEDEN FARK DEĞERİ',
+  `b11f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'ON BİRİNCİ BEDEN FARK DEĞERİ',
+  `b12f` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'ON İKİNCİ BEDEN FARK DEĞERİ',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - SET OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYDI YAPAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_beden_set_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  CONSTRAINT `fk_beden_set_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=12 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='BEDEN SETLERİ - TEKSTİL SEKTÖRÜ İÇİN BEDEN ÖLÇÜ SETLERİ. 12 BEDENE KADAR TANIM YAPILABİLİR, BAZ BEDEN VE FARK DEĞERLERİ İLE ÖLÇÜLENDIRME SAĞLANIR';
+
+/* Structure for the `cariler` table : */
+
+CREATE TABLE `cariler` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - CARİ SAHİBİ. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID - CARİNİN KULLANILDIĞI ŞUBE. İLİŞKİ: subeler.id',
+  `hesap_kodu` VARCHAR(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'CARİ HESAP KODU',
+  `unvan` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'CARİ ÜNVANI - FİRMA VEYA KİŞİ ADI',
+  `kisa_unvan` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KISALTILMIŞ CARİ ÜNVANI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'CARİ DÖVİZ BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `kur_tipi` ENUM('doviz_alis','doviz_satis','efektif_alis','efektif_satis','ozel_kur') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'doviz_alis' COMMENT 'KUR TİPİ: doviz_alis, doviz_satis, efektif_alis, efektif_satis, ozel_kur',
+  `ozel_kod_1` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ HESAP ÖZEL KOD 1',
+  `ozel_kod_2` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ HESAP ÖZEL KOD 2',
+  `ozel_kod_3` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ HESAP ÖZEL KOD 3',
+  `ozel_kod_4` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ HESAP ÖZEL KOD 4',
+  `bagli_sube_id` INTEGER DEFAULT 0 COMMENT '393 HESAPLARDA BAĞLANACAK ŞUBE ID',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - CARİ OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 1 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYDI YAPAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_firma_sube_hesap_kodu` USING BTREE (`firma_id`, `sube_id`, `hesap_kodu`) COMMENT 'AYNI FİRMA VE ŞUBEDE AYNI HESAP KODU TEKRAR EDEMEZ',
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_firma_sube_aktif` USING BTREE (`firma_id`, `sube_id`, `aktif`),
+  KEY `idx_firma_sube_aktif_hesap` USING BTREE (`firma_id`, `sube_id`, `aktif`, `hesap_kodu`),
+  KEY `idx_unvan` USING BTREE (`unvan`(50)),
+  KEY `cariler_doviz_tipleri` USING BTREE (`doviz`),
+  FULLTEXT KEY `idx_cariler_fulltext_search` (`unvan`, `kisa_unvan`),
+  CONSTRAINT `cariler_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cariler_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=3454182 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='CARİLER - MÜŞTERİ VE TEDARİKÇİ BİLGİLERİNİ İÇERİR. MULTİ-DÖVİZ DESTEĞİ, ÖZEL KODLAR VE HESAP KATEGORİSİ YÖNETİMİ. ŞUBE BAZLI AYRIŞTIRMA İMKANI SUNAR';
+
+/* Structure for the `cariler_adres` table : */
+
+CREATE TABLE `cariler_adres` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `cariler_id` INTEGER UNSIGNED NOT NULL COMMENT 'ADRESİN BAĞLI OLDUĞU CARİ HESAP ID. İLİŞKİ: cariler.id',
+  `adres_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'ADRES ADI - ADRES TANIMI',
+  `adres` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TAM ADRES BİLGİSİ',
+  `ulke` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRESE AİT ÜLKE',
+  `sehir` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRESE AİT ŞEHİR',
+  `ilce` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRESE AİT İLÇE',
+  `posta_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRESE AİT POSTA KODU',
+  `telefon` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRES TELEFON BİLGİSİ',
+  `gsm` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ADRES GSM BİLGİSİ',
+  `vergi_dairesi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'VERGİ DAİRESİ',
+  `vergi_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'VERGİ NUMARASI',
+  `varsayilan` TINYINT DEFAULT 0 COMMENT 'VARSAYILAN ADRES: 0=NORMAL, 1=VARSAYILAN',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - ADRES OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_cari_adres_id` USING BTREE (`id`),
+  KEY `idx_cariler_id` USING BTREE (`cariler_id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_varsayilan` USING BTREE (`varsayilan`),
+  CONSTRAINT `fk_cari_adres_cariler` FOREIGN KEY (`cariler_id`) REFERENCES `cariler` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_cari_adres_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_cari_adres_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=9 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='CARİ ADRESLER - CARİ HESAPLARA BAĞLI ADRES BİLGİLERİ. BİRDEN FAZLA ADRES TANIMLANABİLİR, VARSAYILAN ADRES SEÇİMİ YAPILABİLİR. VERGİ BİLGİLERİ VE İLETİŞİM DETAYLARI DESTEKLENİR';
+
+/* Structure for the `carpanlar` table : */
+
+CREATE TABLE `carpanlar` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `stok_tipi_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'STOK TİPİ ID. TANIMLARDAN GELİR',
+  `masraf` DECIMAL(16,2) NOT NULL DEFAULT 1.00 COMMENT 'GİRİŞ FİYATI ÜZERİNE EKLENECEK MASRAF ORANI VEYA SABİT DEĞER',
+  `masraf_tipi` TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT 'MASRAF TİPİ: -1=YOK, 0=YÜZDE, 1=DEĞER',
+  `katsayi` DECIMAL(16,2) NOT NULL DEFAULT 1.00 COMMENT 'GİRİŞ FİYATI ÜZERİNE EKLENEN GİDERDEN SONRA HESAPLANACAK KATSAYI',
+  `carpan_1` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'BİRİNCİ ÇARPAN DEĞERİ',
+  `carpan_1_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 1 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_2` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'İKİNCİ ÇARPAN DEĞERİ',
+  `carpan_2_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 2 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_3` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'ÜÇÜNCÜ ÇARPAN DEĞERİ',
+  `carpan_3_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 3 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_4` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'DÖRDÜNCÜ ÇARPAN DEĞERİ',
+  `carpan_4_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 4 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_5` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'BEŞİNCİ ÇARPAN DEĞERİ',
+  `carpan_5_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 5 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_6` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'ALTINCI ÇARPAN DEĞERİ',
+  `carpan_6_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 6 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_7` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'YEDİNCİ ÇARPAN DEĞERİ',
+  `carpan_7_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 7 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_8` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'SEKİZİNCİ ÇARPAN DEĞERİ',
+  `carpan_8_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 8 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_9` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'DOKUZUNCU ÇARPAN DEĞERİ',
+  `carpan_9_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 9 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `carpan_10` DECIMAL(16,2) DEFAULT 1.00 COMMENT 'ONUNCU ÇARPAN DEĞERİ',
+  `carpan_10_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'ÇARPAN 10 DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `carpanlar_firmalar` USING BTREE (`firma_id`),
+  KEY `carpanlar_subeler` USING BTREE (`sube_id`),
+  CONSTRAINT `carpanlar_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `carpanlar_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=6 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ÇARPANLAR - STOK FİYATLANDIRMA ÇARPAN TANIMLARI. GİRİŞ FİYATI ÜZERİNE MASRAF VE KATSAYI UYGULANARAK 10 ADEDE KADAR FARKLI DÖVİZLİ SATIŞ FİYATI HESAPLANIR. STOK TİPİ, ÜRETİCİ VE MODEL BAZLI AYARLANIR';
+
+/* Structure for the `doviz_tipleri` table : */
+
+CREATE TABLE `doviz_tipleri` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `doviz_tipi` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'DÖVİZ KODU (USD, EUR, TRY GİBİ)',
+  `doviz_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'DÖVİZ ADI - UZUN ADI',
+  `doviz_birimi` INTEGER NOT NULL DEFAULT 1 COMMENT 'DÖVİZ BİRİMİ - HESAPLAMA BİRİMİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_doviz_tipleri_id` USING BTREE (`id`),
+  UNIQUE KEY `uk_doviz_tipi` USING BTREE (`doviz_tipi`),
+  KEY `idx_doviz_adi` USING BTREE (`doviz_adi`),
+  KEY `idx_aktif` USING BTREE (`aktif`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=26 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='DÖVİZ TİPLERİ - SİSTEMDE KULLANILAN PARA BİRİMLERİ. TRY, USD, EUR GİBİ DÖVİZLER VE BİRİM TANIMLARI BU TABLODA TUTULUR';
+
+/* Structure for the `cek_master` table : */
+
+CREATE TABLE `cek_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `evrak_tipi` ENUM('Çek','Senet') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Çek' COMMENT 'EVRAK TİPİ: Çek, Senet',
+  `evrak_yeri` ENUM('Portföyde','Verilen','Ciro','Banka','İade','Tahsilat','Ödeme','İade Alınan','Parçalı Tahsil','Parçalı Ödeme') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Portföyde' COMMENT 'EVRAK YERİ: Portföyde, Verilen, Ciro, Banka, İade, Tahsilat, Ödeme, İade Alınan, Parçalı Tahsil, Parçalı Ödeme',
+  `tarih` DATE NOT NULL COMMENT 'EVRAK İŞLEM TARİHİ',
+  `vade` DATE NOT NULL COMMENT 'EVRAK VADESİ',
+  `odeme` DATE NOT NULL COMMENT 'EVRAK ÖDEME TARİHİ',
+  `resmi_gayri_resmi` TINYINT NOT NULL DEFAULT 0 COMMENT 'RESMİ/GAYRİ RESMİ: 0=GAYRİ RESMİ, 1=RESMİ',
+  `cari_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'CARİ HESAP ID. İLİŞKİ: cariler.id',
+  `son_cari_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'SON HAREKET GÖREN CARİ HESAP ID. İLİŞKİ: cariler.id',
+  `karsi_hesap_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KARŞI HESAP ID. İLİŞKİ: cariler.id',
+  `elden_tahsil` TINYINT NOT NULL DEFAULT 0 COMMENT 'ELDEN TAHSİL: 0=HAYIR, 1=EVET',
+  `evrak_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAK KULLANICI SERİ NUMARASI',
+  `cek_seri_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAK ÇEK İSE SERİ NUMARASI',
+  `tc_kimlik_no` VARCHAR(11) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SENETLERDE TC KİMLİK NUMARASI',
+  `evrak_sahibi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAK SAHİBİ',
+  `banka` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAK BANKA BİLGİSİ',
+  `banka_hesap` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BANKA HESAP BİLGİSİ',
+  `banka_sube` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BANKA ŞUBE BİLGİSİ',
+  `adres` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'EVRAK ADRES BİLGİSİ',
+  `notlar` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'EVRAK İLE İLGİLİ NOTLAR',
+  `tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'EVRAK TUTARI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAK DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `doviz_kuru` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'EVRAK TARİHİNDEKİ DÖVİZ KURU',
+  `cari_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ EVRAK TUTARI',
+  `cari_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ EVRAK PARA TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `cari_doviz_kuru` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ EVRAK DÖVİZ KURU',
+  `odenen` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÖDENEN TUTAR',
+  `devir_evrak` TINYINT NOT NULL DEFAULT 0 COMMENT 'DEVİR EVRAK: 0=NORMAL, 1=DEVİR EVRAKI (FİŞ KAYDI YAPILMAMIŞ)',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `cek_master_firmalar` USING BTREE (`firma_id`),
+  KEY `cek_master_subeler` USING BTREE (`sube_id`),
+  KEY `cek_master_cariler_son_cari` USING BTREE (`son_cari_id`),
+  KEY `cek_master_cariler_cari` USING BTREE (`cari_id`),
+  KEY `cek_master_cariler_karsi` USING BTREE (`karsi_hesap_id`),
+  KEY `cek_master_doviz_tipleri` USING BTREE (`doviz`),
+  CONSTRAINT `cek_master_cariler_cari` FOREIGN KEY (`cari_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_master_cariler_karsi` FOREIGN KEY (`karsi_hesap_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_master_cariler_son_cari` FOREIGN KEY (`son_cari_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_master_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=4 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ÇEK MASTER - ÇEK VE SENET ANA KAYITLARI. EVRAK TAKİBİ, PORTFÖY YÖNETİMİ, CİRO VE TAHSİLAT SÜREÇLERİNİ YÖNETİR. MULTİ-DÖVİZ DESTEĞİ, VADE TAKİBİ VE ÖDEME PLANLAMASI İÇERİR';
+
+/* Structure for the `cek_detay` table : */
+
+CREATE TABLE `cek_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `cek_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ÇEK KAYDI ID. İLİŞKİ: cek_master.id',
+  `evrak_yeri` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'EVRAKIN HAREKET GÖRDÜĞÜ YER',
+  `tarih` DATE DEFAULT NULL COMMENT 'EVRAK HAREKET TARİHİ',
+  `cari_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'HAREKET GÖREN CARİ HESAP ID. İLİŞKİ: cariler.id',
+  `banka` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BANKA HAREKETİ',
+  `banka_sube` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BANKA ŞUBESİ',
+  `tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÖDEME VEYA İŞLEM TUTARI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÖDEME VEYA İŞLEM PARA TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `doviz_kuru` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İŞLEM TARİHİNDEKİ DÖVİZ KURU',
+  `cari_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ ÖDEME VEYA İŞLEM TUTARI',
+  `cari_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ ÖDEME VEYA İŞLEM PARA TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `cari_doviz_kuru` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ İŞLEM TARİHİNDEKİ DÖVİZ KURU',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'EVRAK HAREKET NOTU',
+  `giris_cikis` TINYINT NOT NULL DEFAULT 1 COMMENT 'HAREKET TİPİ: 1=GİRİŞ (VARSAYILAN), 0=ÇIKIŞ/ÖDEME',
+  `fis_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'MUHASEBE FİŞ NUMARASI. İLİŞKİ: fis_master.id',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `cek_detay_cek_master` USING BTREE (`cek_master_id`),
+  KEY `cek_detay_cariler` USING BTREE (`cari_id`),
+  KEY `cek_detay_doviz_tipleri` USING BTREE (`doviz`),
+  KEY `cek_detay_doviz_tipleri_cari` USING BTREE (`cari_doviz`),
+  CONSTRAINT `cek_detay_cariler` FOREIGN KEY (`cari_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_detay_cek_master` FOREIGN KEY (`cek_master_id`) REFERENCES `cek_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_detay_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `cek_detay_doviz_tipleri_cari` FOREIGN KEY (`cari_doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=5 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ÇEK DETAY - ÇEK HAREKETLERİNİN DETAY KAYITLARI. ÇEKİN TAHSİL, DEVİR, ÖDEME GİBİ TÜM HAREKETLERİNİ TAKİP EDER. MULTİ-DÖVİZ DESTEĞİ VE MUHASEBE ENTEGRASYONU İÇERİR';
+
+/* Structure for the `dosyalar` table : */
+
+CREATE TABLE `dosyalar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `modul` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'MODÜL ADI (cariler, fisler, kasalar vb.)',
+  `modul_kayit_id` INTEGER NOT NULL COMMENT 'İLGİLİ MODÜL KAYIT ID',
+  `tanim_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYIT TANIMLARA BAĞLI İSE KULLANILIR. ÖRNEK: MODEL RENGE BAĞLI İSE',
+  `dosya_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ORİJİNAL DOSYA ADI',
+  `dosya_yolu` VARCHAR(500) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'SUNUCUDAKİ DOSYA YOLU',
+  `dosya_tipi` VARCHAR(10) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'DOSYA TİPİ (pdf, jpg, png vb.)',
+  `dosya_boyutu` DECIMAL(16,2) NOT NULL DEFAULT 0.00 COMMENT 'DOSYA BOYUTU (MB CİNSİNDEN)',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'DOSYA AÇIKLAMASI',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kullanici_kayit_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_modul` USING BTREE (`modul`, `modul_kayit_id`),
+  KEY `idx_firma` USING BTREE (`firma_id`, `sube_id`),
+  KEY `idx_tarih` USING BTREE (`kayit_tarihi`),
+  KEY `dosyalar_subeler` USING BTREE (`sube_id`),
+  CONSTRAINT `dosyalar_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `dosyalar_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=34 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='DOSYALAR - SİSTEMDEKİ TÜM MODÜLLERE AİT DOSYA EKLERİ. CARİLER, FİŞLER, KASALAR GİBİ FARKLI MODÜLLERE DOSYA EKLEME İMKANI SAĞLAR. DOSYA YOLU VE BOYUT BİLGİSİ GÜVENLİ ŞEKİLDE SAKLANIR';
+
+/* Structure for the `doviz_kurlari` table : */
+
+CREATE TABLE `doviz_kurlari` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `tarih` DATE NOT NULL COMMENT 'KUR TARİHİ - HANGİ GÜNÜN KURU',
+  `kur_anahtar` ENUM('tr','ua','ru','') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KUR ANAHTAR ÜLKE KODU: tr, ua, ru',
+  `doviz_tipi` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'DÖVİZ TİPİ (USD, EUR, TRY GİBİ). İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `doviz_alis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'DÖVİZ ALIŞ KURU',
+  `doviz_satis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'DÖVİZ SATIŞ KURU',
+  `efektif_alis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'EFEKTİF ALIŞ KURU',
+  `efektif_satis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'EFEKTİF SATIŞ KURU',
+  `ozel_kur` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'ÖZEL KUR - FİRMAYA ÖZEL KUR',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_doviz_kurlari_id` USING BTREE (`id`),
+  UNIQUE KEY `uk_tarih_doviz` USING BTREE (`tarih`, `doviz_tipi`, `kur_anahtar`),
+  KEY `idx_tarih` USING BTREE (`tarih`),
+  KEY `idx_doviz_tipi` USING BTREE (`doviz_tipi`),
+  KEY `idx_kur_anahtar` USING BTREE (`kur_anahtar`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=1009 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='DÖVİZ KURLARI - GÜNLÜK DÖVİZ KURLARI. MERKEZ BANKASI KURLARI, EFEKTİF KURLAR VE ÖZEL KURLAR BU TABLODA SAKLANIR. ÜLKE BAZLI KUR AYRIMI DESTEKLENİR';
+
+/* Structure for the `fatura_irsaliye_tipi` table : */
+
+CREATE TABLE `fatura_irsaliye_tipi` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `tur` TINYINT NOT NULL DEFAULT 0 COMMENT 'EVRAK TÜRÜ: 0=İRSALİYE, 1=FATURA',
+  `gc` TINYINT NOT NULL DEFAULT 1 COMMENT 'GİRİŞ/ÇIKIŞ DURUMU: 0=BEKLEME, 1=GİRİŞLER, -1=ÇIKIŞLAR',
+  `kod` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '000' COMMENT 'EVRAK KISA KODU',
+  `fatura_kod` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '00' COMMENT 'İRSALİYENİN FATURA KOD KARŞILIĞI',
+  `hesap_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'HESAP KODU',
+  `aciklama` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FATURA TÜRKÇE AÇIKLAMASI',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `kod` USING BTREE (`kod`),
+  UNIQUE KEY `aciklama` USING BTREE (`aciklama`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=51 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SİSTEM FATURA VE İRSALİYE TÜRLERİ';
+
+/* Structure for the `fatura_irsaliye_master` table : */
+
+CREATE TABLE `fatura_irsaliye_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `cariler_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'FATURANIN BAĞLI OLDUĞU CARİ HESAP ID. İLİŞKİ: cariler.id',
+  `tipi_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'FATURA TİPİ ID (ALIŞ, SATIŞ, ALIŞ İADE, SATIŞ İADE). İLİŞKİ: fatura_irsaliye_tipi.id',
+  `modul_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'BAĞLI OLDUĞU MODÜLÜN KODU (konfeksiyon-stoklar vb.)',
+  `fatura_irsaliye_master_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'BİRLEŞTİRİLEREK OLUŞTURULAN İRSALİYELERİN FATURA ID. 0 İSE FATURALANDIRILMAMIŞ',
+  `fis_master_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'FATURA ONAYLANDIĞINDA OLUŞAN FİŞ MASTER KAYDININ İD Sİ',
+  `seri_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'FATURA VEYA İRSALİYE SERİ NUMARASI',
+  `tarih` DATETIME NOT NULL COMMENT 'FATURA OLUŞTURMA TARİHİ',
+  `vade` DATETIME NOT NULL COMMENT 'FATURA VADE TARİHİ',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'FATURA DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `fatura_adres_id` INTEGER DEFAULT 0 COMMENT 'CARİ HESAP FATURA ADRES ID. İLİŞKİ: cariler_adres.id',
+  `sevk_adres_id` INTEGER DEFAULT 0 COMMENT 'CARİ HESAP SEVK ADRES ID. İLİŞKİ: cariler_adres.id',
+  `toplam_miktar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM MİKTAR',
+  `toplam_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM DÖVİZLİ TUTAR',
+  `toplam_indirim` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM İNDİRİM TUTARI',
+  `toplam_kdv` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM KDV TUTARI',
+  `toplam_otv` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM ÖZEL TÜKETİM VERGİSİ TUTARI',
+  `toplam_oiv` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM ÖZEL İLETİŞİM VERGİSİ TUTARI',
+  `toplam_konaklama` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM KONAKLAMA VERGİSİ TUTARI',
+  `toplam_tevkifat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA TOPLAM TEVKİFAT TUTARI',
+  `ajanda_id` INTEGER DEFAULT 0 COMMENT 'AJANDA TABLO ID. İLİŞKİ: ajanda.id',
+  `fatura_kur` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA DÖVİZ KURU',
+  `odeme_durum` TINYINT NOT NULL DEFAULT 3 COMMENT 'FATURA ÖDEME DURUMU: 1=ÖDENDİ, 2=KISMEN ÖDENDİ, 3=ÖDENMEDİ',
+  `tekrarlayan` INTEGER NOT NULL DEFAULT 0 COMMENT 'TEKRARLAYAN FATURA PERİYODU: 0=NORMAL, 1=GÜNLÜK, 7=HAFTALIK, 30=AYLIK, 365=YILLIK',
+  `terkrarlama_tarihi` DATE DEFAULT '0000-00-00' COMMENT 'TEKRARLAYAN FATURA SONRAKİ TEKRARLAMA TARİHİ',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'FATURA AÇIKLAMASI',
+  `master_indirim_tipi` TINYINT DEFAULT -1 COMMENT 'FATURA MASTER İNDİRİM TİPİ: 0=YÜZDE, 1=DEĞER',
+  `master_indirim_deger` DECIMAL(16,4) DEFAULT NULL COMMENT 'FATURA MASTER İNDİRİM DEĞERİ',
+  `master_indirim_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FATURA MASTER İNDİRİM TUTARI',
+  `transfer_sube_id` INTEGER DEFAULT 0 COMMENT 'TRANSFER GÖNDERİLEN VEYA KABUL EDİLEN ŞUBE ID',
+  `transfer_cikis_depo_id` INTEGER DEFAULT 0 COMMENT 'TRANSFER ÇIKIŞI YAPILAN DEPO ID',
+  `transfer_giris_depo_id` INTEGER DEFAULT 0 COMMENT 'TRANSFER GİRİŞİ YAPILAN DEPO ID',
+  `transfer_fatura_irsaliye_id` INTEGER DEFAULT 0 COMMENT 'TRANSFER FATURA VEYA İRSALİYE ID (GELEN VE ÇIKAN TRANSFER İÇİN)',
+  `irsaliye_onay` TINYINT NOT NULL DEFAULT 0 COMMENT 'MUHASEBE HARİCİNDEKİ MODÜLLERDEN GİRİLEN İRSALİYELERİN MUHASEBE MODÜLÜNDE GÖRÜNMESİNİ SAĞLAR: 0=ONAYSIZ, 1=ONAYLI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `fatura_irsaliye_master_firmalar` USING BTREE (`firma_id`),
+  KEY `fatura_irsaliye_master_subeler` USING BTREE (`sube_id`),
+  KEY `fatura_irsaliye_master_cariler` USING BTREE (`cariler_id`),
+  KEY `fatura_irsaliye_master_tipi` USING BTREE (`tipi_id`),
+  KEY `fatura_irsaliye_master_doviz_tipleri` USING BTREE (`doviz`),
+  CONSTRAINT `fatura_irsaliye_master_cariler` FOREIGN KEY (`cariler_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fatura_irsaliye_master_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `fatura_irsaliye_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fatura_irsaliye_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fatura_irsaliye_master_tipi` FOREIGN KEY (`tipi_id`) REFERENCES `fatura_irsaliye_tipi` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=110 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FATURA VE İRSALİYE MASTER - FATURA VE İRSALİYE ANA KAYITLARI. ALIŞ, SATIŞ, İADE VE TRANSFER İŞLEMLERİNİ YÖNETİR. MULTİ-DÖVİZ DESTEĞİ VE MUHASEBE ENTEGRASYONU İÇERİR';
+
+/* Structure for the `firma_kurlari` table : */
+
+CREATE TABLE `firma_kurlari` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - KUR SAHİBİ FİRMA. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID - ŞUBEYE ÖZEL KUR. İLİŞKİ: subeler.id',
+  `tarih` DATE NOT NULL COMMENT 'KUR TARİHİ',
+  `kur_anahtar` ENUM('tr','ua','ru','') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KUR ANAHTAR ÜLKE KODU: tr, ua, ru',
+  `doviz_tipi` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'DÖVİZ TİPİ (USD, EUR, TRY GİBİ). İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `doviz_alis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'DÖVİZ ALIŞ KURU',
+  `doviz_satis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'DÖVİZ SATIŞ KURU',
+  `efektif_alis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'EFEKTİF ALIŞ KURU',
+  `efektif_satis` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'EFEKTİF SATIŞ KURU',
+  `ozel_kur` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'ÖZEL KUR DEĞERİ',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_firma_kur_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_tarih` USING BTREE (`tarih`),
+  KEY `idx_doviz_tipi` USING BTREE (`doviz_tipi`),
+  CONSTRAINT `fk_firma_kur_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_firma_kur_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİRMA KURLARI - FİRMAYA ÖZEL DÖVİZ KURLARI. FİRMALAR KENDİ ÖZEL KURLARINI TANIMLAYABİLİR. ŞUBE BAZLI KUR FARKLILIKLARI DESTEKLENİR';
+
+/* Structure for the `paketler` table : */
+
+CREATE TABLE `paketler` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `paket_menu_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'PAKET MENÜDEKI ADI - YETKİLENDİRME İÇİN',
+  `paket_grubu` ENUM('yapay-zeka','deri-tekstil','otomotiv','turizm','rfid','egitim','finans') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'deri-tekstil' COMMENT 'PAKET GRUP KATEGORİSİ: yapay-zeka, deri-tekstil, otomotiv, turizm, rfid, egitim, finans',
+  `paket_tipi` ENUM('standart','admin','sistem') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'standart' COMMENT 'PAKET TİPİ: standart=NORMAL PAKETLER, admin=YÖNETİCİ MENÜLER, sistem=SİSTEM AYARLARI',
+  `menu_ikonu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SIDEBAR MENÜ İKONU (LUCIDE ICON ADI)',
+  `menu_sira` INTEGER DEFAULT 0 COMMENT 'MENÜDE GÖRÜNTÜLENME SIRASI',
+  `menu_renk` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MENÜ RENK KODU (BADGE İÇİN)',
+  `paket_bitis_tarihi_goster` TINYINT NOT NULL DEFAULT 1 COMMENT 'PAKET BİTİŞ TARİHİ GÖSTERİLSİN Mİ? 0=HAYIR, 1=EVET',
+  `paket_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'PAKET ADI - GÖRÜNÜR PAKET İSMİ',
+  `paket_aciklama` TEXT COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'PAKET AÇIKLAMA METNİ - DETAY BİLGİ',
+  `paket_fiyati` DECIMAL(16,2) NOT NULL DEFAULT 0.00 COMMENT 'PAKET FİYATI - LİSTE FİYATI',
+  `fiyat_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'FİYAT DÖVİZ BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `kdv_oran` DECIMAL(16,2) NOT NULL DEFAULT 0.00 COMMENT 'KDV ORANI (YÜZDE CİNSİNDEN)',
+  `bayi_komisyon_oran` DECIMAL(16,2) NOT NULL DEFAULT 0.00 COMMENT 'BAYİ KOMİSYON ORANI (YÜZDE)',
+  `bayi_komisyon_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'BAYİ KOMİSYON DÖVİZ BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `paket_suresi` INTEGER NOT NULL DEFAULT 30 COMMENT 'PAKET SÜRESİ (GÜN CİNSİNDEN)',
+  `kullanici_siniri` INTEGER NOT NULL DEFAULT 1 COMMENT 'MAKSİMUM KULLANICI SAYISI',
+  `sube_siniri` INTEGER NOT NULL DEFAULT 1 COMMENT 'MAKSİMUM ŞUBE SAYISI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - PAKET OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_paket_id` USING BTREE (`id`),
+  KEY `idx_paket_adi` USING BTREE (`paket_adi`),
+  KEY `idx_paket_grubu` USING BTREE (`paket_grubu`),
+  KEY `idx_paket_fiyati` USING BTREE (`paket_fiyati`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_paket_tipi` USING BTREE (`paket_tipi`),
+  KEY `idx_menu_sira` USING BTREE (`menu_sira`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=9 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='PAKETLER - YAZILIM ABONELİK PAKET TANIMLARI. HER PAKET FARKLI ÖZELLİKLER, MODÜL ERİŞİMLERİ VE KULLANICI/ŞUBE LİMİTLERİ İÇERİR. FİYATLANDIRMA, KDV VE BAYİ KOMİSYON YÖNETİMİ BU TABLODA YAPILIR';
+
+/* Structure for the `firma_paketler` table : */
+
+CREATE TABLE `firma_paketler` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - ABONELİK SAHİBİ. İLİŞKİ: firmalar.id',
+  `bayi_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'SATIŞ YAPAN BAYİ ID. İLİŞKİ: bayiler.id',
+  `paket_id` INTEGER UNSIGNED NOT NULL COMMENT 'SATIN ALINAN PAKET ID. İLİŞKİ: paketler.id',
+  `baslangic_tarihi` DATE NOT NULL COMMENT 'PAKET BAŞLANGIÇ TARİHİ',
+  `bitis_tarihi` DATE NOT NULL COMMENT 'PAKET BİTİŞ TARİHİ',
+  `liste_fiyati` DECIMAL(10,2) NOT NULL COMMENT 'LİSTE FİYATI - İNDİRİMSİZ FİYAT',
+  `bayi_indirim_oran` DECIMAL(5,2) DEFAULT 0.00 COMMENT 'BAYİ İNDİRİM ORANI (YÜZDE)',
+  `bayi_indirim_tutar` DECIMAL(10,2) DEFAULT 0.00 COMMENT 'BAYİ İNDİRİM TUTARI (SABİT TUTAR)',
+  `paket_fiyati` DECIMAL(10,2) NOT NULL COMMENT 'PAKET FİYATI - İNDİRİMLİ FİYAT',
+  `bayi_komisyon_oran` DECIMAL(5,2) DEFAULT 0.00 COMMENT 'BAYİ KOMİSYON ORANI (YÜZDE)',
+  `para_birimi` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'PARA BİRİMİ - DÖVİZ TÜRÜ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `net_tutar` DECIMAL(10,2) NOT NULL COMMENT 'NET TUTAR - ÖDENECEK TOPLAM TUTAR',
+  `odeme_durumu` ENUM('beklemede','odendi','gecikmiş','iptal') COLLATE utf8mb4_unicode_ci DEFAULT 'beklemede' COMMENT 'ÖDEME DURUMU: beklemede, odendi, gecikmiş, iptal',
+  `bayi_odeme_durumu` ENUM('beklemede','odendi','gecikmiş') COLLATE utf8mb4_unicode_ci DEFAULT 'beklemede' COMMENT 'BAYİ ÖDEME DURUMU: beklemede, odendi, gecikmiş',
+  `otomatik_yenileme` TINYINT DEFAULT 1 COMMENT 'OTOMATİK YENİLEME: 0=PASİF, 1=AKTİF',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - ABONELİK OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_firma_paket_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_bayi_id` USING BTREE (`bayi_id`),
+  KEY `idx_paket_id` USING BTREE (`paket_id`),
+  KEY `idx_bitis_tarihi` USING BTREE (`bitis_tarihi`),
+  KEY `idx_odeme_durumu` USING BTREE (`odeme_durumu`),
+  KEY `idx_bayi_odeme_durumu` USING BTREE (`bayi_odeme_durumu`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  CONSTRAINT `fk_firma_paket_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_firma_paket_paket` FOREIGN KEY (`paket_id`) REFERENCES `paketler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=12 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİRMA PAKETLERİ - FİRMALARIN AKTİF ABONELİK BİLGİLERİ. BAŞLANGIÇ-BİTİŞ TARİHLERİ, ÖDEME DURUMLARI, BAYİ KOMİSYONLARI VE OTOMATİK YENİLEME AYARLARI BU TABLODA YÖNETİLİR';
+
+/* Structure for the `firma_roller` table : */
+
+CREATE TABLE `firma_roller` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `rol_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ROL ADI',
+  `rol_aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ROL AÇIKLAMASI',
+  `yetki_parametreleri` JSON DEFAULT NULL COMMENT 'MENÜ ID BAZLI YETKİLER (MENÜ + CRUD + ÖZEL YETKİLER) JSON FORMATINDA',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_firma_aktif` USING BTREE (`firma_id`, `aktif`),
+  KEY `uk_firma_rol` USING BTREE (`firma_id`, `rol_adi`),
+  CONSTRAINT `firma_roller_ibfk_1` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=8 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİRMA ROLLERİ - FİRMA BAZLI KULLANICI ROLLERİ VE YETKİLERİ';
+
+/* Structure for the `fis_master` table : */
+
+CREATE TABLE `fis_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `fis_no` VARCHAR(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'FİŞ NUMARASI - SIRA NUMARASI (25-000001 DEN BAŞLAYIP DEVAM EDER)',
+  `fis_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Mahsup' COMMENT 'FİŞ TİPİ: Mahsup, Tahsil, Tediye vb.',
+  `fis_tarihi` DATETIME NOT NULL COMMENT 'FİŞ TARİHİ - İŞLEM TARİHİ',
+  `kayit_id` INTEGER UNSIGNED NOT NULL COMMENT 'FİŞE GELEN TABLO KAYIT ID - BAĞLI KAYIT',
+  `kayit_tablo` ENUM('diger','fatura_master','cek_master') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'diger' COMMENT 'FİŞE GELEN KAYIT TABLO ADI - KAYNAK TABLO: diger, fatura_master, cek_master',
+  `resmi_gayri_resmi` TINYINT NOT NULL DEFAULT 0 COMMENT 'KAYIT RESMİ Mİ GAYRİ RESMİ Mİ? 0=GAYRİ RESMİ, 1=RESMİ',
+  `fis_aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'FİŞ MASTER AÇIKLAMASI',
+  `kasa_hesap_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KASA HESAP KOD BİLGİSİ',
+  `kasa_durum` TINYINT NOT NULL DEFAULT 1 COMMENT 'KASA DURUMU: 0=KAPALI, 1=AÇIK',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_fis_master_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_fis_tipi` USING BTREE (`fis_tipi`),
+  KEY `idx_fis_tarihi` USING BTREE (`fis_tarihi`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_firma_sube_aktif` USING BTREE (`firma_id`, `sube_id`, `aktif`),
+  KEY `idx_firma_sube_aktif_tarih` USING BTREE (`firma_id`, `sube_id`, `aktif`, `fis_tarihi`),
+  CONSTRAINT `fk_fis_master_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_fis_master_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=196773 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİŞ MASTER - MUHASEBE FİŞLERİNİN ANA BİLGİ TABLOSU. MAHSUP, TAHSİL, TEDİYE GİBİ FARKLI FİŞ TİPLERİ DESTEKLENİR. FATURA VE ÇEK GİBİ KAYNAKLARLA ENTEGRE ÇALIŞIR. KASA TAKİBİ VE RESMİ/GAYRİ RESMİ KAYIT AYRIMI YAPILIR';
+
+/* Structure for the `fis_detay` table : */
+
+CREATE TABLE `fis_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `fis_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİŞ MASTER ID. İLİŞKİ: fis_master.id',
+  `hesap_kodu` VARCHAR(36) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'CARİ HESAP KODU - MUHASEBEDEKİ HESAP',
+  `aciklama` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİŞ DETAY AÇIKLAMASI - SATIR AÇIKLAMASI',
+  `borc` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BORÇ TUTARI',
+  `alacak` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ALACAK TUTARI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DÖVİZ CİNSİ - PARA BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `doviz_kuru` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DÖVİZ KURU - ÇEVRİM ORANI',
+  `dovizli_borc` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DÖVİZLİ BORÇ - YABANCI PARA BORÇ',
+  `dovizli_alacak` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DÖVİZLİ ALACAK - YABANCI PARA ALACAK',
+  `dovizli_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'İKİNCİ DÖVİZ CİNSİ - İKİNCİ PARA BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `dovizli_kur` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİ DÖVİZ KURU - İKİNCİ ÇEVRİM ORANI',
+  `cari_borc` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ HESAP BORÇ TUTARI',
+  `cari_alacak` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ HESAP ALACAK TUTARI',
+  `cari_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CARİ DÖVİZ CİNSİ - CARİ PARA BİRİMİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `cari_kur` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'CARİ HESAP ÇEVRİM ORANI',
+  `miktar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRÜN MİKTARI',
+  `birim` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BİRİM - MİKTAR BİRİMİ',
+  `birim_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİM FİYATI - TEK FİYAT',
+  `random` VARCHAR(36) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'RASTGELE KOD - ÖZEL TANIMLAYICI',
+  `kdv_orani` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KDV ORANI - VERGİ ORANI',
+  `virman_sube_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'VİRMAN YAPILAN ŞUBE ID. İLİŞKİ: subeler.id',
+  `virman_kabul_durum` TINYINT DEFAULT 0 COMMENT 'VİRMANIN KABUL DURUMU: 0=BEKLİYOR, 1=KABUL EDİLDİ',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - SATIR OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_fis_detay_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_fis_master_id` USING BTREE (`fis_master_id`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_fis_master_aktif` USING BTREE (`fis_master_id`, `aktif`),
+  KEY `idx_firma_sube_aktif` USING BTREE (`firma_id`, `sube_id`, `aktif`),
+  KEY `idx_hesap_kodu_aktif` USING BTREE (`hesap_kodu`, `aktif`),
+  KEY `idx_firma_sube_hesap_aktif` USING BTREE (`firma_id`, `sube_id`, `hesap_kodu`, `aktif`),
+  KEY `fis_detay_doviz_tipleri` USING BTREE (`doviz`),
+  KEY `fis_detay_doviz_tipleri_dovizli` USING BTREE (`dovizli_doviz`),
+  KEY `fis_detay_doviz_tipleri_cari` USING BTREE (`cari_doviz`),
+  CONSTRAINT `fis_detay_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `fis_detay_doviz_tipleri_cari` FOREIGN KEY (`cari_doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `fis_detay_doviz_tipleri_dovizli` FOREIGN KEY (`dovizli_doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `fis_detay_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fis_detay_fis_master` FOREIGN KEY (`fis_master_id`) REFERENCES `fis_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fis_detay_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1952061 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='FİŞ DETAY - MUHASEBE FİŞLERİNİN SATIR BİLGİLERİ. HER SATIR BİR HESAP HAREKETİ İÇERİR. MULTİ-DÖVİZ, ÇOKLU KUR DESTEĞİ, MİKTAR-BİRİM TAKİBİ VE ŞUBELER ARASI VİRMAN İŞLEMLERİ DESTEKLENİR';
+
+/* Structure for the `kullanici_tercihleri` table : */
+
+CREATE TABLE `kullanici_tercihleri` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KULLANICI ID - TERCİHİN SAHİBİ. İLİŞKİ: kullanicilar.id',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `sayfa_kodu` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'SAYFA KODU (ÖRNEK: account_list, invoice_list)',
+  `tercih_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'TERCİH TİPİ (column_visibility, table_settings, filters vb.)',
+  `tercih_degeri` JSON NOT NULL COMMENT 'TERCİH DEĞERLERİ - JSON FORMATINDA SAKLANIR',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - TERCİH OLUŞTURULMA TARİHİ',
+  `guncelleme_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'GÜNCELLEME TARİHİ - SON GÜNCELLEME TARİHİ',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_tercih_id` USING BTREE (`id`),
+  UNIQUE KEY `uk_kullanici_sayfa_tercih` USING BTREE (`kullanici_id`, `firma_id`, `sube_id`, `sayfa_kodu`, `tercih_tipi`),
+  KEY `idx_kullanici_id` USING BTREE (`kullanici_id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_sayfa_kodu` USING BTREE (`sayfa_kodu`),
+  KEY `idx_tercih_tipi` USING BTREE (`tercih_tipi`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `idx_guncelleme_tarihi` USING BTREE (`guncelleme_tarihi`),
+  CONSTRAINT `fk_tercih_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_tercih_kullanici` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_tercih_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=80 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='KULLANICI TERCİHLERİ - KULLANICILARIN SAYFA BAZLI TERCİHLERİNİ (SÜTUN GÖRÜNÜRLÜK, TABLO AYARLARI, FİLTRELER vb.) JSON FORMATINDA SAKLAYAN TABLO. HER KULLANICI-FİRMA-ŞUBE-SAYFA KOMBİNASYONU İÇİN BENZERSİZ TERCİHLER TUTULUR';
+
+/* Structure for the `kullanici_tokenlar` table : */
+
+CREATE TABLE `kullanici_tokenlar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI KULLANICI ID - TOKEN SAHİBİ. İLİŞKİ: kullanicilar.id',
+  `token_tipi` ENUM('giris','yenileme','sifre_sifirlama','aktivasyon','email_dogrulama','mobil giris','mobil yenileme','golaks_iq_giris','sube_degis') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'giris' COMMENT 'TOKEN TİPİ: giris=GİRİŞ, yenileme=TOKEN YENİLEME, sifre_sifirlama=ŞİFRE SIFIRLAMA, aktivasyon=HESAP AKTİVASYONU, email_dogrulama=EMAIL DOĞRULAMA, mobil giris=MOBİL GİRİŞ',
+  `token` VARCHAR(768) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'JWT TOKEN DEĞERİ - OTURUM ANAHTARI',
+  `gecerlilik_tarihi` DATETIME NOT NULL COMMENT 'TOKEN SONA ERİŞ TARİHİ',
+  `device_info` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'CİHAZ BİLGİSİ - USERAGENT, IP GİBİ BİLGİLER JSON FORMATINDA',
+  `son_kullanim` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'SON KULLANIM TARİHİ - TOKEN EN SON NE ZAMAN KULLANILDI',
+  `olusturma_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'TOKEN OLUŞTURULMA TARİHİ',
+  `aktif` TINYINT DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_token` USING BTREE (`token`),
+  KEY `idx_kullanici_id` USING BTREE (`kullanici_id`),
+  KEY `idx_gecerlilik_tarihi` USING BTREE (`gecerlilik_tarihi`),
+  KEY `idx_token_tipi` USING BTREE (`token_tipi`),
+  KEY `idx_kullanici_token_tipi` USING BTREE (`kullanici_id`, `token_tipi`),
+  KEY `idx_last_used` USING BTREE (`son_kullanim`),
+  KEY `idx_gecerlilik_last_used` USING BTREE (`gecerlilik_tarihi`, `son_kullanim`),
+  CONSTRAINT `fk_token_kullanici` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1002 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='KULLANICI TOKENLAR - JWT TABANLI OTURUM YÖNETİMİ İÇİN TOKEN SAKLAMA TABLOSU. HER KULLANICININ AKTİF TOKENLARI, GEÇERLİLİK SÜRELERİ VE OTURUM BİLGİLERİ BURADA TUTULUR';
+
+/* Structure for the `maliyet` table : */
+
+CREATE TABLE `maliyet` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `ust_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'ÜST ID: 0=ANA KAYIT, DİĞER=ALT KAYIT',
+  `analiz_tipi` TINYINT(1) UNSIGNED ZEROFILL DEFAULT 0 COMMENT 'ANALİZ TİPİ: 0=MALİYET ANALİZİ, 1=ADET ANALİZİ',
+  `tanim_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TANIM ADI',
+  `baslangic_tarihi` DATE DEFAULT NULL COMMENT 'BAŞLANGIÇ TARİHİ',
+  `bitis_tarihi` DATE DEFAULT NULL COMMENT 'BİTİŞ TARİHİ',
+  `model_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'MODEL ID. İLİŞKİ: model_kartlar.id',
+  `bolum_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BÖLÜM ID - TANIMLARDAN GELİR (DEPO, KESİMHANE GİBİ)',
+  `masraf_merkezi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'MASRAF MERKEZİ ID - TANIMLARDAN GELİR',
+  `tutar` DECIMAL(16,4) DEFAULT NULL COMMENT 'MALİYET VARSAYILAN PARA TİPİNE DÖNÜŞMÜŞ TUTARI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MALİYET VARSAYILAN DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `dovizli_tutar` DECIMAL(16,4) DEFAULT NULL COMMENT 'MALİYET GİRİLEN TUTAR',
+  `dovizli_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MALİYET GİRİLEN DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `adet` INTEGER UNSIGNED DEFAULT 0 COMMENT 'ADET BİLGİSİ (HER TİP İÇİN TEK ADET TANIMLANABİLİR)',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TANIM AÇIKLAMASI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `maliyet_firmalar` USING BTREE (`firma_id`),
+  KEY `maliyet_subeler` USING BTREE (`sube_id`),
+  KEY `maliyet_doviz_tipleri` USING BTREE (`doviz`),
+  KEY `maliyet_doviz_tipleri_dovizli` USING BTREE (`dovizli_doviz`),
+  CONSTRAINT `maliyet_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `maliyet_doviz_tipleri_dovizli` FOREIGN KEY (`dovizli_doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `maliyet_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `maliyet_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=29 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='MALİYET - MALİYET VE ADET ANALİZİ KAYITLARI. MODEL, BÖLÜM VE MASRAF MERKEZİ BAZLI MALİYET TAKİBİ YAPILIR. HİYERARŞİK YAPI (ÜST-ALT) DESTEKLENİR. MULTİ-DÖVİZ DESTEĞİ MEVCUTTUR';
+
+/* Structure for the `model_kartlar` table : */
+
+CREATE TABLE `model_kartlar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - MODEL SAHİBİ. İLİŞKİ: firmalar.id',
+  `ana_model_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'ANA MODEL KODU - ÜRÜN GRUBU. TANIMLARDAN GELİR',
+  `model_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'MODEL ADI - MODEL İSMİ',
+  `barkod_tipi` ENUM('tekil','seri','cogul') COLLATE utf8mb4_unicode_ci DEFAULT 'tekil' COMMENT 'MODELİN BAĞLI OLDUĞU ÜRÜNÜN BARKOD TİPİ: tekil, seri, cogul',
+  `model_tipi_id` INTEGER DEFAULT 0 COMMENT 'ÜRÜN TİP KATEGORİSİ. TANIMLARDAN GELİR',
+  `cinsiyet_id` INTEGER DEFAULT 0 COMMENT 'CİNSİYET: ERKEK, KADIN, UNİSEX. TANIMLARDAN GELİR',
+  `modelist` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'MODELİST ADI - TASARLAYAN KİŞİ',
+  `tasarimci` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TASARIMCI ADI',
+  `tarz_id` INTEGER DEFAULT 0 COMMENT 'ÜRÜN TARZI: SPORTİF, KLASİK vb. TANIMLARDAN GELİR',
+  `sezon_id` INTEGER DEFAULT 0 COMMENT 'SEZON BİLGİSİ: YAZ, KIŞ, İLKBAHAR vb. TANIMLARDAN GELİR',
+  `marka` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'MARKA ADI - ÜRÜN MARKASI',
+  `boy` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BOY BİLGİSİ: UZUN, KISA, ORTA',
+  `set_parca` INTEGER DEFAULT 0 COMMENT 'SET PARÇA SAYISI - KAÇ PARÇALI SET',
+  `set_icerik` VARCHAR(200) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SET İÇERİK AÇIKLAMASI',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MODEL DETAY AÇIKLAMASI',
+  `beden_setleri_id` INTEGER DEFAULT 0 COMMENT 'BAĞLI OLDUĞU BEDEN SET ID. İLİŞKİ: beden_setleri.id',
+  `baz_beden` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BEDEN SETİNDEN SEÇİLEN BAZ BEDENİ',
+  `model_proses` INTEGER DEFAULT 0 COMMENT 'MODELE AİT PROSES BİLGİSİ. 0=BAZ PROSESİ KULLAN, 0\'DAN BÜYÜKSE İLGİLİ PROSESİ KULLAN',
+  `katsayi` DECIMAL(16,4) DEFAULT NULL COMMENT 'MODELİN KATSAYISI - MALİYET HESAPLAMADA KULLANILIR',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - MODEL OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_model_kart_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_model_adi` USING BTREE (`model_adi`),
+  KEY `idx_ana_model` USING BTREE (`ana_model_id`),
+  CONSTRAINT `fk_model_kart_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=27 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='MODEL KARTLAR - TEKSTİL/KONFEKSİYON ÜRÜN MODEL TANIMLARI. SEZON, CİNSİYET, MARKA, TARZ GİBİ ÖZELLİKLERLE ÜRÜN KATEGORİLENDİRMESİ YAPILIR. BEDEN SETLERİ İLE ENTEGRE ÇALIŞIR';
+
+/* Structure for the `model_kartlar_fiyat` table : */
+
+CREATE TABLE `model_kartlar_fiyat` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `model_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'FASON YAPILACAK MODEL ID. İLİŞKİ: model_kartlar.id',
+  `tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'FASON TİPİ: İÇ FASON VEYA DIŞ FASON',
+  `fasoncu_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'FASON YAPACAK PERSONEL VEYA FİRMA ID',
+  `fason_tipi_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'FASON TİPİ ID - TANIMLANABİLİR',
+  `fiyat` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'FASON FİYATI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FASON DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `uretici_model` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜRETİCİ MODEL BİLGİSİ',
+  `baslangic_tarihi` DATE DEFAULT NULL COMMENT 'FASONCU ANLAŞMA BAŞLANGIÇ TARİHİ',
+  `bitis_tarihi` DATE DEFAULT NULL COMMENT 'FASONCU ANLAŞMA BİTİŞ TARİHİ',
+  `anlasma_yapan` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ANLAŞMAYI YAPAN KİŞİ',
+  `anlasma_yapilan` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ANLAŞMA YAPILAN KİŞİ',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FASON AÇIKLAMASI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - FİYAT OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `model_kartlar_fiyat_model_kartlar` USING BTREE (`model_id`),
+  KEY `model_kartlar_doviz_tipleri` USING BTREE (`doviz`),
+  CONSTRAINT `model_kartlar_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE,
+  CONSTRAINT `model_kartlar_fiyat_model_kartlar` FOREIGN KEY (`model_id`) REFERENCES `model_kartlar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=2 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='MODEL KARTLAR FİYAT - MODEL BAZLI FASON VE PERSONEL FİYAT ANLAŞMALARI. İÇ/DIŞ FASON AYRIMI, SÖZLEŞME TARİHLERİ VE ÇOK PARA BİRİMLİ FİYATLANDIRMA DESTEKLENİR';
+
+/* Structure for the `model_recete_master` table : */
+
+CREATE TABLE `model_recete_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `model_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'MODEL ID. İLİŞKİ: model_kartlar.id',
+  `tanim_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'REÇETE BİR TANIMA BAĞLI İSE (RENK GİBİ) O TANIM ID',
+  `recete_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'REÇETE ADI (STANDART REÇETE, EKONOMİK REÇETE vb.)',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'REÇETE AÇIKLAMASI',
+  `varsayilan` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'VARSAYILAN REÇETE Mİ? 0=HAYIR, 1=EVET',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kullanici_kayit_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI OLUŞTURAN KULLANICI ID',
+  `kayit_ip` VARCHAR(45) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KAYIT IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `model_recete_master_firmalar` USING BTREE (`firma_id`),
+  KEY `model_recete_master_subeler` USING BTREE (`sube_id`),
+  KEY `model_recete_master_model_kartlar` USING BTREE (`model_id`),
+  CONSTRAINT `model_recete_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `model_recete_master_model_kartlar` FOREIGN KEY (`model_id`) REFERENCES `model_kartlar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `model_recete_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=13 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='MODEL REÇETE MASTER - MODEL BAZLI REÇETE ANA KAYITLARI. HER MODEL İÇİN BİRDEN FAZLA REÇETE TANIMLANABİLİR. VARSAYILAN REÇETE SEÇİMİ VE TANIM BAZLI REÇETE DESTEKLENİR';
+
+/* Structure for the `model_recete_detay` table : */
+
+CREATE TABLE `model_recete_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `recete_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'REÇETE MASTER ID. İLİŞKİ: model_recete_master.id',
+  `kalem_tipi` ENUM('ana','yan','malzeme','gider','diger') COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'EKLENEN KALEMİN TİPİ: ana, yan, malzeme, gider, diger',
+  `malzeme_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'MALZEME TİPİ: DERİ, TEKSTİL vb.',
+  `stok_varyant_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'VARYANT SEÇİLMİŞSE VARYANT ID, SEÇİLMEMİŞSE 0',
+  `islem_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'İŞLEM ADI - VARYANTAN GELMEZSEKULLANICI BELİRLER',
+  `miktar` DECIMAL(18,4) NOT NULL DEFAULT 0.0000 COMMENT 'MALZEME MİKTARI',
+  `birim_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BİRİM ID (ADET, KG, METRE vb.)',
+  `birim_fiyat` DECIMAL(18,4) NOT NULL DEFAULT 0.0000 COMMENT 'BİRİM FİYATI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'DÖVİZ TİPİ (TL, USD, EUR vb.). İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `toplam_tutar` DECIMAL(18,4) NOT NULL DEFAULT 0.0000 COMMENT 'TOPLAM TUTAR (MİKTAR * BİRİM_FİYAT)',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MALZEME AÇIKLAMASI',
+  `sira_no` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'SIRA NUMARASI',
+  `kullanici_kayit_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI OLUŞTURAN KULLANICI ID',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_ip` VARCHAR(45) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_firma_sube` USING BTREE (`firma_id`, `sube_id`),
+  KEY `idx_recete_master_id` USING BTREE (`recete_master_id`),
+  KEY `idx_malzeme_tipi` USING BTREE (`malzeme_tipi`),
+  KEY `idx_hammadde_stok_id` USING BTREE (`stok_varyant_id`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_sira_no` USING BTREE (`sira_no`),
+  KEY `model_recete_detay_subeler` USING BTREE (`sube_id`),
+  KEY `model_recete_doviz_tipleri` USING BTREE (`doviz`),
+  CONSTRAINT `model_recete_detay_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `model_recete_detay_recete_master` FOREIGN KEY (`recete_master_id`) REFERENCES `model_recete_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `model_recete_detay_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `model_recete_doviz_tipleri` FOREIGN KEY (`doviz`) REFERENCES `doviz_tipleri` (`doviz_tipi`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=19 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='MODEL REÇETE DETAY - MODEL REÇETELERININ MALZEME VE İŞLEM SATIRLARI. ANA MATERYAL, YAN MALZEME, GİDER GİBİ KALEM TİPLERİ DESTEKLENİR. MULTİ-DÖVİZ FİYATLANDIRMA MEVCUTTUR';
+
+/* Structure for the `rezervasyon` table : */
+
+CREATE TABLE `rezervasyon` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `tarih` DATE DEFAULT NULL COMMENT 'REZERVASYON TARİHİ',
+  `acente_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'ACENTE ID - CARİLERDEN GELİR. İLİŞKİ: cariler.id',
+  `rehber_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'REHBER ID - CARİLERDEN GELİR. İLİŞKİ: cariler.id',
+  `beklenen_pax` INTEGER DEFAULT 0 COMMENT 'REZERVASYON İÇİN BEKLENEN YETİŞKİN KİŞİ SAYISI',
+  `beklenen_cocuk_pax` INTEGER DEFAULT 0 COMMENT 'REZERVASYON İÇİN BEKLENEN ÇOCUK SAYISI',
+  `beklenen_saat` TIME DEFAULT NULL COMMENT 'REZERVASYON İÇİN TAHMİNİ BEKLENEN SAAT',
+  `milliyet_id` INTEGER DEFAULT 0 COMMENT 'MİLLİYET ID - TANIMLARDAN GELİR',
+  `giris_saati` TIME DEFAULT NULL COMMENT 'GRUP GİRİŞ SAATİ',
+  `kart_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'GELEN GRUBA VERİLEN KART NUMARASI',
+  `gelen_pax` INTEGER DEFAULT 0 COMMENT 'GELEN YETİŞKİN KİŞİ SAYISI',
+  `gelen_cocuk_pax` INTEGER DEFAULT 0 COMMENT 'GELEN ÇOCUK PAX BİLGİSİ',
+  `giris_notu` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'GRUP GİRİŞ NOTU',
+  `cikis_saati` TIME DEFAULT NULL COMMENT 'GRUP ÇIKIŞ SAATİ',
+  `cikis_notu` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'GRUP ÇIKIŞ NOTU',
+  `iptal_notu` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'GRUP İPTAL NOTU',
+  `fisno` INTEGER DEFAULT 0 COMMENT 'MUHASEBE FİŞ NUMARASI. İLİŞKİ: fis_master.id',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 0 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=BEKLENEN, 1=İÇERDE, 2=ÇIKTI, 3=İPTAL',
+  `infocu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'İNFO VERECEK PERSONEL ADI',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `rezervasyon_firmalar` USING BTREE (`firma_id`),
+  KEY `rezervasyon_subeler` USING BTREE (`sube_id`),
+  CONSTRAINT `rezervasyon_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `rezervasyon_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='REZERVASYON - TURİZM GRUBU REZERVASYON KAYITLARI. ACENTE VE REHBER BAZLI TAKİP, PAX (YETİŞKİN/ÇOCUK) YÖNETİMİ, GİRİŞ/ÇIKIŞ SAATLERİ VE MUHASEBE FİŞ ENTEGRASYONU DESTEKLENİR';
+
+/* Structure for the `roller` table : */
+
+CREATE TABLE `roller` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `rol_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'ROL ADI - YETKİ GRUBUNUN ADI',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ROL AÇIKLAMASI - YETKİ GRUBU DETAYI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - ROL OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_rol_id` USING BTREE (`id`),
+  UNIQUE KEY `uk_rol_adi` USING BTREE (`rol_adi`),
+  KEY `idx_aktif` USING BTREE (`aktif`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=6 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ROLLER - SİSTEM KULLANICI ROLLERİ VE YETKİLERİ. HER ROL FARKLI MODÜL VE İŞLEM ERİŞİM HAKLARINI TANIMLAR. ROL BAZLI YETKİLENDİRME SİSTEMİ İÇİN ANA TABLODUR';
+
+/* Structure for the `sayim_master` table : */
+
+CREATE TABLE `sayim_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID - SAYIM SAHİBİ. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID - SAYIM YAPILAN ŞUBE. İLİŞKİ: subeler.id',
+  `depo_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'DEPO ID - SAYIM YAPILAN DEPO. İLİŞKİ: depolar.id',
+  `sayim_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SAYIM ADI - SAYIM TANIMI',
+  `data_baglanti_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'DATA BAĞLANTI ID - HARİCİ VERİTABANI BAĞLANTISI',
+  `aciklama` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SAYIM AÇIKLAMA METNİ',
+  `dosya` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YÜKLENEN DOSYA ADI',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - SAYIM OLUŞTURULMA ZAMANI',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_sayim_master_id` USING BTREE (`id`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  CONSTRAINT `fk_sayim_master_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_sayim_master_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SAYIM MASTER - RFID SAYIM İŞLEMLERİNİN ANA KAYITLARI. HER SAYIM İŞLEMİ İÇİN BİR MASTER KAYIT OLUŞTURULUR. SAYIM ADI, AÇIKLAMA VE HARİCİ VERİ BAĞLANTILARI BU TABLODA TUTULUR. DEPO BAZLI ENVANTER YÖNETİMİ DESTEKLENİR';
+
+/* Structure for the `sayim_detay` table : */
+
+CREATE TABLE `sayim_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `sayim_master_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI SAYIM MASTER ID. İLİŞKİ: sayim_master.id',
+  `barkod` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'ÜRÜN BARKOD NUMARASI',
+  `sayim_random` VARCHAR(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SAYIM RASTGELE KODU - DOĞRULAMA',
+  `rfid_epc` VARCHAR(24) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'RFID EPC KODU - 24 KARAKTER',
+  `aktif` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYIT DURUMU - SAYIM DURUMU',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_sayim_detay_id` USING BTREE (`id`),
+  KEY `idx_sayim_master_id` USING BTREE (`sayim_master_id`),
+  KEY `idx_barkod` USING BTREE (`barkod`),
+  KEY `idx_rfid_epc` USING BTREE (`rfid_epc`),
+  CONSTRAINT `fk_sayim_detay_master` FOREIGN KEY (`sayim_master_id`) REFERENCES `sayim_master` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SAYIM DETAY - RFID SAYIM DETAYLARI. HER OKUNAN RFID ETİKETİ BU TABLODA AYRI SATIR OLARAK KAYDEDİLİR. BARKOD, RFID EPC KODU VE OKUMA DURUMU BİLGİLERİ TUTULUR';
+
+/* Structure for the `sifre_tokenlar` table : */
+
+CREATE TABLE `sifre_tokenlar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI KULLANICI ID - ŞİFRESİ SIFIRLANACAK KULLANICI. İLİŞKİ: kullanicilar.id',
+  `token` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'ŞİFRE SIFIRLAMA TOKEN DEĞERİ',
+  `gonderim_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'TOKEN GÖNDERİM TARİHİ',
+  `gecerlilik_tarihi` DATETIME NOT NULL DEFAULT (now() + interval 1 hour) COMMENT 'TOKEN GEÇERLİLİK SONA ERİŞ TARİHİ (1 SAAT)',
+  `kullanildi` TINYINT NOT NULL DEFAULT 0 COMMENT 'TOKEN KULLANILDI MI? 0=AKTİF, 1=KULLANILDI',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_sifre_token` USING BTREE (`token`),
+  KEY `idx_kullanici_id` USING BTREE (`kullanici_id`),
+  KEY `idx_gecerlilik_tarihi` USING BTREE (`gecerlilik_tarihi`),
+  CONSTRAINT `fk_sifre_token_kullanici` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ŞİFRE TOKENLAR - ŞİFRE SIFIRLAMA İŞLEMLERİ İÇİN GÜVENLİ TOKEN YÖNETİMİ. ZAMANLA SINIRLI TOKENLAR İLE ŞİFRE DEĞİŞTİRME GÜVENLİĞİ SAĞLANIR. HER TOKEN 1 SAAT GEÇERLİDİR VE TEK KULLANIMLIDIR';
+
+/* Structure for the `siparis_master` table : */
+
+CREATE TABLE `siparis_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `cariler_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'SİPARİŞ TİPİNE GÖRE TEDARİKÇİ VEYA MÜŞTERİ ID. İLİŞKİ: cariler.id',
+  `siparis_modul` ENUM('muhasebe','tabakhane','konfeksiyon','magaza') COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'SİPARİŞİN AİT OLDUĞU MODÜL: muhasebe, tabakhane, konfeksiyon, magaza',
+  `siparis_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SİPARİŞ KODU - ORD İLE BAŞLAYIP DEVAM EDER (ÖRNEK: ORD202000000001)',
+  `musteri_siparis_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'MÜŞTERİ SİPARİŞ KODU',
+  `siparis_tipi` INTEGER NOT NULL DEFAULT 1 COMMENT 'SİPARİŞ TİPİ: 1=SATIŞ SİPARİŞİ, 2=SATINALMA SİPARİŞİ',
+  `teslim_sekli_id` INTEGER DEFAULT 0 COMMENT 'TESLİM ŞEKLİ ID: KARGO, FİRMADAN ALINACAK vb. TANIMLARDAN GELİR',
+  `paketleme_id` INTEGER DEFAULT 0 COMMENT 'PAKETLEME ŞEKLİ ID: KOLİ, ASKIDA, POŞETLENECEK vb. TANIMLARDAN GELİR',
+  `tarih` DATE NOT NULL DEFAULT '0000-00-00' COMMENT 'SİPARİŞ TARİHİ',
+  `teslim_tarihi` DATE NOT NULL DEFAULT '0000-00-00' COMMENT 'SİPARİŞ TESLİM TARİHİ',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'SİPARİŞ DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SİPARİŞ AÇIKLAMASI',
+  `indirim_tipi` TINYINT NOT NULL DEFAULT -1 COMMENT 'SİPARİŞ GENEL İNDİRİM TİPİ: -1=İNDİRİM YOK, 0=YÜZDE, 1=DEĞER',
+  `indirim_deger` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'SİPARİŞ İNDİRİM DEĞERİ - TİPE GÖRE HESAPLANIR',
+  `avans_tutar` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'SİPARİŞ AVANS TUTARI',
+  `avans_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'USD' COMMENT 'SİPARİŞ AVANS DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `avans_fis_master_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'SİPARİŞ AVANS FİŞ NUMARASI. İLİŞKİ: fis_master.id',
+  `musteri_sube` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SİPARİŞİN MÜŞTERİNİN HANGİ ŞUBESİNE HAZIRLANIYOR OLDUĞU',
+  `tutar` INTEGER DEFAULT 0 COMMENT 'SİPARİŞ TOPLAM TUTARI',
+  `miktar` INTEGER DEFAULT 0 COMMENT 'SİPARİŞ TOPLAM MİKTARI',
+  `uretim` TINYINT NOT NULL DEFAULT 0 COMMENT 'SİPARİŞ ÜRETİME ALINDI MI? 0=HAYIR, 1=EVET',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'SİPARİŞ KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT EKLENEN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 0 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `siparis_master_firmalar` USING BTREE (`firma_id`),
+  KEY `siparis_master_subeler` USING BTREE (`sube_id`),
+  KEY `siparis_master_cariler` USING BTREE (`cariler_id`),
+  CONSTRAINT `siparis_master_cariler` FOREIGN KEY (`cariler_id`) REFERENCES `cariler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=28 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SİPARİŞ MASTER - SATIŞ VE SATINALMA SİPARİŞLERİNİN ANA KAYITLARI. MODÜL BAZLI SİPARİŞ TAKİBİ, MULTİ-DÖVİZ DESTEĞİ, AVANS YÖNETİMİ VE ÜRETİM ENTEGRASYONU İÇERİR';
+
+/* Structure for the `siparis_detay` table : */
+
+CREATE TABLE `siparis_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `siparis_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU SİPARİŞ MASTER ID. İLİŞKİ: siparis_master.id',
+  `barkod_tipi` ENUM('tekil','seri','cogul') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tekil' COMMENT 'STOK BARKOD TİPİ: tekil=BEDEN SETLİ TEKİL BARKOD, seri=BEDEN SETLİ SERİ BARKOD, cogul=ÇOĞUL STOKLU BARKOD',
+  `stok_master_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SİPARİŞİN STOKTAN ALINMASI DURUMUNDA STOK ID. İLİŞKİ: stok_master.id',
+  `stok_varyant_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SİPARİŞİN STOKTAN ALINMASI DURUMUNDA VARYANT ID',
+  `model_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SİPARİŞ MODEL ID. İLİŞKİ: model_kartlar.id',
+  `hammadde_grubu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'STOKSUZ GİRİŞ YAPILDIĞINDA HANGİ GRUP OLDUĞUNUN BİLGİSİ (DERİ, TEKSTİL, AV vb.)',
+  `tipi_id` INTEGER DEFAULT 0 COMMENT 'STOK TİPİ ID',
+  `alt_tipi_id` INTEGER DEFAULT 0 COMMENT 'STOK ALT TİPİ ID',
+  `cinsi_id` INTEGER DEFAULT 0 COMMENT 'STOK CİNSİ ID',
+  `rengi_id` INTEGER DEFAULT 0 COMMENT 'STOK RENGİ ID',
+  `fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SİPARİŞ FİYATI',
+  `indirim` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRÜN BİRİM FİYAT ÜZERİNDEN İNDİRİM',
+  `indirim_tip` TINYINT DEFAULT -1 COMMENT 'İNDİRİM TİPİ: 0=DEĞER, 1=YÜZDE, -1=İNDİRİM YOK',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT 'USD' COMMENT 'SİPARİŞ DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `dovizli_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DÖVİZLİ FİYAT - SİPARİŞ DÖVİZ TİPİNE GÖRE DÖNÜŞÜR',
+  `kdv_oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRÜN KDV ORANI',
+  `satis_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRÜN SATIŞ FİYATI',
+  `maliyet_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRÜN MALİYET FİYATI',
+  `satis_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SATIŞ DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `beden_set_id` INTEGER DEFAULT 0 COMMENT 'BAĞLI OLDUĞU BEDEN SET ID. İLİŞKİ: beden_setleri.id',
+  `b1` INTEGER DEFAULT 0 COMMENT 'BİRİNCİ BEDEN MİKTARI',
+  `b2` INTEGER DEFAULT 0 COMMENT 'İKİNCİ BEDEN MİKTARI',
+  `b3` INTEGER DEFAULT 0 COMMENT 'ÜÇÜNCÜ BEDEN MİKTARI',
+  `b4` INTEGER DEFAULT 0 COMMENT 'DÖRDÜNCÜ BEDEN MİKTARI',
+  `b5` INTEGER DEFAULT 0 COMMENT 'BEŞİNCİ BEDEN MİKTARI',
+  `b6` INTEGER DEFAULT 0 COMMENT 'ALTINCI BEDEN MİKTARI',
+  `b7` INTEGER DEFAULT 0 COMMENT 'YEDİNCİ BEDEN MİKTARI',
+  `b8` INTEGER DEFAULT 0 COMMENT 'SEKİZİNCİ BEDEN MİKTARI',
+  `b9` INTEGER DEFAULT 0 COMMENT 'DOKUZUNCU BEDEN MİKTARI',
+  `b10` INTEGER DEFAULT 0 COMMENT 'ONUNCU BEDEN MİKTARI',
+  `b11` INTEGER DEFAULT 0 COMMENT 'ON BİRİNCİ BEDEN MİKTARI',
+  `b12` INTEGER DEFAULT 0 COMMENT 'ON İKİNCİ BEDEN MİKTARI',
+  `miktar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SİPARİŞ TOPLAM MİKTARI',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SİPARİŞ DETAY AÇIKLAMASI',
+  `recete_id` INTEGER DEFAULT 0 COMMENT 'BAĞLI OLDUĞU REÇETE ID - DÜŞÜMLER BURADAN YAPILIR',
+  `siparis_durum` INTEGER DEFAULT 0 COMMENT 'SİPARİŞ DURUMU: 0=BEKLEMEDE, 1=ÜRETİMDE',
+  `uretim_tipi` TINYINT DEFAULT 0 COMMENT 'ÜRETİM TİPİ: 0=ÜRETİM, 1=STOKTAN, 2=TEDARİK (DIŞ ALIM)',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `ekleyen_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT EKLENEN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `siparis_detay_siparis_master` USING BTREE (`siparis_master_id`),
+  CONSTRAINT `siparis_detay_siparis_master` FOREIGN KEY (`siparis_master_id`) REFERENCES `siparis_master` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=94 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SİPARİŞ DETAY - SİPARİŞ SATIRLARININ DETAY KAYITLARI. STOK, MODEL VE BEDEN SETİ BAZLI SİPARİŞ TAKİBİ YAPILIR. MULTİ-DÖVİZ, KDV VE İNDİRİM YÖNETİMİ DESTEKLENİR';
+
+/* Structure for the `siparis_recete` table : */
+
+CREATE TABLE `siparis_recete` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `siparis_master_id` INTEGER UNSIGNED NOT NULL COMMENT 'SİPARİŞ MASTER ID. İLİŞKİ: siparis_master.id',
+  `subsiparis_detay_id` INTEGER UNSIGNED NOT NULL COMMENT 'SİPARİŞ DETAY ID. İLİŞKİ: siparis_detay.id',
+  `recete_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'REÇETE MASTER ID. İLİŞKİ: model_recete_master.id',
+  `kalem_tipi` ENUM('ana','yan','malzeme','gider','diger') COLLATE utf8mb4_unicode_ci DEFAULT 'ana' COMMENT 'REÇETE SATIR TİPİ: ana, yan, malzeme, gider, diger',
+  `malzeme_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'MALZEME TİPİ: DERİ, MALZEME, GİDER, DİĞER vb.',
+  `stok_varyant_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'VARYANT SEÇİLMİŞSE VARYANT ID, SEÇİLMEMİŞSE 0',
+  `islem_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'İŞLEM ADI - VARYANTAN GELMEZSE KULLANICI BELİRLER',
+  `miktar` DECIMAL(18,4) DEFAULT 0.0000 COMMENT 'MALZEME MİKTARI',
+  `birim_id` INTEGER DEFAULT 0 COMMENT 'BİRİM ID (ADET, KG, METRE vb.)',
+  `birim_fiyat` DECIMAL(18,4) DEFAULT 0.0000 COMMENT 'BİRİM FİYATI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DÖVİZ TİPİ (TL, USD, EUR vb.). İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `toplam_tutar` DECIMAL(18,4) DEFAULT 0.0000 COMMENT 'TOPLAM TUTAR (MİKTAR * BİRİM_FİYAT)',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MALZEME AÇIKLAMASI',
+  `sira_no` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SIRA NUMARASI',
+  `kayit_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kullanici_kayit_id` INTEGER NOT NULL COMMENT 'KAYDI OLUŞTURAN KULLANICI ID',
+  `kayit_ip` VARCHAR(45) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KAYIT IP ADRESİ',
+  `aktif` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_firma_sube` USING BTREE (`firma_id`, `sube_id`),
+  KEY `idx_hammadde_stok_id` USING BTREE (`stok_varyant_id`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `idx_sira_no` USING BTREE (`sira_no`),
+  KEY `idx_sipno_sipdno` USING BTREE (`siparis_master_id`, `subsiparis_detay_id`),
+  KEY `siparis_recete_subeler` USING BTREE (`sube_id`),
+  KEY `siparis_recete_siparis_detay` USING BTREE (`subsiparis_detay_id`),
+  KEY `siparis_recete_model_recete_master` USING BTREE (`recete_master_id`),
+  CONSTRAINT `siparis_recete_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_recete_model_recete_master` FOREIGN KEY (`recete_master_id`) REFERENCES `model_recete_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_recete_siparis_detay` FOREIGN KEY (`subsiparis_detay_id`) REFERENCES `siparis_detay` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_recete_siparis_master` FOREIGN KEY (`siparis_master_id`) REFERENCES `siparis_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `siparis_recete_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=16 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SİPARİŞ REÇETE - SİPARİŞ SATIRLARINA BAĞLI REÇETE KAYITLARI. HER SİPARİŞ SATIRI İÇİN MALZEME, GİDER VE İŞLEM KALEMLERİ TAKİP EDİLİR. MULTİ-DÖVİZ FİYATLANDIRMA DESTEKLENİR';
+
+/* Structure for the `sistem_loglari` table : */
+
+CREATE TABLE `sistem_loglari` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `kullanici_id` INTEGER UNSIGNED NOT NULL COMMENT 'İŞLEMİ YAPAN KULLANICI ID. İLİŞKİ: kullanicilar.id',
+  `firma_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'BAĞLI FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'BAĞLI ŞUBE ID. İLİŞKİ: subeler.id',
+  `log_tipi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'LOG TİPİ - AKTİVİTE TÜRÜ (CRUD, LOGIN, ERROR)',
+  `aksiyon` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'YAPILAN AKSİYON - İŞLEM TÜRÜ (CREATE, READ, UPDATE, DELETE)',
+  `tablo_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ETKİLENEN TABLO ADI',
+  `kayit_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'ETKİLENEN KAYIT ID',
+  `modul_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SİSTEM MODÜLÜ (RFID, MUHASEBE vb.)',
+  `onceki_veri` JSON DEFAULT NULL COMMENT 'ÖNCEKİ VERİ - DEĞİŞİKLİK ÖNCESİ (JSON)',
+  `yeni_veri` JSON DEFAULT NULL COMMENT 'YENİ VERİ - DEĞİŞİKLİK SONRASI (JSON)',
+  `parametreler` JSON DEFAULT NULL COMMENT 'İSTEK PARAMETRELERİ - API/FORM PARAMETRELERİ (JSON)',
+  `ip_adresi` VARCHAR(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'KULLANICI IP ADRESİ - KAYNAK IP',
+  `kullanici_ajanı` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'KULLANICI AGENT BİLGİSİ - BROWSER/APP BİLGİSİ',
+  `istenen_url` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'İSTENEN URL - ENDPOINT VEYA SAYFA',
+  `islem_durumu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT 'BASARILI' COMMENT 'İŞLEM DURUMU: BAŞARILI, HATA, UYARI',
+  `hata_mesaji` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'HATA MESAJI - DETAY HATA BİLGİSİ',
+  `islem_suresi` INTEGER DEFAULT NULL COMMENT 'İŞLEM SÜRESİ (MİLİSANİYE CİNSİNDEN)',
+  `sunucu_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SUNUCU ADI - HANGİ SERVER',
+  `oturum_id` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'OTURUM ID - SESSION TANIMLAYICISI',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'LOG KAYIT TARİHİ - OLUŞTURULMA TARİHİ',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `uk_sistem_log_id` USING BTREE (`id`),
+  KEY `idx_kullanici_tarih` USING BTREE (`kullanici_id`, `kayit_tarihi`),
+  KEY `idx_log_tipi_aksiyon` USING BTREE (`log_tipi`, `aksiyon`),
+  KEY `idx_tablo_kayit` USING BTREE (`tablo_adi`, `kayit_id`),
+  KEY `idx_kayit_tarihi` USING BTREE (`kayit_tarihi`),
+  KEY `idx_modul_adi` USING BTREE (`modul_adi`),
+  KEY `idx_firma_id` USING BTREE (`firma_id`),
+  KEY `idx_sube_id` USING BTREE (`sube_id`),
+  KEY `idx_ip_adresi` USING BTREE (`ip_adresi`),
+  KEY `idx_islem_durumu` USING BTREE (`islem_durumu`),
+  CONSTRAINT `fk_sistem_log_firma` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sistem_log_kullanici` FOREIGN KEY (`kullanici_id`) REFERENCES `kullanicilar` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_sistem_log_sube` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=1 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='SİSTEM LOGLARI - AUDIT VE MONİTORİNG TABLOSU. TÜM KULLANICI AKTİVİTELERİ, SİSTEM İŞLEMLERİ VE HATALAR DETAYLI ŞEKİLDE LOGLANIR. CRUD OPERASYONLARI, GİRİŞ/ÇIKIŞ VE VERİ DEĞİŞİKLİKLERİ JSON FORMATINDA SAKLANIR';
+
+/* Structure for the `stok_master` table : */
+
+CREATE TABLE `stok_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'STOĞUN AİT OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'STOĞUN AİT OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `stok_modul` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOĞUN BAĞLI OLDUĞU MODÜL: konfeksiyon, magaza, tabakhane vb.',
+  `stok_alt_modul` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOĞUN BAĞLI OLDUĞU ALT MODÜL: konfeksiyon-deri_depo, konfeksiyon-malzeme_depo vb.',
+  `barkod` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOK BARKODU',
+  `barkod_tipi` ENUM('tekil','seri','cogul') COLLATE utf8mb4_unicode_ci DEFAULT 'tekil' COMMENT 'STOK BARKOD TİPİ: tekil=HER ÜRÜNÜN BARKODU FARKLI, seri=BEDENE GÖRE BARKODLAMA, cogul=TÜM ÜRÜNLER AYNI BARKOD',
+  `stok_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK KODU',
+  `stok_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜRÜN VEYA HİZMET ADI',
+  `model_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'MODEL BİLGİSİ - ÜRÜN STOKLARINDA KULLANILIR. İLİŞKİ: model_kartlar.id',
+  `tipi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK TİPİ ID. TANIMLARDAN GELİR',
+  `alt_tipi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK ALT TİPİ ID. TANIMLARDAN GELİR',
+  `cinsi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK CİNSİ ID. TANIMLARDAN GELİR',
+  `mensei_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK MENŞEİ ID. TANIMLARDAN GELİR',
+  `birim1_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK BİRİNCİL BİRİM ID. TANIMLARDAN GELİR',
+  `birim2_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'STOK İKİNCİL BİRİM ID. TANIMLARDAN GELİR',
+  `kdv_oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'STOK KART KDV ORANI',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOK KART DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `kesim_kart` TINYINT DEFAULT 0 COMMENT 'KESİMLER BU KARTTAN YAPILSIN MI? 0=HAYIR, 1=EVET',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK AÇIKLAMASI',
+  `miktar1_giren` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM GİREN MİKTAR',
+  `miktar1_cikan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM ÇIKAN MİKTAR',
+  `miktar1_kalan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM KALAN MİKTAR',
+  `miktar2_giren` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM GİREN MİKTAR',
+  `miktar2_cikan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM ÇIKAN MİKTAR',
+  `miktar2_kalan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM KALAN MİKTAR',
+  `beden_set_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'ÜRÜN STOĞUNUN BEDEN SET ID. İLİŞKİ: beden_setleri.id',
+  `beden` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜRÜN STOĞUNUN BEDENİ (TEKİL VE SERİ BARKODLAR İÇİN KULLANILIR)',
+  `tabakhane_marazlar` JSON DEFAULT NULL COMMENT 'TABAKHANE MARAZ BİLGİLERİ VE MİKTARLARI (30 ADEDE KADAR) JSON FORMATINDA',
+  `magaza_carpan_fiyatlar` JSON DEFAULT NULL COMMENT 'MAĞAZA ÇARPANLARI (10 ADEDE KADAR): ÇARPAN TİPİ, ÇARPAN DEĞERİ, ÇARPAN DÖVİZ JSON FORMATINDA',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `stok_master_firmalar` USING BTREE (`firma_id`),
+  KEY `stok_master_subeler` USING BTREE (`sube_id`),
+  CONSTRAINT `stok_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `stok_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=269 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='STOK MASTER - ÜRÜN VE HİZMET STOK KARTLARI ANA TABLOSU. BARKOD YÖNETİMİ, BEDEN SETLERİ, FİYATLANDIRMA VE STOK TAKİBİ DESTEKLENİR. TEKSTİL SEKTÖRÜ İÇİN ÖZEL BEDEN TAKİBİ (12 BEDENE KADAR) MEVCUTTUR';
+
+/* Structure for the `stok_detay` table : */
+
+CREATE TABLE `stok_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `stok_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'DETAYIN BAĞLI OLDUĞU STOK ID. İLİŞKİ: stok_master.id',
+  `stok_varyant_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'DETAYIN BAĞLI OLDUĞU VARYANT ID. İLİŞKİ: stok_varyant.id',
+  `fatura_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'HAREKET FATURA ID. İLİŞKİ: fatura_irsaliye_master.id',
+  `irsaliye_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'HAREKET İRSALİYE ID. İLİŞKİ: fatura_irsaliye_master.id',
+  `proses_master_id` INTEGER DEFAULT NULL COMMENT 'TABAKHANE PROSES MASTER ID - PARTİ İŞLEMLERİNDE KULLANILIR',
+  `depo_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'STOK HAREKETİ DEPO BİLGİSİ. İLİŞKİ: depolar.id',
+  `blok_raf_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'STOK HAREKETİ BLOK RAF BİLGİSİ',
+  `tarih` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'HAREKET TARİHİ',
+  `gc` TINYINT NOT NULL DEFAULT 1 COMMENT 'STOK HAREKETİ GİRİŞ Mİ ÇIKIŞ MI? 1=GİRİŞ, -1=ÇIKIŞ',
+  `fiyat` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'STOK GİRİŞ VEYA ÇIKIŞ FİYATI',
+  `dovizli_fiyat` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'STOK HAREKET TARİHİNE AİT DÖVİZLİ FİYAT',
+  `doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'HAREKET DÖVİZ TİPİ. İLİŞKİ: doviz_tipleri.doviz_tipi',
+  `miktar` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'STOK DETAY HAREKET MİKTARI',
+  `miktar2` DECIMAL(16,4) NOT NULL DEFAULT 0.0000 COMMENT 'STOK DETAY HAREKET MİKTARI 2',
+  `detay_indirim_tipi` TINYINT NOT NULL DEFAULT -1 COMMENT 'İNDİRİM TİPİ: -1=İNDİRİM YOK, 0=YÜZDE, 1=DEĞER',
+  `detay_indirim_deger` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'FİYAT İNDİRİMİ (YÜZDE VEYA DEĞER)',
+  `detay_indirim_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIR İNDİRİM TUTARI (YÜZDE VEYA TUTARA GÖRE HESAPLANMIŞ)',
+  `beden_set_id` INTEGER DEFAULT 0 COMMENT 'BEDEN SET ID. İLİŞKİ: beden_setleri.id',
+  `beden` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TEKİL BARKOD KULLANILACAKSA BEDEN ADI',
+  `beden1` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİ BEDEN DEĞERİ',
+  `beden2` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİ BEDEN DEĞERİ',
+  `beden3` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜÇÜNCÜ BEDEN DEĞERİ',
+  `beden4` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DÖRDÜNCÜ BEDEN DEĞERİ',
+  `beden5` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BEŞİNCİ BEDEN DEĞERİ',
+  `beden6` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ALTINCI BEDEN DEĞERİ',
+  `beden7` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'YEDİNCİ BEDEN DEĞERİ',
+  `beden8` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SEKİZİNCİ BEDEN DEĞERİ',
+  `beden9` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DOKUZUNCU BEDEN DEĞERİ',
+  `beden10` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ONUNCU BEDEN DEĞERİ',
+  `beden11` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ON BİRİNCİ BEDEN DEĞERİ',
+  `beden12` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ON İKİNCİ BEDEN DEĞERİ',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'STOK DETAY AÇIKLAMASI',
+  `kdv_oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIR KDV ORANI (YÜZDE OLARAK)',
+  `kdv_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIR KDV TUTARI (DEĞER OLARAK)',
+  `otv_tip` TINYINT DEFAULT -1 COMMENT 'ÖTV TİPİ: -1=ÖTV YOK, 0=YÜZDE, 1=DEĞER',
+  `otv_deger` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÖTV YÜZDE ORANI VEYA TUTAR DEĞERİ',
+  `otv_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIR ÖTV TUTARI',
+  `oiv_oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÖZEL İLETİŞİM VERGİSİ ORANI (YÜZDE OLARAK)',
+  `oiv_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÖZEL İLETİŞİM VERGİSİ TUTARI',
+  `konaklama_oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KONAKLAMA VERGİSİ ORANI (YÜZDE OLARAK)',
+  `konaklama_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KONAKLAMA VERGİSİ TUTARI',
+  `tevkifat_oran` VARCHAR(5) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'SATIR TEVKİFAT ORANI (9/10, 7/10 GİBİ)',
+  `tevkifat_tutar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIR TEVKİFAT TUTARI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT EKLENEN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -4=MANUEL DÜŞÜM ONAYLANMAMIŞ, -3=DEPO TRANSFER REZERVASYON, -2=FATURA REZERVASYON, -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `stok_detay_firmalar` USING BTREE (`firma_id`),
+  KEY `stok_detay_subeler` USING BTREE (`sube_id`),
+  KEY `stok_detay_fk1` USING BTREE (`stok_master_id`),
+  CONSTRAINT `stok_detay_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `stok_detay_fk1` FOREIGN KEY (`stok_master_id`) REFERENCES `stok_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `stok_detay_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=299 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='STOK DETAY - STOK HAREKETLERİNİN SATIR KAYITLARI. GİRİŞ/ÇIKIŞ HAREKETLERİ, BEDEN SETİ TAKİBİ, MULTİ-DÖVİZ FİYATLANDIRMA VE VERGİ HESAPLAMALARI (KDV, ÖTV, TEVKİFAT) BU TABLODA YÖNETİLİR';
+
+/* Structure for the `stok_varyant` table : */
+
+CREATE TABLE `stok_varyant` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'VARYANTIN AİT OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'VARYANTIN AİT OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `stok_master_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ANA STOK KART ID. İLİŞKİ: stok_master.id',
+  `barkod` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'VARYANT BARKODU - HER VARYANT İÇİN BENZERSİZ BARKOD NUMARASI',
+  `stok_grup_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK GRUBU KODU - VARYANTIN AİT OLDUĞU GRUP: DERI, TEKSTIL, MALZEME, SARF, AV',
+  `varyant_kodu` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'VARYANT KODU - OTOMATİK OLUŞTURULAN BENZERSİZ KOD (ÖRNEK: DERI-001-SYH-K1-12)',
+  `varyant_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'VARYANT ADI - İNSAN OKUNABİLİR VARYANT AÇIKLAMASI (ÖRNEK: SİYAH I.KALİTE 1.2mm)',
+  `renk_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'RENK ID - TÜM STOK GRUPLARI İÇİN KULLANILIR. TANIMLARDAN GELİR (tanim_kodu=RENK)',
+  `beden` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'VARYANT BEDENİ BEDEN SETLERİNDEKİ DEĞER YAZILIR. S XL 36 GİBİ',
+  `kalite_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'KALİTE ID - DERİ GRUBU İÇİN: I.KALİTE, II.KALİTE, III.KALİTE. TANIMLARDAN GELİR',
+  `kalinlik` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KALINLIK - DERİ GRUBU İÇİN MM CİNSİNDEN (ÖRNEK: 0.8, 1.0, 1.2, 1.5)',
+  `cap` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÇAP - MALZEME GRUBU İÇİN MM CİNSİNDEN (ÖRNEK: VİDA ÇAPI, BORU ÇAPI)',
+  `tuy_rengi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'TÜY RENGİ ID - DERİ GRUBU İÇİN. TANIMLARDAN GELİR (tanim_kodu=DERI_TUY_RENGI)',
+  `sued_rengi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SÜET RENGİ ID - DERİ GRUBU İÇİN. TANIMLARDAN GELİR (tanim_kodu=DERI_SUED_RENGI)',
+  `tuy_efekt_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'TÜY EFEKT ID - DERİ GRUBU İÇİN. TANIMLARDAN GELİR (tanim_kodu=DERI_TUY_EFEKT)',
+  `tuy_uzunlugu_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'TÜY UZUNLUĞU ID - AV VE DERİ GRUBU İÇİN: KISA, ORTA, UZUN. TANIMLARDAN GELİR',
+  `tuy_yogunlugu_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'TÜY YOĞUNLUĞU ID - AV VE DERİ GRUBU İÇİN: SEYREK, NORMAL, YOĞUN. TANIMLARDAN GELİR',
+  `boy_ebat_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BOY/EBAT ID - AV GRUBU İÇİN: S, M, L, XL. TANIMLARDAN GELİR',
+  `islem_durumu_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'İŞLEM DURUMU ID - AV GRUBU İÇİN: HAM, TABAKLANMIŞ, BOYANMIŞ. TANIMLARDAN GELİR',
+  `hasat_sezonu_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'HASAT SEZONU ID - AV GRUBU İÇİN: KIŞ, İLKBAHAR, SONBAHAR. TANIMLARDAN GELİR',
+  `sued_efekt_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'SÜET EFEKT ID - DERİ GRUBU İÇİN. TANIMLARDAN GELİR (tanim_kodu=DERI_SUED_EFEKT)',
+  `alis_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ALIŞ FİYATI - VARYANT İÇİN ALIŞ BİRİM FİYATI (DÖVİZ CİNSİNDEN)',
+  `maliyet_fiyat` DECIMAL(16,4) DEFAULT NULL COMMENT 'MALİYET FİYATI',
+  `alis_maliyet_doviz` VARCHAR(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ALIŞ VE MALİYET DÖVİZİ',
+  `satis_fiyat` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'SATIŞ FİYATI - VARYANT İÇİN SATIŞ BİRİM FİYATI (DÖVİZ CİNSİNDEN)',
+  `satis_doviz` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'SATIŞ DÖVİZİ',
+  `depo_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'VARSAYILAN DEPO ID - VARYANTIN BULUNDUĞU DEPO. TANIMLARDAN GELİR',
+  `blok_raf_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'VARSAYILAN BLOK RAF ID - VARYANTIN RAF LOKASYONU. TANIMLARDAN GELİR',
+  `asgari_stok` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ASGARİ STOK MİKTARI - KRİTİK SEVİYE. BU DEĞERİN ALTINA DÜŞÜNCE UYARI VERİLİR',
+  `azami_stok` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'AZAMİ STOK MİKTARI - MAKSİMUM STOK LİMİTİ',
+  `desen_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'DESEN ID - TEKSTİLDE KULLANILACAK DESEN BİLGİSİ. TANIMLARDAN GELİR',
+  `gramaj` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'GRAMAJ - TEKSTİL KUMAŞ M2\'YE DÜŞEN AĞIRLIK BİLGİSİ',
+  `en` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'EN - TEKSTİL KUMAŞ EN BİLGİSİ (CM CİNSİNDEN)',
+  `kompozisyon_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'KOMPOZİSYON ID - TEKSTİLDE KULLANILACAK (%100 PAMUK, %65 POLYESTER %35 PAMUK vb.). TANIMLARDAN GELİR',
+  `orgu_tipi_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'ÖRGÜ TİPİ ID - TEKSTİL STOKLARDA KULLANILACAK (SÜPREM, INTERLOK, RİBANA, PİKE vb.). TANIMLARDAN GELİR',
+  `finishing_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'FİNİŞİNG ID - YÜZEY İŞLEMİ (FIRÇALI, PELUŞ, DÜZ vb.). TANIMLARDAN GELİR',
+  `baski_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'BASKI ID - BASKI BİLGİSİ. TANIMLARDAN GELİR',
+  `tuy_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'TÜY ID - TÜY BİLGİSİ. TANIMLARDAN GELİR',
+  `cild_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'CİLT ID - CİLT BİLGİSİ. TANIMLARDAN GELİR',
+  `zdh` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ZDH BİLGİSİ',
+  `voc` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'VOC BİLGİSİ',
+  `uretici_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'ÜRETİCİ ID - BU ÜRÜN KİMDEN ALINDI BİLGİSİ. İLİŞKİ: cariler.id',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'VARYANT HAKKINDA EK BİLGİ VE NOTLAR',
+  `miktar1_giren` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM GİREN MİKTAR',
+  `miktar1_cikan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM ÇIKAN MİKTAR',
+  `miktar1_kalan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'BİRİNCİL BİRİM KALAN MİKTAR',
+  `miktar2_giren` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM GİREN MİKTAR',
+  `miktar2_cikan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM ÇIKAN MİKTAR',
+  `miktar2_kalan` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İKİNCİL BİRİM KALAN MİKTAR',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - VARYANTIN SİSTEME EKLENDİĞİ TARİH VE SAAT',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_firma_ana_stok` USING BTREE (`firma_id`, `stok_master_id`),
+  KEY `idx_stok_grup` USING BTREE (`stok_grup_kodu`),
+  KEY `idx_varyant_kodu` USING BTREE (`varyant_kodu`),
+  KEY `idx_renk` USING BTREE (`renk_id`),
+  KEY `idx_kalite` USING BTREE (`kalite_id`),
+  KEY `stok_varyantlari_firmalar` USING BTREE (`firma_id`),
+  KEY `stok_varyantlari_subeler` USING BTREE (`sube_id`),
+  KEY `stok_varyantlari_ana_stok` USING BTREE (`stok_master_id`),
+  KEY `idx_tuy_uzunlugu` USING BTREE (`tuy_uzunlugu_id`),
+  KEY `idx_tuy_yogunlugu` USING BTREE (`tuy_yogunlugu_id`),
+  KEY `idx_boy_ebat` USING BTREE (`boy_ebat_id`),
+  KEY `idx_islem_durumu` USING BTREE (`islem_durumu_id`),
+  KEY `idx_hasat_sezonu` USING BTREE (`hasat_sezonu_id`),
+  KEY `unique_firma_varyant_kod` USING BTREE (`firma_id`, `varyant_kodu`),
+  CONSTRAINT `stok_varyantlari_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `stok_varyantlari_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=336 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='STOK VARYANTLARI - TEK TABLODA TÜM STOK GRUPLARI İÇİN VARYANT YÖNETİMİ. DERİ İÇİN RENK/KALİTE/KALINLIK/TÜY/SÜET, TEKSTİL İÇİN BEDEN/KUMAŞ, MALZEME İÇİN ÇAP/ÖLÇÜ TAKİBİ DESTEKLENİR. stok_grup_kodu İLE AYRIM YAPILIR (DERI, TEKSTIL, MALZEME, SARF, AV)';
+
+/* Structure for the `tabakhane_proses_detay` table : */
+
+CREATE TABLE `tabakhane_proses_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `proses_master_id` INTEGER NOT NULL COMMENT 'MASTER KAYIT ID. İLİŞKİ: tabakhane_proses_master.id',
+  `recete_master_id` INTEGER DEFAULT 0 COMMENT 'REÇETE MASTER ID. İLİŞKİ: tabakhane_recete_master.id',
+  `giren_adet` DECIMAL(15,4) DEFAULT 0.0000 COMMENT 'PROSESE GİREN ADET BİLGİSİ',
+  `cikan_adet` DECIMAL(15,4) DEFAULT 0.0000 COMMENT 'PROSESTEN ÇIKAN ADET BİLGİSİ',
+  `giren_kilo` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'PROSESE GİREN KİLO BİLGİSİ',
+  `cikan_kilo` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'PROSESTEN ÇIKAN KİLO BİLGİSİ',
+  `marazlar` JSON DEFAULT NULL COMMENT 'MARAZ AYIRIMLARI (JSON FORMATINDA)',
+  `giris_tarih` DATETIME DEFAULT NULL COMMENT 'PROSESE GİRİŞ TARİHİ',
+  `cikis_tarih` DATETIME DEFAULT NULL COMMENT 'PROSESTEN ÇIKIŞ TARİHİ',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT(1) DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_proses_master_id` USING BTREE (`proses_master_id`),
+  KEY `idx_aktif` USING BTREE (`aktif`),
+  KEY `fk_proses_detay_subeler` USING BTREE (`sube_id`),
+  KEY `fk_proses_detay_firmalar` USING BTREE (`firma_id`),
+  CONSTRAINT `fk_proses_detay_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_proses_detay_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=7 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TABAKHANE PROSES DETAY - PROSES ADIMLARININ DETAY KAYITLARI. GİREN/ÇIKAN ADET VE KİLO TAKİBİ, MARAZ AYIRIMLARI VE REÇETE BAĞLANTISI BU TABLODA YÖNETİLİR';
+
+/* Structure for the `tabakhane_proses_master` table : */
+
+CREATE TABLE `tabakhane_proses_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `parti_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜRETİME GÖNDERİLEN PARTİ KODU',
+  `grubu` TINYINT UNSIGNED DEFAULT 0 COMMENT 'PROSES GRUBU: 0=KÜRK, 1=ZİG, 2=VİDALA',
+  `kat` ENUM('alt','crust','boyali','finisaj') COLLATE utf8mb4_unicode_ci DEFAULT 'alt' COMMENT 'ÜRETİM KAT BİLGİSİ: alt, crust, boyali, finisaj',
+  `adet` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRETİM MİKTARI (ADET)',
+  `kilo` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ÜRETİM ADET AYAK VEYA DESİ MİKTARI',
+  `baslangic_tarih` DATETIME DEFAULT NULL COMMENT 'ÜRETİM BAŞLANGIÇ TARİHİ',
+  `bitis_tarih` DATETIME DEFAULT NULL COMMENT 'ÜRETİM BİTİŞ TARİHİ',
+  `ortayak` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'DERİ ORTALAMA AYAK VEYA DESİ',
+  `birlesenparti` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BİRLEŞEN PARTİ KODU',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'ÜRETİM PROSES AÇIKLAMASI',
+  `musteri` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ÜRÜN BİR FİRMAYA ÖZEL YAPILIYORSA FİRMA BİLGİSİ',
+  `islenti_no` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'PARTİ İŞLENTİ NUMARASI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ - OLUŞTURULMA TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KAYDI EKLEYEN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT DEFAULT 0 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `tabakhane_proses_master_firmalar` USING BTREE (`firma_id`),
+  KEY `tabakhane_proses_Mater_subeler` USING BTREE (`sube_id`),
+  KEY `parti_kodu` USING BTREE (`parti_kodu`),
+  KEY `kat` USING BTREE (`kat`),
+  KEY `aktif` USING BTREE (`aktif`),
+  CONSTRAINT `tabakhane_proses_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `tabakhane_proses_Mater_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=208 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TABAKHANE PROSES MASTER - ÜRETİM PROSESLERİNİN ANA KAYITLARI. PARTİ TAKİBİ, KAT BİLGİSİ (ALT, CRUST, BOYALI, FİNİSAJ), ADET/KİLO TAKİBİ VE MÜŞTERİYE ÖZEL ÜRETİM YÖNETİMİ DESTEKLENIR';
+
+/* Structure for the `tabakhane_proses_recete` table : */
+
+CREATE TABLE `tabakhane_proses_recete` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `proses_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU PROSES MASTER ID. İLİŞKİ: tabakhane_proses_master.id',
+  `proses_detay_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU PROSES DETAY ID. İLİŞKİ: tabakhane_proses_detay.id',
+  `recete_master_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BAĞLI OLDUĞU REÇETE ID. İLİŞKİ: tabakhane_recete_master.id',
+  `stok_master_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'KİMYASAL MALZEME STOK ID. İLİŞKİ: stok_master.id',
+  `stok_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK VEYA İŞLEM ADI',
+  `stok_islem_aciklama` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK VEYA İŞLEM AÇIKLAMASI',
+  `grlt` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KİMYASAL MALZEME GRAM VEYA LİTRE MİKTARI',
+  `oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KİMYASAL MALZEME ORANI',
+  `miktar` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'MALZEME KULLANIM MİKTARI',
+  `yuzde` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'REÇETE YÜZDE ORANI',
+  `sure` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAPILACAK İŞLEM SÜRESİ',
+  `bome` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BOME BİLGİSİ',
+  `ph` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'PH DEĞERİ',
+  `kimyasal_sira` INTEGER NOT NULL DEFAULT 0 COMMENT 'KİMYASAL MALZEME SIRA NUMARASI',
+  `devir` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAPILACAK İŞLEM DEVİR BİLGİSİ',
+  `basinc` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAPILACAK İŞLEM BASINÇ DEĞERİ',
+  `sicaklik` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'YAPILACAK İŞLEM SICAKLIK DEĞERİ (°C)',
+  `tuy_boyu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KÜRK TÜY BOYU',
+  `ilave` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'İLAVE KİMYASAL MALZEME MİKTARI',
+  `pompa` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ POMPA PARAMETRESİ',
+  `sprey` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ SPREY BİLGİSİ',
+  `citsayisi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ ÇIT SAYISI',
+  `kesit` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DERİ KESİTİ',
+  `notlar` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE DETAY NOTU',
+  `dusuldumu` TINYINT DEFAULT 0 COMMENT 'KİMYASAL MALZEME DÜŞÜLDÜ MÜ? 0=HAYIR, 1=EVET',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT NULL COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 0 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `id` USING BTREE (`id`),
+  KEY `fk_proses_recete_master` USING BTREE (`proses_master_id`),
+  KEY `fk_proses_recete_detay` USING BTREE (`proses_detay_id`),
+  CONSTRAINT `fk_proses_recete_detay` FOREIGN KEY (`proses_detay_id`) REFERENCES `tabakhane_proses_detay` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_proses_recete_master` FOREIGN KEY (`proses_master_id`) REFERENCES `tabakhane_proses_master` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=41 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TABAKHANE PROSES REÇETE - PROSES ADIMLARINDA KULLANILAN KİMYASAL MALZEME VE İŞLEM KAYITLARI. REÇETEDEN KOPYALANAN VEYA MANUEL GİRİLEN KİMYASAL MALZEMELER VE PROSES PARAMETRELERİ BU TABLODA TUTULUR';
+
+/* Structure for the `tabakhane_recete_master` table : */
+
+CREATE TABLE `tabakhane_recete_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `recete_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'REÇETE KODU',
+  `recete_grubu` TINYINT NOT NULL DEFAULT 0 COMMENT 'REÇETE GRUBU: 0=KÜRK, 1=ZİG, 2=VİDALA',
+  `recete_tipi` TINYINT NOT NULL DEFAULT 1 COMMENT 'REÇETE TİPİ: 0=DENEME REÇETESİ, 1=ANA REÇETE',
+  `proses_adi` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'REÇETE PROSES ADI (ISLATMA, ARA YAĞLAMA GİBİ)',
+  `recete_kat` ENUM('alt','crust','boyali','finisaj') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'alt' COMMENT 'REÇETE KATI: alt, crust, boyali, finisaj',
+  `recete_tarihi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'REÇETE OLUŞTURMA TARİHİ',
+  `mensei_id` INTEGER DEFAULT 0 COMMENT 'DERİ MENŞEİ ID. TANIMLARDAN GELİR',
+  `cinsi_id` INTEGER DEFAULT 0 COMMENT 'DERİ CİNSİ ID. TANIMLARDAN GELİR',
+  `rengi_id` INTEGER DEFAULT 0 COMMENT 'DERİ RENGİ ID. TANIMLARDAN GELİR',
+  `adet` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'REÇETE ADET BİLGİSİ',
+  `kilo` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'REÇETE KİLO BİLGİSİ',
+  `kilodan` TINYINT NOT NULL DEFAULT 0 COMMENT 'REÇETE HESAPLAMA BİRİMİ: 0=ADETTEN, 1=KİLODAN',
+  `firma` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETENİN HANGİ FİRMA İÇİN YAPILDIĞI (FİRMAYA ÖZEL İSE)',
+  `notlar` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE NOTLARI',
+  `retenajkodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE RETENAJ KODU',
+  `denemekodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE DENEME KODU',
+  `kalinlik` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DERİ KALINLIĞI',
+  `ortayak` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ORTALAMA AYAK BİLGİSİ',
+  `grupkodu` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE GRUP KODU',
+  `siparis_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'İLGİLİ REÇETENİN SİPARİŞ ID. İLİŞKİ: siparis_master.id',
+  `oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'ORAN BİLGİSİ (BİLGİ AMAÇLIDIR)',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT NULL COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `recete_kodu` USING BTREE (`recete_kodu`),
+  KEY `tabakhane_recete_master_firmalar` USING BTREE (`firma_id`),
+  KEY `tabakhane_recete_master_subeler` USING BTREE (`sube_id`),
+  CONSTRAINT `tabakhane_recete_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `tabakhane_recete_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=13 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TABAKHANE RECETE MASTER - TABAKHANE URETIM RECETELERININ ANA KAYITLARI. KURK, ZIG, VIDALA GRUPLARI VE ALT, CRUST, BOYALI, FINISAJ KATLARI DESTEKLENIR. DERI MENSEI, CINSI, RENGI VE HESAPLAMA BIRIMI (ADET/KILO) YONETIMI YAPILIR';
+
+/* Structure for the `tabakhane_recete_detay` table : */
+
+CREATE TABLE `tabakhane_recete_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `recete_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU REÇETE MASTER ID. İLİŞKİ: tabakhane_recete_master.id',
+  `barkod` VARCHAR(12) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOK VEYA PROSES DETAY BARKODU',
+  `stok_master_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'KİMYASAL MALZEME STOK ID. İLİŞKİ: stok_master.id',
+  `stok_adi` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK VEYA İŞLEM ADI',
+  `stok_islem_aciklama` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'STOK VEYA İŞLEM AÇIKLAMASI',
+  `sure` INTEGER DEFAULT 0 COMMENT 'YAPILACAK İŞLEM SÜRESİ (DAKİKA)',
+  `grlt` DECIMAL(16,6) DEFAULT 0.000000 COMMENT 'KİMYASAL MALZEME GRAM VEYA LİTRE MİKTARI',
+  `bome` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BOME BİLGİSİ',
+  `ph` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'PH DEĞERİ',
+  `oran` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'KİMYASAL MALZEME ORANI',
+  `kimyasal_sira` INTEGER NOT NULL DEFAULT 0 COMMENT 'KİMYASAL MALZEME SIRA NUMARASI',
+  `devir` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAPILACAK İŞLEM DEVİR BİLGİSİ',
+  `yuzde` DECIMAL(16,4) DEFAULT 0.0000 COMMENT 'REÇETE YÜZDE ORANI',
+  `basinc` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'YAPILACAK İŞLEM BASINÇ DEĞERİ',
+  `sicaklik` DECIMAL(16,2) DEFAULT 0.00 COMMENT 'YAPILACAK İŞLEM SICAKLIK DEĞERİ (°C)',
+  `tuy_boyu` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'KÜRK TÜY BOYU',
+  `ilave` DECIMAL(16,6) DEFAULT 0.000000 COMMENT 'İLAVE KİMYASAL MALZEME MİKTARI',
+  `pompa` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ POMPA PARAMETRESİ',
+  `sprey` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ SPREY BİLGİSİ',
+  `citsayisi` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'FİNİSAJ ÇIT SAYISI',
+  `kesit` VARCHAR(50) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'DERİ KESİTİ',
+  `notlar` VARCHAR(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'REÇETE DETAY NOTU',
+  `miktar` DOUBLE(16,6) DEFAULT 0.000000 COMMENT 'MALZEME KULLANIM MİKTARI',
+  `birim_id` INTEGER DEFAULT NULL COMMENT 'BİRİM BİLGİSİ. TANIMLARDAN GELİR',
+  `aktif` TINYINT NOT NULL DEFAULT 0 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `id` USING BTREE (`id`),
+  KEY `tabakhane_recete_detay_tabakhane_recete_master` USING BTREE (`recete_master_id`),
+  CONSTRAINT `tabakhane_recete_detay_tabakhane_recete_master` FOREIGN KEY (`recete_master_id`) REFERENCES `tabakhane_recete_master` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=34 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TABAKHANE REÇETE DETAY - REÇETE ADIMLARINDA KULLANILAN KİMYASAL MALZEME VE İŞLEM KAYITLARI. HER SATIR BİR KİMYASAL MALZEME VEYA PROSES ADIMINI TANIMLAR. SIRA, ORAN, MİKTAR VE PROSES PARAMETRELERİ (SICAKLIK, BASINÇ, DEVİR) BU TABLODA TUTULUR';
+
+/* Structure for the `tanimlar` table : */
+
+CREATE TABLE `tanimlar` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'TANIM FİRMAYA MI BAĞLI? İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `ust_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'ÜST ID: 0=ANA KAYIT, DİĞER=ALT KAYIT',
+  `tanim_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'TANIM KODU',
+  `tanim_deger` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'TANIM DEĞERİ',
+  `sira` INTEGER DEFAULT 0 COMMENT 'GÖRÜNÜM SIRASI',
+  `baslik` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'ŞABLON BAŞLIĞI',
+  `aciklama` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'TANIM AÇIKLAMASI',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=345 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TANIMLAR - SİSTEM GENELİNDE KULLANILAN PARAMETRİK TANIMLAR TABLOSU. RENK, BEDEN, BİRİM, KATEGORİ GİBİ DİNAMİK LİSTE DEĞERLERİ BU TABLODA TUTULUR. HİYERARŞİK YAPI (ÜST-ALT) DESTEKLENİR';
+
+/* Structure for the `tip_hesap_kodlari` table : */
+
+CREATE TABLE `tip_hesap_kodlari` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `tanimlar_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'HANGİ TİPE BAĞLI - TANIMLAR TABLOSUNDAN GELİR. İLİŞKİ: tanimlar.id',
+  `stok_hesap_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'STOK HESAP KODU (ÖRNEK: 15%)',
+  `satis_hesap_kodu` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'SATIŞ HESAP KODU (ÖRNEK: 600%)',
+  `kayit_tarihi` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER NOT NULL DEFAULT 0 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `tip_hesap_kodlari_firmalar` USING BTREE (`firma_id`),
+  KEY `tip_hesap_kodlari_subeler` USING BTREE (`sube_id`),
+  KEY `tip_hesap_kodlari_tanimlar` USING BTREE (`tanimlar_id`),
+  CONSTRAINT `tip_hesap_kodlari_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `tip_hesap_kodlari_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `tip_hesap_kodlari_tanimlar` FOREIGN KEY (`tanimlar_id`) REFERENCES `tanimlar` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=205 CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='TİP HESAP KODLARI - STOK TİPLERİNE BAĞLI MUHASEBE HESAP KODLARI. HER TİP İÇİN STOK VE SATIŞ HESAP KODU TANIMI YAPILIR. FİRMA VE ŞUBE BAZLI AYARLANIR';
+
+/* Structure for the `uretim_master` table : */
+
+CREATE TABLE `uretim_master` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU FİRMA ID. İLİŞKİ: firmalar.id',
+  `sube_id` INTEGER UNSIGNED NOT NULL DEFAULT 0 COMMENT 'BAĞLI OLDUĞU ŞUBE ID. İLİŞKİ: subeler.id',
+  `siparis_master_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU SİPARİŞ MASTER ID. İLİŞKİ: siparis_master.id',
+  `siparis_detay_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU SİPARİŞ DETAY ID. İLİŞKİ: siparis_detay.id',
+  `barkod` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'BENZERSİZ BARKOD',
+  `barkod_tipi` ENUM('tekil','seri','cogul') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'tekil' COMMENT 'BARKOD TİPİ: tekil, seri, cogul',
+  `beden_set_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'BAĞLI OLDUĞU BEDEN SET ID. İLİŞKİ: beden_setleri.id',
+  `beden_adi` VARCHAR(20) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT 'BEDEN ADI (S, M, L, 36, 37 vb.)',
+  `toplam_adet` INTEGER DEFAULT 1 COMMENT 'BU BARKODUN TEMSİL ETTİĞİ TOPLAM ADET',
+  `uretim_adet` INTEGER DEFAULT 0 COMMENT 'ÜRETİME ALINAN BARKOD ADEDİ (SERİ VE ÇOĞUL BARKODLARDA KULLANILIR)',
+  `mevcut_proses_id` INTEGER DEFAULT 0 COMMENT 'ŞU AN HANGİ PROSESTE OLDUĞU BİLGİSİ',
+  `durum` TINYINT DEFAULT 0 COMMENT 'ÜRETİM DURUMU: 0=BEKLEMEDE, 1=ÜRETİMDE, 2=TAMAMLANDI, 3=İPTAL',
+  `baslama_tarihi` DATETIME DEFAULT NULL COMMENT 'ÜRETİM BAŞLAMA TARİHİ',
+  `bitis_tarihi` DATETIME DEFAULT NULL COMMENT 'ÜRETİM BİTİŞ TARİHİ',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 1 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `idx_barkod` USING BTREE (`barkod`),
+  KEY `idx_siparis` USING BTREE (`siparis_detay_id`),
+  KEY `idx_durum` USING BTREE (`durum`),
+  KEY `uretim_master_firmalar` USING BTREE (`firma_id`),
+  KEY `uretim_master_subeler` USING BTREE (`sube_id`),
+  KEY `uretim_master_siparis_master` USING BTREE (`siparis_master_id`),
+  CONSTRAINT `uretim_master_firmalar` FOREIGN KEY (`firma_id`) REFERENCES `firmalar` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `uretim_master_siparis_detay` FOREIGN KEY (`siparis_detay_id`) REFERENCES `siparis_detay` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `uretim_master_siparis_master` FOREIGN KEY (`siparis_master_id`) REFERENCES `siparis_master` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `uretim_master_subeler` FOREIGN KEY (`sube_id`) REFERENCES `subeler` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=33 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ÜRETİM MASTER - SİPARİŞ BAZLI ÜRETİM ANA KAYITLARI. HER BARKOD İÇİN PROSES TAKİBİ, BEDEN BAZLI ADET YÖNETİMİ VE ÜRETİM DURUM TAKİBİ YAPILIR';
+
+/* Structure for the `uretim_detay` table : */
+
+CREATE TABLE `uretim_detay` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `uretim_master_id` INTEGER UNSIGNED NOT NULL COMMENT 'BAĞLI OLDUĞU ÜRETİM MASTER ID. İLİŞKİ: uretim_master.id',
+  `proses_id` INTEGER UNSIGNED NOT NULL COMMENT 'PROSES ID. İLİŞKİ: tanimlar.id',
+  `beden` VARCHAR(10) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '0' COMMENT 'BEDEN BİLGİSİ',
+  `toplam_adet` INTEGER DEFAULT 0 COMMENT 'BU PROSESTE İŞLEM GÖREN TOPLAM ADET',
+  `durum` TINYINT DEFAULT 0 COMMENT 'PROSES DURUMU: 0=BEKLİYOR, 1=DEVAM, 2=TAMAMLANDI',
+  `giris_zamani` DATETIME DEFAULT NULL COMMENT 'PROSESE GİRİŞ ZAMANI',
+  `cikis_zamani` DATETIME DEFAULT NULL COMMENT 'PROSESTEN ÇIKIŞ ZAMANI',
+  `bitiren_kullanici_id` INTEGER UNSIGNED DEFAULT NULL COMMENT 'PROSESİ BİTİREN KULLANICI ID',
+  `aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'PROSES DETAY AÇIKLAMASI',
+  `kayit_tarihi` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT TARİHİ',
+  `kayit_kullanici_id` INTEGER UNSIGNED NOT NULL DEFAULT 1 COMMENT 'KAYDI YAPAN KULLANICI ID',
+  `kayit_ip` VARCHAR(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT 'KAYIT YAPILAN IP ADRESİ',
+  `aktif` TINYINT NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  KEY `idx_master` USING BTREE (`uretim_master_id`),
+  KEY `idx_proses` USING BTREE (`proses_id`),
+  CONSTRAINT `uretim_detay_uretim_master` FOREIGN KEY (`uretim_master_id`) REFERENCES `uretim_master` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB
+AUTO_INCREMENT=29 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='ÜRETİM DETAY - ÜRETİM SİPARİŞLERİNİN PROSES ADIM KAYITLARI. HER PROSES ADIMI İÇİN BEDEN BAZLI ADET TAKİBİ, GİRİŞ/ÇIKIŞ ZAMANI VE DURUM YÖNETİMİ YAPILIR';
+
+/* Structure for the `yetki_tanimlari` table : */
+
+CREATE TABLE `yetki_tanimlari` (
+  `id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'TABLO BENZERSİZ ID (PRIMARY KEY)',
+  `firma_id` INTEGER UNSIGNED DEFAULT 0 COMMENT 'FİRMA ID: 0=SİSTEM GENELİ YETKİ, DİĞER=FİRMAYA ÖZEL YETKİ. İLİŞKİ: firmalar.id',
+  `menu_kodu` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'HANGİ MENÜYE AİT (ÖRNEK: CARI_HESAPLAR, FATURALAR, STOK_YONETIMI)',
+  `menu_grubu` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'MENÜ GRUBU (MUHASEBE, KONFEKSIYON, SISTEM vb.)',
+  `yetki_kodu` VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'YETKİ KODU (ÖRNEK: goruntule, ekle, sil, vergi_no, bakiye_gorunum_limit)',
+  `yetki_adi` VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'KULLANICIYA GÖSTERİLECEK YETKİ ADI (ÖRNEK: GÖRÜNTÜLE, VERGİ NUMARASI GÖRÜNTÜLE)',
+  `yetki_aciklama` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'YETKİ HAKKINDA AÇIKLAMA METNİ - YARDIM METNİ OLARAK GÖSTERİLEBİLİR',
+  `yetki_tipi` ENUM('boolean','number','select','text') COLLATE utf8mb4_unicode_ci DEFAULT 'boolean' COMMENT 'YETKİ DEĞER TİPİ: boolean=EVET/HAYIR, number=SAYISAL, select=SEÇİM LİSTESİ, text=METİN',
+  `yetki_ayarlari` JSON DEFAULT NULL COMMENT 'YETKİ TİPİ AYARLARI JSON FORMATINDA (ÖRNEK: min, max, step, options)',
+  `varsayilan_deger` JSON DEFAULT NULL COMMENT 'VARSAYILAN DEĞER JSON FORMATINDA (ÖRNEK: true, false, 10000)',
+  `sira` INTEGER DEFAULT 0 COMMENT 'GÖRÜNTÜLEME SIRASI (KÜÇÜKTEN BÜYÜĞE SIRALANIR)',
+  `kayit_tarihi` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT 'KAYIT OLUŞTURULMA TARİHİ (OTOMATİK)',
+  `aktif` INTEGER NOT NULL DEFAULT 1 COMMENT 'KAYIT DURUMU: -1=SİLİNMİŞ, 0=PASİF, 1=AKTİF',
+  PRIMARY KEY USING BTREE (`id`),
+  UNIQUE KEY `menu_kodu` USING BTREE (`menu_kodu`, `yetki_kodu`),
+  KEY `firma_id` USING BTREE (`firma_id`, `menu_kodu`),
+  KEY `menu_kodu_2` USING BTREE (`menu_kodu`, `sira`)
+) ENGINE=InnoDB
+AUTO_INCREMENT=376 ROW_FORMAT=DYNAMIC CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'
+COMMENT='YETKİ TANIMLARI - SİSTEM GENELİNDE KULLANILAN YETKİ TANIMLARI. MENÜ VE MODÜL BAZLI YETKİLER, YETKİ TİPLERİ (BOOLEAN, SAYISAL, SEÇİM, METİN) VE VARSAYILAN DEĞERLER BU TABLODA YÖNETİLİR';
+
+/* Definition for the `kasa_durum` procedure : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' PROCEDURE `kasa_durum`(
+        IN `pr_hesap_kodu` VARCHAR(36),
+        IN `pr_bas_tar` DATE,
+        IN `pr_bit_tar` DATE,
+        IN `pr_firma_id` INTEGER UNSIGNED,
+        IN `pr_sube_id` INTEGER UNSIGNED,
+        IN `pr_resmi_gayri_resmi` TINYINT
+    )
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT 'Kasa durum raporu - devir bakiyesi her zaman gösterilir'
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE v_doviz VARCHAR(3);
+    DECLARE v_row_counter INT DEFAULT 0;
+    DECLARE devir_bakiye DECIMAL(16,4) DEFAULT 0;
+
+    
+    DECLARE cur_doviz CURSOR FOR
+        SELECT DISTINCT fd.dovizli_doviz
+        FROM fis_master fm
+        INNER JOIN fis_detay fd ON fm.id = fd.fis_master_id
+        WHERE fd.hesap_kodu = pr_hesap_kodu
+            AND fd.dovizli_doviz IS NOT NULL
+            AND fd.dovizli_doviz != ''
+            AND fm.aktif != -1
+            AND fd.aktif != -1
+            AND fm.firma_id = pr_firma_id
+            AND fm.sube_id = pr_sube_id
+            AND (pr_resmi_gayri_resmi = -1 OR fm.resmi_gayri_resmi = pr_resmi_gayri_resmi)
+        ORDER BY fd.dovizli_doviz;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    
+    DROP TEMPORARY TABLE IF EXISTS temp_kasa;
+    CREATE TEMPORARY TABLE temp_kasa (
+        sno INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        
+        bfis_no VARCHAR(10),
+        bfis_master_id INTEGER UNSIGNED,
+        bfis_detay_id INTEGER UNSIGNED,
+        btarih DATETIME,
+        baciklama VARCHAR(500),
+        bborc DECIMAL(16,4) DEFAULT 0,
+        bmiktar DECIMAL(16,4) DEFAULT 0,
+        bbirim_fiyat DECIMAL(16,4) DEFAULT 0,
+        bdoviz VARCHAR(3),
+        bunvan VARCHAR(255),
+        
+        afis_no VARCHAR(10),
+        afis_master_id INTEGER UNSIGNED,
+        afis_detay_id INTEGER UNSIGNED,
+        atarih DATETIME,
+        aaciklama VARCHAR(500),
+        aalacak DECIMAL(16,4) DEFAULT 0,
+        amiktar DECIMAL(16,4) DEFAULT 0,
+        abirim_fiyat DECIMAL(16,4) DEFAULT 0,
+        adoviz VARCHAR(3),
+        aunvan VARCHAR(255),
+        
+        INDEX idx_bdoviz (bdoviz),
+        INDEX idx_adoviz (adoviz)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+    
+    OPEN cur_doviz;
+    doviz_loop:LOOP
+        FETCH cur_doviz INTO v_doviz;
+        IF done THEN
+            LEAVE doviz_loop;
+        END IF;
+
+        
+        SELECT COALESCE(SUM(fd.dovizli_borc) - SUM(fd.dovizli_alacak), 0)
+        INTO devir_bakiye
+        FROM fis_master fm
+        INNER JOIN fis_detay fd ON fm.id = fd.fis_master_id
+        WHERE fd.hesap_kodu = pr_hesap_kodu
+            AND fd.dovizli_doviz = v_doviz
+            AND DATE_FORMAT(fm.fis_tarihi,'%y-%m-%d') < pr_bas_tar
+            AND fm.aktif != -1
+            AND fd.aktif != -1
+            AND fm.firma_id = pr_firma_id
+            AND fm.sube_id = pr_sube_id
+            AND (pr_resmi_gayri_resmi = -1 OR fm.resmi_gayri_resmi = pr_resmi_gayri_resmi);
+
+        
+        INSERT INTO temp_kasa (baciklama, bborc, bdoviz, btarih)
+        VALUES ('DEVIR', devir_bakiye, v_doviz, pr_bas_tar);
+
+        
+        INSERT INTO temp_kasa (
+            bfis_no, bfis_master_id, bfis_detay_id, btarih, baciklama,
+            bborc, bmiktar, bbirim_fiyat, bdoviz, bunvan
+        )
+        SELECT
+            fm.fis_no,
+            fm.id,
+            fd.id,
+            fm.fis_tarihi,
+            fd.aciklama,
+            fd.dovizli_borc,  
+            fd.miktar,
+            fd.birim_fiyat,
+            fd.dovizli_doviz, 
+            
+            (SELECT c2.unvan
+             FROM fis_detay fd2
+             LEFT JOIN cariler c2 ON c2.hesap_kodu = fd2.hesap_kodu
+                AND c2.firma_id = fm.firma_id
+                AND c2.sube_id = fm.sube_id
+                AND c2.aktif = 1
+             WHERE fd2.fis_master_id = fm.id
+                AND fd2.hesap_kodu != pr_hesap_kodu
+                AND fd2.dovizli_alacak > 0
+                AND fd2.aktif != -1
+             LIMIT 1) AS counterpart_unvan
+        FROM fis_master fm
+        INNER JOIN fis_detay fd ON fm.id = fd.fis_master_id
+        WHERE fd.hesap_kodu = pr_hesap_kodu
+            AND fd.dovizli_doviz = v_doviz
+            AND DATE_FORMAT(fm.fis_tarihi,'%y-%m-%d') >= pr_bas_tar
+            AND DATE_FORMAT(fm.fis_tarihi,'%y-%m-%d') <= pr_bit_tar
+            AND fd.dovizli_borc > 0
+            AND fm.aktif != -1
+            AND fd.aktif != -1
+            AND fm.firma_id = pr_firma_id
+            AND fm.sube_id = pr_sube_id
+            AND (pr_resmi_gayri_resmi = -1 OR fm.resmi_gayri_resmi = pr_resmi_gayri_resmi)
+        ORDER BY fm.fis_tarihi, fd.id;
+
+        
+        BEGIN
+            DECLARE v_alacak_done INT DEFAULT 0;
+            DECLARE v_fis_no VARCHAR(10);
+            DECLARE v_fis_master_id INTEGER UNSIGNED;
+            DECLARE v_fis_detay_id INTEGER UNSIGNED;
+            DECLARE v_tarih DATETIME;
+            DECLARE v_aciklama VARCHAR(500);
+            DECLARE v_alacak DECIMAL(16,4);
+            DECLARE v_miktar DECIMAL(16,4);
+            DECLARE v_birim_fiyat DECIMAL(16,4);
+            DECLARE v_counterpart_unvan VARCHAR(255);
+            DECLARE v_current_row INT;
+            DECLARE v_max_row INT;
+
+            
+            DECLARE cur_alacak CURSOR FOR
+                SELECT
+                    fm.fis_no,
+                    fm.id,
+                    fd.id,
+                    fm.fis_tarihi,
+                    fd.aciklama,
+                    fd.dovizli_alacak, 
+                    fd.miktar,
+                    fd.birim_fiyat,
+                    
+                    (SELECT c2.unvan
+                     FROM fis_detay fd2
+                     LEFT JOIN cariler c2 ON c2.hesap_kodu = fd2.hesap_kodu
+                        AND c2.firma_id = fm.firma_id
+                        AND c2.sube_id = fm.sube_id
+                        AND c2.aktif = 1
+                     WHERE fd2.fis_master_id = fm.id
+                        AND fd2.hesap_kodu != pr_hesap_kodu
+                        AND fd2.dovizli_borc > 0
+                        AND fd2.aktif != -1
+                     LIMIT 1) AS counterpart_unvan
+                FROM fis_master fm
+                INNER JOIN fis_detay fd ON fm.id = fd.fis_master_id
+                WHERE fd.hesap_kodu = pr_hesap_kodu
+                    AND fd.dovizli_doviz = v_doviz
+                    AND DATE_FORMAT(fm.fis_tarihi,'%y-%m-%d') >= pr_bas_tar
+                    AND DATE_FORMAT(fm.fis_tarihi,'%y-%m-%d') <= pr_bit_tar
+                    AND fd.dovizli_alacak > 0
+                    AND fm.aktif != -1
+                    AND fd.aktif != -1
+                    AND fm.firma_id = pr_firma_id
+                    AND fm.sube_id = pr_sube_id
+                    AND (pr_resmi_gayri_resmi = -1 OR fm.resmi_gayri_resmi = pr_resmi_gayri_resmi)
+                ORDER BY fm.fis_tarihi, fd.id;
+
+            DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_alacak_done = 1;
+
+            
+            SELECT MIN(sno), MAX(sno)
+            INTO v_current_row, v_max_row
+            FROM temp_kasa
+            WHERE bdoviz = v_doviz AND bfis_no IS NULL;
+
+            IF v_current_row IS NULL THEN
+                SELECT MAX(sno) + 1 INTO v_current_row FROM temp_kasa;
+                IF v_current_row IS NULL THEN
+                    SET v_current_row = 1;
+                END IF;
+            ELSE
+                SET v_current_row = v_current_row + 1;
+            END IF;
+
+            OPEN cur_alacak;
+            alacak_loop:LOOP
+                FETCH cur_alacak INTO v_fis_no, v_fis_master_id, v_fis_detay_id, v_tarih,
+                    v_aciklama, v_alacak, v_miktar, v_birim_fiyat, v_counterpart_unvan;
+
+                IF v_alacak_done THEN
+                    LEAVE alacak_loop;
+                END IF;
+
+                
+                IF v_current_row <= v_max_row THEN
+                    UPDATE temp_kasa
+                    SET afis_no = v_fis_no,
+                        afis_master_id = v_fis_master_id,
+                        afis_detay_id = v_fis_detay_id,
+                        atarih = v_tarih,
+                        aaciklama = v_aciklama,
+                        aalacak = v_alacak,
+                        amiktar = v_miktar,
+                        abirim_fiyat = v_birim_fiyat,
+                        adoviz = v_doviz,
+                        aunvan = v_counterpart_unvan
+                    WHERE sno = v_current_row;
+                ELSE
+                    
+                    INSERT INTO temp_kasa (
+                        afis_no, afis_master_id, afis_detay_id, atarih, aaciklama,
+                        aalacak, amiktar, abirim_fiyat, adoviz, aunvan, bdoviz
+                    ) VALUES (
+                        v_fis_no, v_fis_master_id, v_fis_detay_id, v_tarih, v_aciklama,
+                        v_alacak, v_miktar, v_birim_fiyat, v_doviz, v_counterpart_unvan, v_doviz
+                    );
+                END IF;
+
+                SET v_current_row = v_current_row + 1;
+            END LOOP alacak_loop;
+            CLOSE cur_alacak;
+        END;
+
+    END LOOP doviz_loop;
+    CLOSE cur_doviz;
+
+    
+    IF (SELECT COUNT(*) FROM temp_kasa) = 0 THEN
+        INSERT INTO temp_kasa (baciklama, bborc, bdoviz, btarih)
+        VALUES ('DEVIR', 0, 'TL', pr_bas_tar);
+    END IF;
+
+    
+    SELECT
+        sno AS 'Sira',
+        
+        bfis_no AS 'Borc_Fis_No',
+        bfis_master_id AS 'Borc_Fis_ID',
+        bfis_detay_id AS 'Borc_Detay_ID',
+        DATE_FORMAT(btarih, '%d.%m.%Y %H:%i') AS 'Borc_Tarihi',
+        baciklama AS 'Borc_Aciklama',
+        bborc AS 'Borc_Tutar',
+        bmiktar AS 'Borc_Miktar',
+        bbirim_fiyat AS 'Borc_Birim_Fiyat',
+        bdoviz AS 'Borc_Doviz',
+        bunvan AS 'Borc_Unvan',
+        
+        afis_no AS 'Alacak_Fis_No',
+        afis_master_id AS 'Alacak_Fis_ID',
+        afis_detay_id AS 'Alacak_Detay_ID',
+        DATE_FORMAT(atarih, '%d.%m.%Y %H:%i') AS 'Alacak_Tarihi',
+        aaciklama AS 'Alacak_Aciklama',
+        aalacak AS 'Alacak_Tutar',
+        amiktar AS 'Alacak_Miktar',
+        abirim_fiyat AS 'Alacak_Birim_Fiyat',
+        adoviz AS 'Alacak_Doviz',
+        aunvan AS 'Alacak_Unvan',
+        
+        @bakiye := @bakiye + IFNULL(bborc, 0) - IFNULL(aalacak, 0) AS 'Bakiye'
+    FROM temp_kasa, (SELECT @bakiye := 0) AS b
+    ORDER BY COALESCE(bdoviz, adoviz), sno;
+
+    
+    DROP TEMPORARY TABLE IF EXISTS temp_kasa;
+
+END$$
+
+DELIMITER ;
+
+/* Definition for the `standart_ekstre` procedure : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' PROCEDURE `standart_ekstre`(
+        IN `phesapkodu` VARCHAR(20),
+        IN `pbastarih` DATE,
+        IN `pbittarih` DATE,
+        IN `pptipi` VARCHAR(3),
+        IN `psptipi` VARCHAR(3),
+        IN `pgr` TINYINT,
+        IN `pkurtipi` VARCHAR(50),
+        IN `pdevir` TINYINT,
+        IN `pfirmaid` INTEGER,
+        IN `psubeid` INTEGER
+    )
+    NOT DETERMINISTIC
+    CONTAINS SQL
+    SQL SECURITY DEFINER
+    COMMENT 'Optimized Standard Statement Procedure'
+BEGIN
+          DECLARE done INT DEFAULT 0;
+          DECLARE v_sno INT;
+          DECLARE v_borc DECIMAL(16,4);
+          DECLARE v_alac DECIMAL(16,4);
+          DECLARE v_ptipi VARCHAR(3);
+          DECLARE running_balance DECIMAL(16,4) DEFAULT 0;
+          DECLARE prev_currency VARCHAR(3) DEFAULT '';
+
+          DECLARE balance_cursor CURSOR FOR
+              SELECT sno, borc, alac, ptipi
+              FROM ekstre
+              ORDER BY ptipi, tarih, sno;
+
+          DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+          
+          CREATE TEMPORARY TABLE IF NOT EXISTS ekstre (
+              sno INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+              fisno INTEGER NOT NULL,
+              fisdno INTEGER,
+              tarih DATE,
+              vade DATE,
+              irsno INTEGER DEFAULT 0,
+              fatno INTEGER DEFAULT 0,
+              aciklama VARCHAR(500),
+              brfiyat DECIMAL(16,4) DEFAULT 0,
+              miktar DECIMAL(16,4) DEFAULT 0,
+              borc DECIMAL(16,4) DEFAULT 0,
+              alac DECIMAL(16,4) DEFAULT 0,
+              bbk DECIMAL(16,4) DEFAULT 0,
+              abk DECIMAL(16,4) DEFAULT 0,
+              ptipi VARCHAR(3),
+              nkur DECIMAL(16,4) DEFAULT 0,
+              gr TINYINT,
+              tipi VARCHAR(50),
+              serino VARCHAR(50),
+              ozelkod VARCHAR(255)
+          ) ENGINE = MEMORY;
+
+          
+          INSERT INTO ekstre (fisno, fisdno, tarih, aciklama, miktar, borc, alac, ptipi, nkur, gr, tipi)
+          SELECT
+              0,
+              0,
+              DATE_SUB(pbastarih, INTERVAL 1 DAY),
+              CASE
+                  WHEN pdevir = 0 THEN CONCAT(d.cari_doviz, ' DEVİR')
+                  ELSE CONCAT(d.cari_doviz, ' Açılış Fişi')
+              END,
+              0,
+              CASE
+                  WHEN pdevir = 0 THEN SUM(COALESCE(d.cari_borc, 0))
+                  ELSE GREATEST(0, SUM(COALESCE(d.cari_borc, 0)) - SUM(COALESCE(d.cari_alacak, 0)))
+              END,
+              CASE
+                  WHEN pdevir = 0 THEN SUM(COALESCE(d.cari_alacak, 0))
+                  ELSE GREATEST(0, SUM(COALESCE(d.cari_alacak, 0)) - SUM(COALESCE(d.cari_borc, 0)))
+              END,
+              d.cari_doviz,
+              1.0,
+              pgr,
+              m.fis_tipi
+          FROM fis_master m
+          INNER JOIN fis_detay d ON m.id = d.fis_master_id
+          WHERE d.hesap_kodu = phesapkodu
+            AND m.firma_id = pfirmaid
+            AND m.sube_id = psubeid
+            AND DATE(m.fis_tarihi) < DATE(pbastarih)
+            AND (pptipi = '' OR d.cari_doviz = pptipi)
+            AND m.aktif = 0
+            AND d.aktif = 1
+          GROUP BY d.cari_doviz, m.fis_tipi
+          HAVING SUM(COALESCE(d.cari_borc, 0)) != 0 OR SUM(COALESCE(d.cari_alacak, 0)) != 0;
+
+          
+          INSERT INTO ekstre (
+              fisno, fisdno, tarih, vade, irsno, fatno, aciklama, brfiyat, miktar,
+              borc, alac, ptipi, nkur, gr, tipi, serino
+          )
+          SELECT
+              d.fis_master_id,
+              d.id,
+              m.fis_tarihi,
+              m.fis_tarihi,
+              COALESCE(m.kayit_id, 0),
+              COALESCE(m.kayit_id, 0),
+              COALESCE(d.aciklama, ''),
+              COALESCE(d.birim_fiyat, 0),
+              COALESCE(d.miktar, 0),
+              COALESCE(d.cari_borc, 0),
+              COALESCE(d.cari_alacak, 0),
+              COALESCE(d.cari_doviz, 'TL'),
+              1.0,
+              pgr,
+              COALESCE(m.fis_tipi, ''),
+              ''
+          FROM fis_master m
+          INNER JOIN fis_detay d ON m.id = d.fis_master_id
+          WHERE d.hesap_kodu = phesapkodu
+            AND m.firma_id = pfirmaid
+            AND m.sube_id = psubeid
+            AND DATE(m.fis_tarihi) >= DATE(pbastarih)
+            AND DATE(m.fis_tarihi) <= DATE(pbittarih)
+            AND (pptipi = '' OR d.cari_doviz = pptipi)
+            AND m.aktif = 0
+            AND d.aktif = 1
+          ORDER BY d.cari_doviz, m.fis_tarihi, d.fis_master_id;
+
+          
+          OPEN balance_cursor;
+
+          balance_loop:LOOP
+              FETCH balance_cursor INTO v_sno, v_borc, v_alac, v_ptipi;
+
+              IF done THEN
+                  LEAVE balance_loop;
+              END IF;
+
+              
+              IF prev_currency != v_ptipi THEN
+                  SET running_balance = 0;
+                  SET prev_currency = v_ptipi;
+              END IF;
+
+              
+              SET running_balance = running_balance + v_borc - v_alac;
+
+              
+              UPDATE ekstre
+              SET bbk = GREATEST(0, running_balance),
+                  abk = GREATEST(0, -running_balance)
+              WHERE sno = v_sno;
+
+          END LOOP;
+
+          CLOSE balance_cursor;
+
+          
+          SELECT * FROM ekstre ORDER BY ptipi, tarih, sno;
+
+          
+          DROP TEMPORARY TABLE ekstre;
+
+  END$$
+
+DELIMITER ;
+
+/* Definition for the `trg_cekmins` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_cekmins` AFTER INSERT ON `cek_detay`
+  FOR EACH ROW
+UPDATE cek_master m SET 
+m.odenen = (SELECT COALESCE(SUM(tutar),0) FROM cek_detay sd WHERE sd.aktif=1 AND sd.giris_cikis=0 AND sd.cek_master_id = NEW.cek_master_id)
+WHERE m.id = NEW.cek_master_id$$
+
+DELIMITER ;
+
+/* Definition for the `trg_cekmup` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_cekmup` AFTER UPDATE ON `cek_detay`
+  FOR EACH ROW
+UPDATE cek_master m SET 
+m.odenen = (SELECT COALESCE(SUM(tutar),0) FROM cek_detay sd WHERE sd.aktif=1 AND sd.giris_cikis=0 AND sd.cek_master_id = NEW.cek_master_id)
+WHERE m.id = NEW.cek_master_id$$
+
+DELIMITER ;
+
+/* Definition for the `trg_cekmdel` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_cekmdel` AFTER DELETE ON `cek_detay`
+  FOR EACH ROW
+UPDATE cek_master m SET 
+m.odenen = (SELECT COALESCE(SUM(tutar),0) FROM cek_detay sd WHERE sd.aktif=1 AND sd.giris_cikis=0 AND sd.cek_master_id = OLD.cek_master_id)
+WHERE m.id = OLD.cek_master_id$$
+
+DELIMITER ;
+
+/* Definition for the `trg_stok_detay_after_insert` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_stok_detay_after_insert` AFTER INSERT ON `stok_detay`
+  FOR EACH ROW
+BEGIN
+    
+    IF NEW.aktif = 1 THEN
+        
+        IF NEW.stok_master_id > 0 THEN
+            UPDATE stok_master
+            SET
+                miktar1_giren = miktar1_giren + IF(NEW.gc = 1, NEW.miktar, 0),
+                miktar1_cikan = miktar1_cikan + IF(NEW.gc = -1, NEW.miktar, 0),
+                miktar1_kalan = miktar1_kalan + (NEW.miktar * NEW.gc),
+                miktar2_giren = miktar2_giren + IF(NEW.gc = 1, NEW.miktar2, 0),
+                miktar2_cikan = miktar2_cikan + IF(NEW.gc = -1, NEW.miktar2, 0),
+                miktar2_kalan = miktar2_kalan + (NEW.miktar2 * NEW.gc)
+            WHERE id = NEW.stok_master_id;
+        END IF;
+
+        
+        IF NEW.stok_varyant_id > 0 THEN
+            UPDATE stok_varyant
+            SET
+                miktar1_giren = miktar1_giren + IF(NEW.gc = 1, NEW.miktar, 0),
+                miktar1_cikan = miktar1_cikan + IF(NEW.gc = -1, NEW.miktar, 0),
+                miktar1_kalan = miktar1_kalan + (NEW.miktar * NEW.gc),
+                miktar2_giren = miktar2_giren + IF(NEW.gc = 1, NEW.miktar2, 0),
+                miktar2_cikan = miktar2_cikan + IF(NEW.gc = -1, NEW.miktar2, 0),
+                miktar2_kalan = miktar2_kalan + (NEW.miktar2 * NEW.gc)
+            WHERE id = NEW.stok_varyant_id;
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+/* Definition for the `trg_stok_detay_after_update` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_stok_detay_after_update` AFTER UPDATE ON `stok_detay`
+  FOR EACH ROW
+BEGIN
+    
+    IF OLD.aktif = 1 THEN
+        
+        IF OLD.stok_master_id > 0 THEN
+            UPDATE stok_master
+            SET
+                miktar1_giren = miktar1_giren - IF(OLD.gc = 1, OLD.miktar, 0),
+                miktar1_cikan = miktar1_cikan - IF(OLD.gc = -1, OLD.miktar, 0),
+                miktar1_kalan = miktar1_kalan - (OLD.miktar * OLD.gc),
+                miktar2_giren = miktar2_giren - IF(OLD.gc = 1, OLD.miktar2, 0),
+                miktar2_cikan = miktar2_cikan - IF(OLD.gc = -1, OLD.miktar2, 0),
+                miktar2_kalan = miktar2_kalan - (OLD.miktar2 * OLD.gc)
+            WHERE id = OLD.stok_master_id;
+        END IF;
+
+        
+        IF OLD.stok_varyant_id > 0 THEN
+            UPDATE stok_varyant
+            SET
+                miktar1_giren = miktar1_giren - IF(OLD.gc = 1, OLD.miktar, 0),
+                miktar1_cikan = miktar1_cikan - IF(OLD.gc = -1, OLD.miktar, 0),
+                miktar1_kalan = miktar1_kalan - (OLD.miktar * OLD.gc),
+                miktar2_giren = miktar2_giren - IF(OLD.gc = 1, OLD.miktar2, 0),
+                miktar2_cikan = miktar2_cikan - IF(OLD.gc = -1, OLD.miktar2, 0),
+                miktar2_kalan = miktar2_kalan - (OLD.miktar2 * OLD.gc)
+            WHERE id = OLD.stok_varyant_id;
+        END IF;
+    END IF;
+
+    
+    IF NEW.aktif = 1 THEN
+        
+        IF NEW.stok_master_id > 0 THEN
+            UPDATE stok_master
+            SET
+                miktar1_giren = miktar1_giren + IF(NEW.gc = 1, NEW.miktar, 0),
+                miktar1_cikan = miktar1_cikan + IF(NEW.gc = -1, NEW.miktar, 0),
+                miktar1_kalan = miktar1_kalan + (NEW.miktar * NEW.gc),
+                miktar2_giren = miktar2_giren + IF(NEW.gc = 1, NEW.miktar2, 0),
+                miktar2_cikan = miktar2_cikan + IF(NEW.gc = -1, NEW.miktar2, 0),
+                miktar2_kalan = miktar2_kalan + (NEW.miktar2 * NEW.gc)
+            WHERE id = NEW.stok_master_id;
+        END IF;
+
+        
+        IF NEW.stok_varyant_id > 0 THEN
+            UPDATE stok_varyant
+            SET
+                miktar1_giren = miktar1_giren + IF(NEW.gc = 1, NEW.miktar, 0),
+                miktar1_cikan = miktar1_cikan + IF(NEW.gc = -1, NEW.miktar, 0),
+                miktar1_kalan = miktar1_kalan + (NEW.miktar * NEW.gc),
+                miktar2_giren = miktar2_giren + IF(NEW.gc = 1, NEW.miktar2, 0),
+                miktar2_cikan = miktar2_cikan + IF(NEW.gc = -1, NEW.miktar2, 0),
+                miktar2_kalan = miktar2_kalan + (NEW.miktar2 * NEW.gc)
+            WHERE id = NEW.stok_varyant_id;
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+/* Definition for the `trg_stok_detay_after_delete` trigger : */
+
+DELIMITER $$
+
+CREATE DEFINER = 'golaksadmin'@'%' TRIGGER `trg_stok_detay_after_delete` AFTER DELETE ON `stok_detay`
+  FOR EACH ROW
+BEGIN
+    
+    IF OLD.aktif = 1 THEN
+        
+        IF OLD.stok_master_id > 0 THEN
+            UPDATE stok_master
+            SET
+                miktar1_giren = miktar1_giren - IF(OLD.gc = 1, OLD.miktar, 0),
+                miktar1_cikan = miktar1_cikan - IF(OLD.gc = -1, OLD.miktar, 0),
+                miktar1_kalan = miktar1_kalan - (OLD.miktar * OLD.gc),
+                miktar2_giren = miktar2_giren - IF(OLD.gc = 1, OLD.miktar2, 0),
+                miktar2_cikan = miktar2_cikan - IF(OLD.gc = -1, OLD.miktar2, 0),
+                miktar2_kalan = miktar2_kalan - (OLD.miktar2 * OLD.gc)
+            WHERE id = OLD.stok_master_id;
+        END IF;
+
+        
+        IF OLD.stok_varyant_id > 0 THEN
+            UPDATE stok_varyant
+            SET
+                miktar1_giren = miktar1_giren - IF(OLD.gc = 1, OLD.miktar, 0),
+                miktar1_cikan = miktar1_cikan - IF(OLD.gc = -1, OLD.miktar, 0),
+                miktar1_kalan = miktar1_kalan - (OLD.miktar * OLD.gc),
+                miktar2_giren = miktar2_giren - IF(OLD.gc = 1, OLD.miktar2, 0),
+                miktar2_cikan = miktar2_cikan - IF(OLD.gc = -1, OLD.miktar2, 0),
+                miktar2_kalan = miktar2_kalan - (OLD.miktar2 * OLD.gc)
+            WHERE id = OLD.stok_varyant_id;
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

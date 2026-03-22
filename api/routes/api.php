@@ -62,6 +62,7 @@ class Router {
         $this->post('/user/create', 'UserController', 'create');
         $this->put('/user/update', 'UserController', 'update');
         $this->delete('/user/delete', 'UserController', 'delete');
+        $this->get('/user/subeler', 'UserController', 'getSubeler');
 
         // Notification Routes (Protected)
         $this->get('/notifications', 'NotificationController', 'getNotifications');
@@ -78,15 +79,70 @@ class Router {
 
         // Account Routes (Protected, Company-specific)
         $this->post('/account/cari-list', 'AccountController', 'getCariList');
+        $this->post('/account/cari-create', 'AccountController', 'createCari');
+        $this->post('/account/cari-next-kod', 'AccountController', 'getNextHesapKodu');
+        $this->post('/account/cari-update', 'AccountController', 'updateCari');
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');
         $this->post('/account/check-bill-list', 'CheckBillController', 'getList');
+        $this->post('/account/banka-komisyon-oran', 'AccountController', 'getBankaKomisyonOran');
+        $this->post('/account/banka-komisyon-oran-update', 'AccountController', 'updateBankaKomisyonOran');
+        $this->post('/account/kasa-list', 'AccountController', 'getKasaList');
+        $this->post('/account/kasa-create', 'AccountController', 'createKasa');
+        $this->post('/account/kasa-cari-list', 'AccountController', 'getKasaCariList');
+        $this->post('/account/kasa-bakiye', 'AccountController', 'getKasaBakiye');
+        $this->post('/account/kasa-hareket', 'AccountController', 'createKasaHareket');
+        $this->post('/account/kasa-upload-fis', 'AccountController', 'uploadFisDosya');
+
+        // Sales Routes (Global - tüm modüller için)
+        $this->post('/sales/list', 'SalesController', 'getList');
+
+        // Orders Routes (Global - tüm modüller için)
+        $this->post('/orders/list', 'OrdersController', 'getList');
+        $this->post('/orders/detail', 'OrdersController', 'getDetail');
+        $this->post('/orders/uretime-al', 'OrdersController', 'uretimeAl');
+        $this->post('/orders/recete', 'OrdersController', 'getRecete');
+        $this->post('/orders/lookups', 'OrdersController', 'getLookups');
+        $this->post('/orders/create', 'OrdersController', 'create');
+        $this->post('/orders/update', 'OrdersController', 'update');
+        $this->post('/orders/detail-lookups', 'OrdersController', 'getDetailLookups');
+        $this->post('/orders/detail-varyantlar', 'OrdersController', 'getDetailVaryantlar');
+        $this->post('/orders/add-detail', 'OrdersController', 'addDetail');
+        $this->post('/orders/cancel', 'OrdersController', 'cancel');
+
+        // Reservation Routes (Mağaza)
+        $this->post('/reservations/list', 'ReservationsController', 'getList');
+        $this->post('/reservations/create', 'ReservationsController', 'create');
+        $this->post('/reservations/update', 'ReservationsController', 'update');
+        $this->post('/reservations/lookups', 'ReservationsController', 'getLookups');
+
+        // Tanimlar Routes (Global - parametrik tanımlar)
+        $this->post('/tanimlar/list', 'TanimlarController', 'getList');
+        $this->post('/tanimlar/create', 'TanimlarController', 'create');
+        $this->post('/tanimlar/update', 'TanimlarController', 'update');
+        $this->post('/tanimlar/delete', 'TanimlarController', 'delete');
 
         // Stock Routes (Global - tüm modüller için)
         $this->post('/stock/list', 'StockController', 'getList');
         $this->post('/stock/create', 'StockController', 'create');
         $this->post('/stock/barcode-query', 'BarcodeQueryController', 'query');
+        $this->post('/stock/varyant-search', 'StockController', 'searchVaryant');
+
+        // Model Kart Routes (Global - tüm modüller için)
+        $this->post('/model-kart/list', 'ModelKartController', 'getList');
+        $this->post('/model-kart/upload-image', 'ModelKartController', 'uploadImage');
+        $this->post('/model-kart/delete-image', 'ModelKartController', 'deleteImage');
+        $this->post('/model-kart/colors', 'ModelKartController', 'getColors');
+        $this->post('/model-kart/create', 'ModelKartController', 'create');
+        $this->post('/model-kart/update', 'ModelKartController', 'update');
+
+        // Doviz Routes (Protected)
+        $this->post('/doviz/kurlar', 'DovizController', 'getKurlar');
+
+        // Fiyat Hesaplama Routes (Protected, Admin only)
+        $this->get('/fiyat-hesaplama', 'FiyatHesaplamaController', 'get');
+        $this->post('/fiyat-hesaplama', 'FiyatHesaplamaController', 'save');
 
         // Company Routes (Protected, Super Admin only)
         $this->get('/company/list', 'CompanyController', 'getList');
@@ -107,6 +163,7 @@ class Router {
 
         // Health Check
         $this->get('/health', 'HealthController', 'check');
+        $this->get('/health/version-check', 'HealthController', 'versionCheck');
     }
 
     /**

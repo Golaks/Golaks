@@ -75,11 +75,6 @@ const createStyles = (colors: any) =>
       padding: 14,
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
-      elevation: 1,
       marginBottom: 12,
     },
     cardPressed: {

@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  FlatList,
+  Switch,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -30,8 +32,47 @@ import barcodeService, {
   ProductDistribution,
   ProductionDistribution,
 } from '../services/barcode.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface MobilAyarlar {
+  girisFiyatTipi: number;
+  girisFiyatDegeri: number;
+  maliyetFiyatTipi: number;
+  maliyetFiyatDegeri: number;
+  etiketFiyatTipi: number;
+  etiketFiyatDegeri: number;
+}
+
+interface BarkodEkranAyarlari {
+  resim: boolean;
+  filtreleme: boolean;
+  sube: boolean;
+  depo: boolean;
+  tip: boolean;
+  renk: boolean;
+  beden: boolean;
+  adet: boolean;
+}
+
+const defaultEkranAyarlari: BarkodEkranAyarlari = {
+  resim: true,
+  filtreleme: true,
+  sube: true,
+  depo: true,
+  tip: true,
+  renk: true,
+  beden: true,
+  adet: true,
+};
+
+function hesaplaFiyat(baseStr: string | undefined, tip: number, deger: number): string {
+  const base = parseFloat(baseStr || '0');
+  if (isNaN(base) || base === 0 || deger === 0) return baseStr || '0';
+  const result = tip === 1 ? base + deger : base * (1 + deger / 100);
+  return result.toFixed(2);
+}
 
 interface BarcodeResultScreenProps {
   queryType: 'barcode' | 'model';
@@ -49,7 +90,7 @@ export default function BarcodeResultScreen({
   onLogout,
 }: BarcodeResultScreenProps) {
   const { colors, isDark } = useTheme();
-  const { user, logout, notificationCount } = useAuth();
+  const { user, logout, notificationCount, updateUserYetkiler } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('qrScan');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -58,10 +99,11 @@ export default function BarcodeResultScreen({
   const [errorType, setErrorType] = useState<'connection' | 'notFound'>('connection');
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [productInfo, setProductInfo] = useState<ProductInfo | null>(null);
-  const [productDistribution, setProductDistribution] = useState<ProductDistribution[]>([]);
-  const [productionDistribution, setProductionDistribution] = useState<ProductionDistribution[]>([]);
-  const [noMagazaModule, setNoMagazaModule] = useState(false);
-  const [noKonfeksiyonModule, setNoKonfeksiyonModule] = useState(false);
+  const [magazaDistribution, setMagazaDistribution] = useState<any[]>([]);
+  const [konfeksiyonDistribution, setKonfeksiyonDistribution] = useState<any[]>([]);
+  const [tabakhaneDistribution, setTabakhaneDistribution] = useState<any[]>([]);
+  const [muhasebeDistribution, setMuhasebeDistribution] = useState<any[]>([]);
+  const [stokModul, setStokModul] = useState('');
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedDistributionItem, setSelectedDistributionItem] = useState<ProductDistribution | ProductionDistribution | null>(null);
@@ -81,61 +123,61 @@ export default function BarcodeResultScreen({
   const [isDistributionSearchVisible, setIsDistributionSearchVisible] = useState(false);
   const [isProductionSearchVisible, setIsProductionSearchVisible] = useState(false);
 
+  const [mobilAyarlar, setMobilAyarlar] = useState<MobilAyarlar | null>(null);
+  const [ekranAyarlari, setEkranAyarlari] = useState<BarkodEkranAyarlari>(defaultEkranAyarlari);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+
   const barcodePermissions = user?.barcodePermissions;
 
   const styles = createStyles(colors, isDark);
 
   const formatPrice = (price: string | undefined): string => {
-    if (!price || price === '-') return '0.00';
+    if (!price || price === '-') return '0,00';
     const num = parseFloat(price);
     if (isNaN(num)) return price;
-    if (num % 1 === 0) {
-      return num.toFixed(0);
-    }
-    return num.toFixed(2).replace(/\.?0+$/, '');
+    return num.toLocaleString('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   };
 
   // Filter helpers
   const getFilterOptions = () => {
-    const branches = [...new Set(productDistribution.map(item => item.branch))];
-    const warehouses = [...new Set(productDistribution.map(item => item.warehouse))];
-    const types = [...new Set(productDistribution.map(item => item.type))];
-    const colors_list = [...new Set(productDistribution.map(item => item.color))];
-    const sizes = [...new Set(productDistribution.map(item => item.size))];
+    const allDist = [...magazaDistribution, ...konfeksiyonDistribution, ...tabakhaneDistribution, ...muhasebeDistribution];
+    const branches = [...new Set(allDist.map(item => item.branch))];
+    const warehouses = [...new Set(allDist.map(item => item.warehouse))];
+    const types = [...new Set(allDist.map(item => item.type))];
+    const colors_list = [...new Set(allDist.map(item => item.color))];
+    const sizes = [...new Set(allDist.map(item => item.size))];
     return { branches, warehouses, types, colors: colors_list, sizes };
   };
 
   const filterOptions = getFilterOptions();
 
-  const filteredDistribution = productDistribution.filter(item => {
-    if (selectedBranches.length > 0 && !selectedBranches.includes(item.branch)) return false;
-    if (selectedWarehouses.length > 0 && !selectedWarehouses.includes(item.warehouse)) return false;
-    if (selectedTypes.length > 0 && !selectedTypes.includes(item.type)) return false;
-    if (selectedColors.length > 0 && !selectedColors.includes(item.color)) return false;
-    if (selectedSizes.length > 0 && !selectedSizes.includes(item.size)) return false;
-    if (distributionSearchText.trim()) {
-      const searchLower = distributionSearchText.toLowerCase();
-      const match = item.branch.toLowerCase().includes(searchLower) ||
-        item.warehouse.toLowerCase().includes(searchLower) ||
-        item.type.toLowerCase().includes(searchLower) ||
-        item.color.toLowerCase().includes(searchLower) ||
-        item.size.toLowerCase().includes(searchLower);
-      if (!match) return false;
-    }
-    return true;
-  });
+  const filterDistItems = (items: any[], searchText: string) => {
+    return items.filter(item => {
+      if (selectedBranches.length > 0 && !selectedBranches.includes(item.branch)) return false;
+      if (selectedWarehouses.length > 0 && !selectedWarehouses.includes(item.warehouse)) return false;
+      if (selectedTypes.length > 0 && !selectedTypes.includes(item.type)) return false;
+      if (selectedColors.length > 0 && !selectedColors.includes(item.color)) return false;
+      if (selectedSizes.length > 0 && !selectedSizes.includes(item.size)) return false;
+      if (searchText.trim()) {
+        const s = searchText.toLowerCase();
+        const match = (item.branch || '').toLowerCase().includes(s) ||
+          (item.warehouse || '').toLowerCase().includes(s) ||
+          (item.type || '').toLowerCase().includes(s) ||
+          (item.color || '').toLowerCase().includes(s) ||
+          (item.size || '').toLowerCase().includes(s);
+        if (!match) return false;
+      }
+      return true;
+    });
+  };
 
-  const filteredProductionDistribution = productionDistribution.filter(item => {
-    if (productionSearchText.trim()) {
-      const searchLower = productionSearchText.toLowerCase();
-      const match = item.branchWarehouse.toLowerCase().includes(searchLower) ||
-        item.type.toLowerCase().includes(searchLower) ||
-        item.color.toLowerCase().includes(searchLower) ||
-        item.size.toLowerCase().includes(searchLower);
-      if (!match) return false;
-    }
-    return true;
-  });
+  const filteredMagaza = filterDistItems(magazaDistribution, distributionSearchText);
+  const filteredKonfeksiyon = filterDistItems(konfeksiyonDistribution, productionSearchText);
+  const filteredTabakhane = filterDistItems(tabakhaneDistribution, productionSearchText);
+  const filteredMuhasebe = filterDistItems(muhasebeDistribution, productionSearchText);
 
   const toggleFilter = (
     value: string,
@@ -180,10 +222,39 @@ export default function BarcodeResultScreen({
     } catch {}
   };
 
+  // Ekran ayarlarını yetkilerden yükle
+  useEffect(() => {
+    const stored = user?.yetkiler?.ekran_ayarlari;
+    if (stored) {
+      setEkranAyarlari({ ...defaultEkranAyarlari, ...stored });
+    }
+  }, [user?.yetkiler?.ekran_ayarlari]);
+
+  const toggleEkranAyar = (key: keyof BarkodEkranAyarlari) => {
+    const updated = { ...ekranAyarlari, [key]: !ekranAyarlari[key] };
+    setEkranAyarlari(updated);
+    updateUserYetkiler('ekran_ayarlari', updated);
+  };
+
   // Fetch product data
   useEffect(() => {
     fetchProductData();
+    fetchMobilAyarlar();
   }, [queryValue, queryType]);
+
+  const fetchMobilAyarlar = async () => {
+    try {
+      const token = await authService.getToken();
+      const res = await fetch(API_ENDPOINTS.FIYAT_HESAPLAMA_GET, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success && json.data?.mobilAyarlar) {
+        setMobilAyarlar(json.data.mobilAyarlar);
+      }
+    } catch {}
+  };
 
   const fetchProductData = async () => {
     setIsLoading(true);
@@ -213,43 +284,25 @@ export default function BarcodeResultScreen({
         const result = data.data;
         setProductImages(result.images || []);
         setProductInfo(result.product || null);
-        setNoMagazaModule(result.noMagazaModule || false);
-        setNoKonfeksiyonModule(result.noKonfeksiyonModule || false);
+        setStokModul(result.stokModul || '');
 
-        // Magaza distribution
-        if (result.noMagazaModule) {
-          setProductDistribution([]);
-        } else {
-          const magazaDist = (result.magazaDistribution || []).map((item: any, index: number) => ({
-            id: `dist-${index + 1}`,
+        // 4 modül dağılımı
+        const mapDist = (arr: any[], prefix: string) =>
+          (arr || []).map((item: any, index: number) => ({
+            id: `${prefix}-${index + 1}`,
             branch: item.branch || '-',
             warehouse: item.warehouse || '-',
-            type: '-',
+            branchWarehouse: item.branchWarehouse || '-',
+            type: item.type || '-',
             color: item.color || '-',
             size: item.size || '-',
             quantity: item.quantity || 0,
-            height: item.height || '-',
-            outlet: item.outlet || '-',
+            status: item.status || 'stock',
           }));
-          setProductDistribution(magazaDist);
-        }
-
-        // Konfeksiyon distribution
-        if (result.noKonfeksiyonModule) {
-          setProductionDistribution([]);
-        } else {
-          const stockData = (result.konfeksiyonDistribution || []).map((item: any, index: number) => ({
-            ...item,
-            id: `stock-${index + 1}`,
-            branchWarehouse: item.warehouse || item.branchWarehouse || '-',
-            status: 'stock' as const,
-          }));
-          const prodData = (result.productionDistribution || []).map((item: any, index: number) => ({
-            ...item,
-            id: `prod-${index + 1}`,
-          }));
-          setProductionDistribution([...stockData, ...prodData]);
-        }
+        setMagazaDistribution(mapDist(result.magazaDistribution, 'mag'));
+        setKonfeksiyonDistribution(mapDist(result.konfeksiyonDistribution, 'konf'));
+        setTabakhaneDistribution(mapDist(result.tabakhaneDistribution, 'tab'));
+        setMuhasebeDistribution(mapDist(result.muhasebeDistribution, 'muh'));
 
         if (!result.product) {
           setErrorType('notFound');
@@ -293,10 +346,33 @@ export default function BarcodeResultScreen({
 
   // Image navigation
   const goToPreviousImage = () => {
-    if (currentImageIndex > 0) setCurrentImageIndex(currentImageIndex - 1);
+    if (currentImageIndex > 0) {
+      const newIndex = currentImageIndex - 1;
+      setCurrentImageIndex(newIndex);
+      galleryScrollRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    }
   };
   const goToNextImage = () => {
-    if (currentImageIndex < productImages.length - 1) setCurrentImageIndex(currentImageIndex + 1);
+    if (currentImageIndex < productImages.length - 1) {
+      const newIndex = currentImageIndex + 1;
+      setCurrentImageIndex(newIndex);
+      galleryScrollRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    }
+  };
+
+  // FlatList ref for swipe gallery
+  const galleryScrollRef = useRef<any>(null);
+  const galleryWidth = useRef(0);
+
+  const onGalleryScroll = (event: any) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const width = galleryWidth.current || event.nativeEvent.layoutMeasurement.width;
+    if (width > 0) {
+      const newIndex = Math.round(offsetX / width);
+      if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < productImages.length) {
+        setCurrentImageIndex(newIndex);
+      }
+    }
   };
   const handleArrowPressIn = () => {
     Animated.spring(scaleAnim, { toValue: 0.9, useNativeDriver: true }).start();
@@ -311,15 +387,22 @@ export default function BarcodeResultScreen({
         {productImages.map((image, index) => (
           <Pressable
             key={image.id}
-            style={[styles.thumbnail, index === currentImageIndex && styles.thumbnailActive]}
+            style={[styles.thumbnailWrapper]}
             onPress={() => setCurrentImageIndex(index)}
           >
-            <Image source={{ uri: image.url }} style={styles.thumbnailImage} resizeMode="cover" />
-            {index === currentImageIndex && (
-              <View style={styles.thumbnailOverlay}>
-                <Icon name="checkmark-circle" size={16} color="#FFFFFF" />
+            <View style={[styles.thumbnail, index === currentImageIndex && styles.thumbnailActive]}>
+              <Image source={{ uri: image.url }} style={styles.thumbnailImage} resizeMode="cover" />
+              {index === currentImageIndex && (
+                <View style={styles.thumbnailOverlay}>
+                  <Icon name="checkmark-circle" size={16} color="#FFFFFF" />
+                </View>
+              )}
+            </View>
+            {image.color ? (
+              <View style={[styles.thumbColorBadge, index === currentImageIndex && styles.thumbColorBadgeActive]}>
+                <Text style={[styles.thumbColorText, index === currentImageIndex && styles.thumbColorTextActive]} numberOfLines={1}>{image.color}</Text>
               </View>
-            )}
+            ) : null}
           </Pressable>
         ))}
       </ScrollView>
@@ -334,7 +417,25 @@ export default function BarcodeResultScreen({
         </Pressable>
         <View style={styles.fullScreenImageWrapper}>
           <View style={styles.fullScreenImageFrame}>
-            <Image source={{ uri: productImages[currentImageIndex]?.url }} style={styles.fullScreenImage} resizeMode="cover" />
+            <FlatList
+              data={productImages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={currentImageIndex}
+              onMomentumScrollEnd={(e) => {
+                const width = e.nativeEvent.layoutMeasurement.width;
+                const newIndex = Math.round(e.nativeEvent.contentOffset.x / width);
+                if (newIndex !== currentImageIndex && newIndex >= 0 && newIndex < productImages.length) {
+                  setCurrentImageIndex(newIndex);
+                }
+              }}
+              getItemLayout={(_, index) => ({ length: Dimensions.get('window').width - 40, offset: (Dimensions.get('window').width - 40) * index, index })}
+              keyExtractor={(_, i) => `fs-${i}`}
+              renderItem={({ item }) => (
+                <Image source={{ uri: item.url }} style={{ width: Dimensions.get('window').width - 40, height: '100%' }} resizeMode="cover" />
+              )}
+            />
           </View>
         </View>
         <View style={styles.fullScreenNav}>
@@ -345,7 +446,15 @@ export default function BarcodeResultScreen({
           >
             <Icon name="chevron-back" size={32} color="#FFFFFF" />
           </Pressable>
-          <Text style={styles.fullScreenCounter}>{currentImageIndex + 1} / {productImages.length}</Text>
+          <View style={styles.fullScreenCounterContainer}>
+            <Text style={styles.fullScreenCounter}>{currentImageIndex + 1} / {productImages.length}</Text>
+            {productImages[currentImageIndex]?.color ? (
+              <View style={styles.fullScreenColorChip}>
+                <Icon name="color-palette" size={14} color="#FFFFFF" />
+                <Text style={styles.fullScreenColorText}>{productImages[currentImageIndex].color}</Text>
+              </View>
+            ) : null}
+          </View>
           <Pressable
             style={[styles.fullScreenArrow, currentImageIndex === productImages.length - 1 && styles.fullScreenArrowDisabled]}
             onPress={goToNextImage}
@@ -378,7 +487,7 @@ export default function BarcodeResultScreen({
   ) => (
     <View style={styles.filterRow}>
       <View style={styles.filterLabelRow}>
-        <Text style={styles.filterLabel}>{label}</Text>
+        <Text style={styles.filterLabel}>{label.toLocaleUpperCase('tr-TR')}</Text>
         {selected.length > 0 && <Text style={styles.filterCount}>({selected.length})</Text>}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterOptionsScroll}>
@@ -507,11 +616,21 @@ export default function BarcodeResultScreen({
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
-        <Header title="Ürün Bilgisi" showMenu={true} onLogout={handleLogout} leftButton={<BackButton onPress={onGoBack} />} />
+        <Header
+          title="Ürün Bilgisi"
+          showMenu={true}
+          onLogout={handleLogout}
+          leftButton={<BackButton onPress={onGoBack} />}
+          rightButton={
+            <Pressable onPress={() => setSettingsModalVisible(true)} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="settings-outline" size={22} color={colors.text} />
+            </Pressable>
+          }
+        />
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {/* Image Gallery */}
-          {productImages.length > 0 ? (
+          {ekranAyarlari.resim && productImages.length > 0 ? (
             <View style={styles.galleryWrapper}>
               <View style={styles.galleryContainer}>
                 {/* Left Arrow */}
@@ -536,17 +655,40 @@ export default function BarcodeResultScreen({
                   </Animated.View>
                 </Pressable>
 
-                {/* Image */}
-                <Pressable style={styles.galleryImageContainer} onPress={() => setFullScreenVisible(true)}>
-                  <Image source={{ uri: productImages[currentImageIndex]?.url }} style={styles.galleryImage} resizeMode="cover" />
-                  <View style={styles.zoomHint}>
+                {/* Image - Swipeable */}
+                <View style={styles.galleryImageContainer} onLayout={(e) => { galleryWidth.current = e.nativeEvent.layout.width; }}>
+                  <FlatList
+                    ref={galleryScrollRef}
+                    data={productImages}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={onGalleryScroll}
+                    keyExtractor={(_, i) => String(i)}
+                    getItemLayout={(_, index) => ({ length: galleryWidth.current || 300, offset: (galleryWidth.current || 300) * index, index })}
+                    renderItem={({ item }) => (
+                      <Pressable style={{ width: galleryWidth.current || 300, height: '100%' }} onPress={() => setFullScreenVisible(true)}>
+                        <Image source={{ uri: item.url }} style={styles.galleryImage} resizeMode="cover" />
+                      </Pressable>
+                    )}
+                  />
+                  <View style={styles.zoomHint} pointerEvents="none">
                     <Icon name="expand-outline" size={16} color="#FFFFFF" />
                   </View>
-                  <View style={styles.imageCounter}>
-                    <Icon name="images-outline" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.imageCounterText}>{currentImageIndex + 1}/{productImages.length}</Text>
+                  <View style={styles.imageCounterRow} pointerEvents="none">
+                    {productImages[currentImageIndex]?.color ? (
+                      <View style={styles.imageColorChip}>
+                        <Icon name="color-palette" size={11} color="#FFFFFF" />
+                        <Text style={styles.imageColorChipText}>{productImages[currentImageIndex].color}</Text>
+                      </View>
+                    ) : null}
+                    <View style={{ flex: 1 }} />
+                    <View style={styles.imageCounter}>
+                      <Icon name="images-outline" size={12} color="#FFFFFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.imageCounterText}>{currentImageIndex + 1}/{productImages.length}</Text>
+                    </View>
                   </View>
-                </Pressable>
+                </View>
 
                 {/* Right Arrow */}
                 <Pressable
@@ -573,42 +715,44 @@ export default function BarcodeResultScreen({
 
               {productImages.length > 1 && renderThumbnails()}
             </View>
-          ) : (
+          ) : ekranAyarlari.resim ? (
             <View style={styles.noImageContainer}>
               <View style={styles.noImageIconWrapper}>
                 <Icon name="image-outline" size={48} color={colors.textTertiary} />
               </View>
               <Text style={styles.noImageText}>Ürün görseli bulunamadı</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Full Screen Modal */}
           {renderFullScreenModal()}
 
           {/* Filter Section */}
-          <Pressable style={styles.filterSection} onPress={() => setIsFilterExpanded(!isFilterExpanded)}>
-            <View style={styles.filterLeft}>
-              <Icon name="options-outline" size={20} color={colors.text} />
-              <Text style={styles.filterText}>Filtrele</Text>
-            </View>
-            <Icon name={isFilterExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
-          </Pressable>
+          {ekranAyarlari.filtreleme && <>
+            <Pressable style={styles.filterSection} onPress={() => setIsFilterExpanded(!isFilterExpanded)}>
+              <View style={styles.filterLeft}>
+                <Icon name="options-outline" size={20} color={colors.text} />
+                <Text style={styles.filterText}>Filtrele</Text>
+              </View>
+              <Icon name={isFilterExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
+            </Pressable>
 
-          {isFilterExpanded && (
-            <View style={styles.filterContent}>
-              {renderFilterChips('Şube', filterOptions.branches, selectedBranches, setSelectedBranches)}
-              {renderFilterChips('Depo', filterOptions.warehouses, selectedWarehouses, setSelectedWarehouses)}
-              {renderFilterChips('Tip', filterOptions.types, selectedTypes, setSelectedTypes)}
-              {renderFilterChips('Renk', filterOptions.colors, selectedColors, setSelectedColors)}
-              {renderFilterChips('Beden', filterOptions.sizes, selectedSizes, setSelectedSizes)}
-              {hasActiveFilters && (
-                <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
-                  <Icon name="close-circle-outline" size={18} color={colors.primary} />
-                  <Text style={styles.clearFiltersText}>Filtreleri Temizle</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
+            {isFilterExpanded && (
+              <View style={styles.filterContent}>
+                {renderFilterChips('Şube', filterOptions.branches, selectedBranches, setSelectedBranches)}
+                {renderFilterChips('Depo', filterOptions.warehouses, selectedWarehouses, setSelectedWarehouses)}
+                {renderFilterChips('Tip', filterOptions.types, selectedTypes, setSelectedTypes)}
+                {renderFilterChips('Renk', filterOptions.colors, selectedColors, setSelectedColors)}
+                {renderFilterChips('Beden', filterOptions.sizes, selectedSizes, setSelectedSizes)}
+                {hasActiveFilters && (
+                  <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
+                    <Icon name="close-circle-outline" size={18} color={colors.primary} />
+                    <Text style={styles.clearFiltersText}>Filtreleri Temizle</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </>}
 
           {/* Product Info Section */}
           {productInfo && (
@@ -618,6 +762,14 @@ export default function BarcodeResultScreen({
                   <Icon name="information-circle" size={22} color={colors.textSecondary} />
                   <Text style={styles.infoHeaderText}>Ürün Detayları</Text>
                 </View>
+                {productInfo?.barcodeType && (
+                  <View style={styles.barcodeTypeBadge}>
+                    <Icon name="qr-code-outline" size={14} color="#3B82F6" />
+                    <Text style={styles.barcodeTypeBadgeText}>
+                      {productInfo.barcodeType === 'tekil' ? 'Tekil' : productInfo.barcodeType === 'seri' ? 'Seri' : 'Çoğul'}
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={styles.infoContent}>
                 {queryType === 'barcode' && (
@@ -670,40 +822,49 @@ export default function BarcodeResultScreen({
                 </View>
               </View>
               <View style={styles.priceCardsContainer}>
+                {/* Giriş */}
                 <View style={[styles.priceCard, styles.priceCardEntry]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="enter-outline" size={28} color={isDark ? '#94A3B8' : '#64748B'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Giriş</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.entryPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.entryPrice === false ? 'Yetkisiz' : formatPrice(productInfo.entryPrice)}
-                  </Text>
-                  {barcodePermissions?.entryPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.entryPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.girisFiyatDegeri > 0 ? hesaplaFiyat(productInfo.entryPrice, mobilAyarlar.girisFiyatTipi, mobilAyarlar.girisFiyatDegeri) : productInfo.entryPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
+                {/* Maliyet */}
                 <View style={[styles.priceCard, styles.priceCardCost]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="calculator-outline" size={28} color={isDark ? '#F87171' : '#EF4444'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Maliyet</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.costPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.costPrice === false ? 'Yetkisiz' : formatPrice(productInfo.costPrice)}
-                  </Text>
-                  {barcodePermissions?.costPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.costPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.maliyetFiyatDegeri > 0 ? hesaplaFiyat(productInfo.costPrice, mobilAyarlar.maliyetFiyatTipi, mobilAyarlar.maliyetFiyatDegeri) : productInfo.costPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.entryCostCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
+                {/* Etiket */}
                 <View style={[styles.priceCard, styles.priceCardLabelBg]}>
                   <View style={styles.priceCardIcon}>
                     <Icon name="pricetag-outline" size={28} color={isDark ? '#4ADE80' : '#22C55E'} />
                   </View>
                   <Text style={styles.priceCardTitle}>Etiket</Text>
-                  <Text style={[styles.priceCardValue, barcodePermissions?.labelPrice === false && styles.priceCardUnauthorized]}>
-                    {barcodePermissions?.labelPrice === false ? 'Yetkisiz' : formatPrice(productInfo.labelPrice)}
-                  </Text>
-                  {barcodePermissions?.labelPrice !== false && (
-                    <Text style={styles.priceCardCurrency}>{productInfo.labelCurrency || productInfo.currency || 'TRY'}</Text>
+                  {barcodePermissions?.labelPrice === false ? (
+                    <Text style={[styles.priceCardValue, styles.priceCardUnauthorized]}>Yetkisiz</Text>
+                  ) : (
+                    <>
+                      <Text style={styles.priceCardValue}>{formatPrice(mobilAyarlar && mobilAyarlar.etiketFiyatDegeri > 0 ? hesaplaFiyat(productInfo.labelPrice, mobilAyarlar.etiketFiyatTipi, mobilAyarlar.etiketFiyatDegeri) : productInfo.labelPrice)}</Text>
+                      <Text style={styles.priceCardCurrency}>{productInfo.labelCurrency || productInfo.currency || 'TRY'}</Text>
+                    </>
                   )}
                 </View>
               </View>
@@ -711,11 +872,11 @@ export default function BarcodeResultScreen({
           )}
 
           {/* Distribution Table - Magaza */}
-          <View style={styles.distributionSection}>
+          {magazaDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="storefront-outline" size={22} color={colors.textSecondary} />
-                <Text style={styles.infoHeaderText}>Mağaza Dağılımı</Text>
+                <Text style={styles.infoHeaderText}>Mağaza Stok Dağılım</Text>
               </View>
               <Pressable onPress={() => setIsDistributionSearchVisible(!isDistributionSearchVisible)} style={styles.searchToggleButton}>
                 <Icon name={isDistributionSearchVisible ? 'close' : 'search'} size={20} color={colors.text} />
@@ -728,20 +889,15 @@ export default function BarcodeResultScreen({
             )}
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>Şube</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>Depo</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>Tip</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>Renk</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>Beden</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>Adet</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
-            {noMagazaModule ? (
-              <View style={styles.emptyTableRow}>
-                <Icon name="storefront" size={32} color={colors.purple} />
-                <Text style={styles.emptyTableText}>Mağaza modülünüz bulunmuyor</Text>
-              </View>
-            ) : filteredDistribution.length > 0 ? (
-              filteredDistribution.map((item, index) => (
+            {filteredMagaza.length > 0 ? (
+              filteredMagaza.map((item: any, index: number) => (
                 <Pressable
                   key={item.id}
                   style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
@@ -750,87 +906,206 @@ export default function BarcodeResultScreen({
                   <View style={styles.tableCellDetail}>
                     <Icon name="chevron-forward-circle-outline" size={18} color={colors.primary} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
                     <View style={styles.quantityBadge}>
                       <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
               <View style={styles.emptyTableRow}>
                 <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
-                <Text style={styles.emptyTableText}>Dağılım verisi bulunamadı</Text>
+                <Text style={styles.emptyTableText}>Mağaza dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredMagaza.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredMagaza.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
 
-          {/* Production Distribution Table - Konfeksiyon */}
-          <View style={styles.distributionSection}>
+          {/* Konfeksiyon Stok Dağılımı */}
+          {konfeksiyonDistribution.length > 0 && <View style={styles.distributionSection}>
             <View style={styles.infoHeader}>
               <View style={styles.infoHeaderLeft}>
                 <Icon name="cut-outline" size={22} color={colors.textSecondary} />
-                <Text style={styles.infoHeaderText}>Üretim Dağılımı</Text>
+                <Text style={styles.infoHeaderText}>Konfeksiyon Stok Dağılımı</Text>
               </View>
-              <Pressable onPress={() => setIsProductionSearchVisible(!isProductionSearchVisible)} style={styles.searchToggleButton}>
-                <Icon name={isProductionSearchVisible ? 'close' : 'search'} size={20} color={colors.text} />
-              </Pressable>
             </View>
-            {isProductionSearchVisible && (
-              <View style={styles.searchContainer}>
-                <SearchInput value={productionSearchText} onChangeText={setProductionSearchText} placeholder="Ara..." />
-              </View>
-            )}
             <View style={styles.tableHeader}>
               <View style={styles.tableCellDetail} />
-              <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>Konum</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellType]}>Tip</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>Renk</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>Beden</Text>
-              <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>Adet</Text>
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
             </View>
-            {noKonfeksiyonModule ? (
-              <View style={styles.emptyTableRow}>
-                <Icon name="shirt" size={32} color={colors.info} />
-                <Text style={styles.emptyTableText}>Konfeksiyon modülünüz bulunmuyor</Text>
-              </View>
-            ) : filteredProductionDistribution.length > 0 ? (
-              filteredProductionDistribution.map((item, index) => (
+            {filteredKonfeksiyon.length > 0 ? (
+              filteredKonfeksiyon.map((item: any, index: number) => (
                 <Pressable
                   key={item.id}
                   style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
                   onPress={() => handleProductionRowPress(item)}
                 >
                   <View style={styles.tableCellDetail}>
-                    <Icon
-                      name={item.status === 'stock' ? 'cube-outline' : 'sync-outline'}
-                      size={18}
-                      color={item.status === 'stock' ? colors.green : colors.orange}
-                    />
+                    <Icon name="cube-outline" size={18} color={colors.green} />
                   </View>
-                  <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branchWarehouse}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>
-                  <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>
-                  <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
-                    <View style={[styles.quantityBadge, item.status === 'process' && styles.quantityBadgeProcess]}>
-                      <Text style={[styles.quantityText, item.status === 'process' && styles.quantityTextProcess]}>{item.quantity}</Text>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
-                  </View>
+                  </View>}
                 </Pressable>
               ))
             ) : (
               <View style={styles.emptyTableRow}>
                 <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
-                <Text style={styles.emptyTableText}>Dağılım verisi bulunamadı</Text>
+                <Text style={styles.emptyTableText}>Konfeksiyon dağılım verisi bulunamadı</Text>
               </View>
             )}
-          </View>
+            {filteredKonfeksiyon.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredKonfeksiyon.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
+
+          {/* Üretim (Tabakhane) Stok Dağılımı */}
+          {tabakhaneDistribution.length > 0 && <View style={styles.distributionSection}>
+            <View style={styles.infoHeader}>
+              <View style={styles.infoHeaderLeft}>
+                <Icon name="flask-outline" size={22} color={colors.textSecondary} />
+                <Text style={styles.infoHeaderText}>Üretim Stok Dağılımı</Text>
+              </View>
+            </View>
+            <View style={styles.tableHeader}>
+              <View style={styles.tableCellDetail} />
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
+            </View>
+            {filteredTabakhane.length > 0 ? (
+              filteredTabakhane.map((item: any, index: number) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
+                  onPress={() => handleProductionRowPress(item)}
+                >
+                  <View style={styles.tableCellDetail}>
+                    <Icon name="cube-outline" size={18} color={colors.green} />
+                  </View>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </View>
+                  </View>}
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTableRow}>
+                <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
+                <Text style={styles.emptyTableText}>Üretim dağılım verisi bulunamadı</Text>
+              </View>
+            )}
+            {filteredTabakhane.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredTabakhane.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
+
+          {/* Muhasebe Stok Dağılımı */}
+          {muhasebeDistribution.length > 0 && <View style={styles.distributionSection}>
+            <View style={styles.infoHeader}>
+              <View style={styles.infoHeaderLeft}>
+                <Icon name="calculator-outline" size={22} color={colors.textSecondary} />
+                <Text style={styles.infoHeaderText}>Muhasebe Stok Dağılımı</Text>
+              </View>
+            </View>
+            <View style={styles.tableHeader}>
+              <View style={styles.tableCellDetail} />
+              {ekranAyarlari.sube && <Text style={[styles.tableHeaderCell, styles.tableCellBranch]}>{'Şube'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.depo && <Text style={[styles.tableHeaderCell, styles.tableCellWarehouse]}>{'Depo'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.tip && <Text style={[styles.tableHeaderCell, styles.tableCellType]}>{'Tip'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.renk && <Text style={[styles.tableHeaderCell, styles.tableCellColor]}>{'Renk'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.beden && <Text style={[styles.tableHeaderCell, styles.tableCellSize]}>{'Beden'.toLocaleUpperCase('tr-TR')}</Text>}
+              {ekranAyarlari.adet && <Text style={[styles.tableHeaderCell, styles.tableCellQuantity]}>{'Adet'.toLocaleUpperCase('tr-TR')}</Text>}
+            </View>
+            {filteredMuhasebe.length > 0 ? (
+              filteredMuhasebe.map((item: any, index: number) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}
+                  onPress={() => handleProductionRowPress(item)}
+                >
+                  <View style={styles.tableCellDetail}>
+                    <Icon name="cube-outline" size={18} color={colors.green} />
+                  </View>
+                  {ekranAyarlari.sube && <Text style={[styles.tableCell, styles.tableCellBranch]} numberOfLines={1}>{item.branch}</Text>}
+                  {ekranAyarlari.depo && <Text style={[styles.tableCell, styles.tableCellWarehouse]} numberOfLines={1}>{item.warehouse}</Text>}
+                  {ekranAyarlari.tip && <Text style={[styles.tableCell, styles.tableCellType]} numberOfLines={1}>{item.type}</Text>}
+                  {ekranAyarlari.renk && <Text style={[styles.tableCell, styles.tableCellColor]} numberOfLines={1}>{item.color}</Text>}
+                  {ekranAyarlari.beden && <Text style={[styles.tableCell, styles.tableCellSize]}>{item.size}</Text>}
+                  {ekranAyarlari.adet && <View style={[styles.tableCellQuantity, styles.quantityBadgeContainer]}>
+                    <View style={styles.quantityBadge}>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    </View>
+                  </View>}
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.emptyTableRow}>
+                <Icon name="file-tray-outline" size={32} color={colors.textTertiary} />
+                <Text style={styles.emptyTableText}>Muhasebe dağılım verisi bulunamadı</Text>
+              </View>
+            )}
+            {filteredMuhasebe.length > 0 && (
+              <View style={styles.tableTotalRow}>
+                <Text style={styles.tableTotalLabel}>Toplam</Text>
+                <View style={styles.tableTotalBadge}>
+                  <Text style={styles.tableTotalText}>
+                    {filteredMuhasebe.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>}
         </ScrollView>
 
         {/* Detail Modal */}
@@ -937,6 +1212,71 @@ export default function BarcodeResultScreen({
           </Pressable>
         </Modal>
 
+        {/* Settings Modal */}
+        <Modal visible={settingsModalVisible} transparent animationType="fade" onRequestClose={() => setSettingsModalVisible(false)}>
+          <Pressable style={styles.settingsModalOverlay} onPress={() => setSettingsModalVisible(false)}>
+            <Pressable style={styles.settingsModalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.settingsModalHeader}>
+                <View style={styles.settingsModalTitleRow}>
+                  <Icon name="settings-outline" size={22} color={colors.primary} />
+                  <Text style={styles.settingsModalTitle}>Ekran Ayarları</Text>
+                </View>
+                <Pressable onPress={() => setSettingsModalVisible(false)} style={styles.settingsModalCloseIcon}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <View style={styles.settingsModalDivider} />
+              <Text style={styles.settingsModalSectionTitle}>Genel</Text>
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowLeft}>
+                  <Icon name="image-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.settingsRowLabel}>Ürün Görseli</Text>
+                </View>
+                <Switch
+                  value={ekranAyarlari.resim}
+                  onValueChange={() => toggleEkranAyar('resim')}
+                  trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowLeft}>
+                  <Icon name="options-outline" size={18} color={colors.textSecondary} />
+                  <Text style={styles.settingsRowLabel}>Filtreleme</Text>
+                </View>
+                <Switch
+                  value={ekranAyarlari.filtreleme}
+                  onValueChange={() => toggleEkranAyar('filtreleme')}
+                  trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <Text style={[styles.settingsModalSectionTitle, { marginTop: 16 }]}>Stok Dağılım Kolonları</Text>
+              {([
+                { key: 'sube' as const, label: 'Şube', icon: 'business-outline' },
+                { key: 'depo' as const, label: 'Depo', icon: 'archive-outline' },
+                { key: 'tip' as const, label: 'Tip', icon: 'pricetag-outline' },
+                { key: 'renk' as const, label: 'Renk', icon: 'color-palette-outline' },
+                { key: 'beden' as const, label: 'Beden', icon: 'resize-outline' },
+                { key: 'adet' as const, label: 'Adet', icon: 'cube-outline' },
+              ]).map((col) => (
+                <View key={col.key} style={styles.settingsRow}>
+                  <View style={styles.settingsRowLeft}>
+                    <Icon name={col.icon} size={18} color={colors.textSecondary} />
+                    <Text style={styles.settingsRowLabel}>{col.label}</Text>
+                  </View>
+                  <Switch
+                    value={ekranAyarlari[col.key]}
+                    onValueChange={() => toggleEkranAyar(col.key)}
+                    trackColor={{ false: isDark ? '#3A3A3C' : '#E5E7EB', true: '#3B82F6' }}
+                    thumbColor={ekranAyarlari[col.key] ? '#FFFFFF' : '#FFFFFF'}
+                  />
+                </View>
+              ))}
+            </Pressable>
+          </Pressable>
+        </Modal>
+
         <TabBar activeTab={activeTab} onTabPress={handleTabPress} notificationCount={notificationCount} />
       </View>
     </SafeAreaProvider>
@@ -977,11 +1317,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       gap: 10,
       width: '100%',
       maxWidth: 300,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      elevation: 4,
     },
     errorPrimaryButtonText: {
       fontSize: 16,
@@ -1153,11 +1488,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       padding: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.3 : 0.08,
-      shadowRadius: 12,
-      elevation: 4,
     },
     galleryContainer: {
       flexDirection: 'row',
@@ -1174,11 +1504,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       height: 40,
       borderRadius: 20,
       overflow: 'hidden',
-      shadowColor: '#2B7FFF',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-      elevation: 3,
     },
     arrowGradient: {
       width: '100%',
@@ -1187,8 +1512,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     galleryArrowDisabled: {
-      shadowOpacity: 0,
-      elevation: 0,
     },
     galleryImageContainer: {
       flex: 1,
@@ -1214,9 +1537,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     imageCounter: {
-      position: 'absolute',
-      bottom: 12,
-      left: 12,
       backgroundColor: 'rgba(0, 0, 0, 0.6)',
       paddingHorizontal: 10,
       paddingVertical: 6,
@@ -1229,6 +1549,29 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '700',
     },
+    imageCounterRow: {
+      position: 'absolute',
+      bottom: 12,
+      left: 12,
+      right: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    imageColorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+    imageColorChipText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+    },
     // Thumbnails
     thumbnailContainer: {
       marginTop: 12,
@@ -1239,6 +1582,9 @@ const createStyles = (colors: any, isDark: boolean) =>
     thumbnailScroll: {
       paddingHorizontal: 4,
       gap: 8,
+    },
+    thumbnailWrapper: {
+      alignItems: 'center',
     },
     thumbnail: {
       width: 56,
@@ -1252,15 +1598,34 @@ const createStyles = (colors: any, isDark: boolean) =>
     thumbnailActive: {
       borderColor: colors.primary,
       opacity: 1,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-      elevation: 3,
     },
     thumbnailImage: {
       width: '100%',
       height: '100%',
+    },
+    thumbColorBadge: {
+      marginTop: 4,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      maxWidth: 60,
+    },
+    thumbColorBadgeActive: {
+      backgroundColor: colors.primary + '15',
+      borderColor: colors.primary + '40',
+    },
+    thumbColorText: {
+      fontSize: 8,
+      fontWeight: '500',
+      color: colors.textTertiary,
+      textAlign: 'center',
+    },
+    thumbColorTextActive: {
+      color: colors.primary,
+      fontWeight: '600',
     },
     thumbnailOverlay: {
       position: 'absolute',
@@ -1330,10 +1695,28 @@ const createStyles = (colors: any, isDark: boolean) =>
     fullScreenArrowDisabled: {
       opacity: 0.3,
     },
+    fullScreenCounterContainer: {
+      alignItems: 'center',
+      gap: 6,
+    },
     fullScreenCounter: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
+    },
+    fullScreenColorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    fullScreenColorText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '500',
     },
     // No Image
     noImageContainer: {
@@ -1408,7 +1791,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 13,
       fontWeight: '600',
       color: colors.textSecondary,
-      textTransform: 'uppercase',
     },
     filterCount: {
       fontSize: 12,
@@ -1495,6 +1877,22 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontWeight: '700',
       color: colors.textSecondary,
     },
+    barcodeTypeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(59, 130, 246, 0.4)' : 'rgba(59, 130, 246, 0.3)',
+    },
+    barcodeTypeBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#3B82F6',
+    },
     searchToggleButton: {
       padding: 8,
       borderRadius: 8,
@@ -1580,7 +1978,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       marginBottom: 4,
     },
     priceCardValue: {
-      fontSize: 18,
+      fontSize: 12,
       fontWeight: '700',
       color: colors.text,
     },
@@ -1594,6 +1992,23 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '600',
       color: isDark ? '#F87171' : '#DC2626',
+    },
+    priceCardOriginal: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textDecorationLine: 'line-through',
+      marginTop: 4,
+    },
+    priceCardBadge: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: '#10B981',
+      backgroundColor: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.12)',
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      marginTop: 3,
+      overflow: 'hidden',
     },
     // Distribution Table
     distributionSection: {
@@ -1622,7 +2037,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 11,
       fontWeight: '700',
       color: colors.textSecondary,
-      textTransform: 'uppercase',
     },
     tableRow: {
       flexDirection: 'row',
@@ -1838,5 +2252,103 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 16,
       fontWeight: '600',
       color: '#FFFFFF',
+    },
+    tableTotalRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC',
+    },
+    tableTotalLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    tableTotalBadge: {
+      backgroundColor: colors.primary + '20',
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 8,
+    },
+    tableTotalText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    // Settings Modal
+    settingsModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 24,
+    },
+    settingsModalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 20,
+      width: '100%',
+      maxWidth: 400,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    settingsModalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    settingsModalTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    settingsModalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    settingsModalCloseIcon: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 18,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+    },
+    settingsModalDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginBottom: 16,
+    },
+    settingsModalSectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    settingsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border + '40',
+    },
+    settingsRowLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    settingsRowLabel: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: colors.text,
     },
   });

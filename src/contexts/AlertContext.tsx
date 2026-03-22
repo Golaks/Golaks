@@ -1,6 +1,7 @@
 import React, {createContext, useContext, useState, ReactNode} from 'react';
-import {View, StyleSheet} from 'react-native';
-import AlertDialog, {AlertType, AlertDialogProps} from '../components/AlertDialog';
+import {View, StyleSheet, Modal} from 'react-native';
+import AlertDialog, {AlertType} from '../components/AlertDialog';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 interface AlertMessage {
   id: string;
@@ -8,6 +9,17 @@ interface AlertMessage {
   title?: string;
   message: string;
   duration?: number;
+}
+
+export interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  icon?: string;
+  iconColor?: string;
+  onConfirm: () => void;
+  onCancel?: () => void;
 }
 
 interface AlertContextType {
@@ -21,6 +33,7 @@ interface AlertContextType {
   showError: (message: string, title?: string) => void;
   showWarning: (message: string, title?: string) => void;
   showInfo: (message: string, title?: string) => void;
+  showConfirm: (options: ConfirmOptions) => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
@@ -39,6 +52,7 @@ interface AlertProviderProps {
 
 export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
   const [alerts, setAlerts] = useState<AlertMessage[]>([]);
+  const [confirm, setConfirm] = useState<ConfirmOptions | null>(null);
 
   const showAlert = (
     type: AlertType,
@@ -55,15 +69,15 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
       duration,
     };
 
-    setAlerts(prev => [...prev, newAlert]);
+    setAlerts([newAlert]);
   };
 
   const showSuccess = (message: string, title?: string) => {
-    showAlert('success', message, title || 'Başarılı');
+    showAlert('success', message, title);
   };
 
   const showError = (message: string, title?: string) => {
-    showAlert('error', message, title || 'Hata');
+    showAlert('error', message, title);
   };
 
   const showWarning = (message: string, title?: string) => {
@@ -72,6 +86,10 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
 
   const showInfo = (message: string, title?: string) => {
     showAlert('info', message, title || 'Bilgi');
+  };
+
+  const showConfirm = (options: ConfirmOptions) => {
+    setConfirm(options);
   };
 
   const handleClose = (id: string) => {
@@ -86,6 +104,7 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
         showError,
         showWarning,
         showInfo,
+        showConfirm,
       }}>
       {children}
       <View style={styles.alertContainer} pointerEvents="box-none">
@@ -101,16 +120,40 @@ export const AlertProvider: React.FC<AlertProviderProps> = ({children}) => {
           />
         ))}
       </View>
+      {confirm && (
+        <ConfirmDialog
+          visible
+          title={confirm.title}
+          message={confirm.message}
+          confirmText={confirm.confirmText}
+          cancelText={confirm.cancelText}
+          icon={confirm.icon}
+          iconColor={confirm.iconColor}
+          onConfirm={() => {
+            confirm.onConfirm();
+            setConfirm(null);
+          }}
+          onCancel={() => {
+            confirm.onCancel?.();
+            setConfirm(null);
+          }}
+        />
+      )}
     </AlertContext.Provider>
   );
 };
 
 const styles = StyleSheet.create({
+  alertOverlay: {
+    flex: 1,
+    pointerEvents: 'box-none',
+  },
   alertContainer: {
     position: 'absolute',
-    top: 60,
+    top: 0,
     left: 0,
     right: 0,
-    zIndex: 9999,
+    zIndex: 99999,
+    elevation: 99999,
   },
 });

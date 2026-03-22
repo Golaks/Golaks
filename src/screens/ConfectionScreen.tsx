@@ -14,6 +14,17 @@ interface ConfectionScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onModelOperations?: () => void;
+  onStock?: () => void;
+  onHammaddeStock?: () => void;
+  onSales?: () => void;
+  onPersonnelPerformance?: () => void;
+  onCompanyModelPerformance?: () => void;
+  onUretimIslemleri?: () => void;
+  onMaliyetler?: () => void;
+  onSiparisIslemleri?: () => void;
+  initialTab?: ConfectionTab;
+  onActiveTabChange?: (tab: ConfectionTab) => void;
 }
 
 type ConfectionTab = 'reports' | 'transactions';
@@ -23,11 +34,11 @@ const CONFECTION_TABS: TabOption<ConfectionTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ConfectionScreen({ onBack, onTabChange, onLogout }: ConfectionScreenProps) {
+export default function ConfectionScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onHammaddeStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onUretimIslemleri, onMaliyetler, onSiparisIslemleri, initialTab, onActiveTabChange }: ConfectionScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [confectionTab, setConfectionTab] = useState<ConfectionTab>('reports');
+  const [confectionTab, setConfectionTab] = useState<ConfectionTab>(initialTab ?? 'reports');
 
   const styles = createStyles(colors, isDark);
 
@@ -79,25 +90,79 @@ export default function ConfectionScreen({ onBack, onTabChange, onLogout }: Conf
           <Tab
             options={CONFECTION_TABS}
             activeTab={confectionTab}
-            onTabChange={setConfectionTab}
+            onTabChange={(tab) => { setConfectionTab(tab); onActiveTabChange?.(tab); }}
           />
 
           {/* Tab Content */}
           {confectionTab === 'reports' && (
             <>
               <MenuCard
-                name="Hammadde Stoklar"
-                icon="cube-outline"
-                color="#3B82F6"
-                description="Hammadde stok durumu raporu"
-                onPress={() => {}}
+                name="Satışlar"
+                icon="cart-outline"
+                color="#10B981"
+                description="Satış faturaları ve raporu"
+                onPress={() => onSales?.()}
+              />
+              <MenuCard
+                name="Firma Model Performans"
+                icon="trending-up-outline"
+                color="#8B5CF6"
+                description="Firma ve Model performans raporu"
+                onPress={() => onCompanyModelPerformance?.()}
               />
               <MenuCard
                 name="Ürün Stoklar"
                 icon="shirt-outline"
                 color="#8B5CF6"
                 description="Ürün stok durumu raporu"
-                onPress={() => {}}
+                onPress={() => onStock?.()}
+              />
+              <MenuCard
+                name="Hammadde Stoklar"
+                icon="cube-outline"
+                color="#3B82F6"
+                description="Hammadde stok durumu raporu"
+                onPress={() => onHammaddeStock?.()}
+              />
+              <MenuCard
+                name="Personel Performans"
+                icon="people-outline"
+                color="#EC4899"
+                description="Personel performans raporu"
+                onPress={() => onPersonnelPerformance?.()}
+              />
+              <MenuCard
+                name="Maliyetler"
+                icon="calculator-outline"
+                color="#EF4444"
+                description="Üretim maliyet raporu"
+                onPress={() => onMaliyetler?.()}
+              />
+            </>
+          )}
+
+          {confectionTab === 'transactions' && (
+            <>
+              <MenuCard
+                name="Sipariş İşlemleri"
+                icon="receipt-outline"
+                color="#3B82F6"
+                description="Sipariş oluşturma ve yönetimi"
+                onPress={() => onSiparisIslemleri?.()}
+              />
+              <MenuCard
+                name="Üretim İşlemleri"
+                icon="construct-outline"
+                color="#10B981"
+                description="Üretim süreçleri ve işlemleri"
+                onPress={() => onUretimIslemleri?.()}
+              />
+              <MenuCard
+                name="Model İşlemleri"
+                icon="layers-outline"
+                color="#F59E0B"
+                description="Model kartları ve işlemleri"
+                onPress={() => onModelOperations?.()}
               />
             </>
           )}
@@ -143,7 +208,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

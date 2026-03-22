@@ -37,45 +37,60 @@ export default function BarcodeScanner({
   const scanLineAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const hasScanned = useRef(false);
+  const openedAt = useRef(0);
+  const onBarcodeScannedRef = useRef(onBarcodeScanned);
+  const onCloseRef = useRef(onClose);
+  onBarcodeScannedRef.current = onBarcodeScanned;
+  onCloseRef.current = onClose;
 
-  // Select optimal format for barcode scanning (higher resolution for better recognition)
-  const format = useCameraFormat(device, [
-    { videoResolution: { width: 1920, height: 1080 } },
-    { fps: 30 },
-  ]);
+  // Select optimal format for barcode scanning (Android only - iOS uses default)
+  const format = useCameraFormat(
+    Platform.OS === 'android' ? device : null,
+    [
+      { videoResolution: { width: 1920, height: 1080 } },
+      { fps: 30 },
+    ]
+  );
 
-  // Focus function
-  const triggerFocus = async () => {
+  // Focus function - dokunulan noktaya veya merkeze odaklan
+  const triggerFocus = async (point?: { x: number; y: number }) => {
     if (cameraRef.current && device?.supportsFocus && isCameraReady) {
       try {
-        await cameraRef.current.focus({ x: 0.5, y: 0.5 });
+        await cameraRef.current.focus(point || { x: 0.5, y: 0.5 });
       } catch (e) {
         // Focus failed, ignore
       }
     }
   };
 
+  // Tap to focus - dokunulan noktaya odaklan
+  const handleTapToFocus = (event: any) => {
+    const { locationX, locationY } = event.nativeEvent;
+    const { width, height } = event.nativeEvent.target ? event.nativeEvent : { width: 1, height: 1 };
+    if (width > 0 && height > 0) {
+      triggerFocus({ x: locationX / width, y: locationY / height });
+    } else {
+      triggerFocus();
+    }
+  };
+
   // Camera initialized callback
   const handleCameraInitialized = () => {
     setIsCameraReady(true);
-    // Initial focus after camera is ready
-    setTimeout(triggerFocus, 300);
+    // İlk focus hemen, sonra 500ms sonra tekrar
+    setTimeout(() => triggerFocus(), 200);
+    setTimeout(() => triggerFocus(), 700);
   };
 
-  // Auto focus interval - only when camera is ready
+  // Başlangıçta birkaç kez focus, sonra sadece tap ile
   useEffect(() => {
-    let focusInterval: NodeJS.Timeout | null = null;
-
     if (isActive && isCameraReady && device?.supportsFocus) {
-      // Periodic auto focus every 1.5 seconds for better responsiveness
-      focusInterval = setInterval(triggerFocus, 1500);
+      // İlk 3 saniyede birkaç kez dene, sonra dur
+      const t1 = setTimeout(() => triggerFocus(), 1500);
+      const t2 = setTimeout(() => triggerFocus(), 3000);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }
-
-    return () => {
-      if (focusInterval) {
-        clearInterval(focusInterval);
-      }
-    };
   }, [isActive, isCameraReady, device]);
 
   // Reset camera ready state when modal closes
@@ -89,6 +104,8 @@ export default function BarcodeScanner({
 
   useEffect(() => {
     if (visible) {
+      hasScanned.current = false;
+      openedAt.current = Date.now();
       checkCameraPermission();
       startScanAnimation();
     } else {
@@ -101,6 +118,7 @@ export default function BarcodeScanner({
       setShowPermissionModal(false);
       setTorchOn(false);
       setHasPermission(false);
+      hasScanned.current = false;
       scanLineAnim.setValue(0);
     }
 
@@ -135,7 +153,7 @@ export default function BarcodeScanner({
     animationRef.current.start();
   };
 
-  const checkCameraPermission = () => {
+  const checkCameraPermission = async () => {
     try {
       const cameraPermission = Camera.getCameraPermissionStatus();
 
@@ -144,16 +162,32 @@ export default function BarcodeScanner({
         setIsActive(true);
         setShowPermissionModal(false);
       } else if (cameraPermission === 'not-determined') {
-        setHasPermission(false);
-        setShowPermissionModal(true);
+        // Durumu belirlenemedi, doğrudan izin iste
+        const newPermission = await Camera.requestCameraPermission();
+        setHasPermission(newPermission === 'granted');
+        setIsActive(newPermission === 'granted');
+        if (newPermission !== 'granted') {
+          setShowPermissionModal(true);
+        }
       } else {
+        // denied veya restricted
         setHasPermission(false);
         setIsActive(false);
         setShowPermissionModal(true);
       }
     } catch (error) {
-      setHasPermission(false);
-      setShowPermissionModal(false);
+      // getCameraPermissionStatus hata fırlatırsa doğrudan izin iste
+      try {
+        const newPermission = await Camera.requestCameraPermission();
+        setHasPermission(newPermission === 'granted');
+        setIsActive(newPermission === 'granted');
+        if (newPermission !== 'granted') {
+          setShowPermissionModal(true);
+        }
+      } catch {
+        setHasPermission(false);
+        setShowPermissionModal(true);
+      }
     }
   };
 
@@ -178,10 +212,18 @@ export default function BarcodeScanner({
   };
 
   const handleCodeScanned = useRef((codes: any[]) => {
+    // İlk 2 saniye taramayı yoksay (kamera stabilize olsun)
+    if (Date.now() - openedAt.current < 2000) return;
+    if (hasScanned.current) return;
     if (codes.length > 0 && codes[0].value) {
+      hasScanned.current = true;
+      const scannedValue = codes[0].value;
+      // Önce kamerayı deaktive et, sonra callback ve close çağır
       setIsActive(false);
-      onBarcodeScanned(codes[0].value);
-      onClose();
+      setTimeout(() => {
+        onBarcodeScannedRef.current(scannedValue);
+        onCloseRef.current();
+      }, 400);
     }
   }).current;
 
@@ -201,30 +243,23 @@ export default function BarcodeScanner({
     onCodeScanned: handleCodeScanned,
   });
 
-  // Don't render anything if not visible
-  if (!visible) return null;
-
-  // If showing permission modal, only show that
-  if (showPermissionModal) {
-    return (
+  return (
+    <>
       <PermissionModal
-        visible={showPermissionModal}
+        visible={visible && showPermissionModal}
         permissions={['camera']}
         onRequestPermissions={handleRequestPermission}
         onCancel={handleCancelPermission}
         title="Kamera İzni Gerekli"
         subtitle="Barkod taramak için kamera erişimine ihtiyacımız var."
       />
-    );
-  }
 
-  return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
+      <Modal
+        visible={visible && !showPermissionModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={onClose}
+      >
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
@@ -247,65 +282,69 @@ export default function BarcodeScanner({
             </View>
           </View>
 
-          {/* Camera View */}
-          <View style={styles.cameraContainer}>
-            {/* Overlay with camera in the middle */}
-            <View style={styles.overlay}>
-                <View style={styles.overlayTop}>
-                  {/* Logo above scan frame */}
-                  <View style={styles.logoContainer}>
-                    <Image
-                      source={require('../assets/images/golaks-logo.png')}
-                      style={styles.logo}
-                      resizeMode="contain"
+          {/* Camera View - Full screen */}
+          <Pressable style={styles.cameraContainer} onPress={handleTapToFocus}>
+            {/* Full screen camera */}
+            {hasPermission && device && (
+              <Camera
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+                device={device}
+                isActive={isActive}
+                codeScanner={codeScanner}
+                torch={torchOn ? 'on' : 'off'}
+                zoom={device.minZoom}
+                {...(Platform.OS === 'android' ? { format, videoStabilizationMode: 'off' as const } : {})}
+                onInitialized={handleCameraInitialized}
+                onError={(_e) => {}}
+                enableZoomGesture={true}
+                videoHdr={false}
+                photoHdr={false}
+              />
+            )}
+
+            {/* Overlay with scan frame cutout */}
+            <View style={styles.overlay} pointerEvents="none">
+              <View style={styles.overlayTop}>
+                <View style={styles.logoContainer}>
+                  <Image
+                    source={require('../assets/images/golaks-logo.png')}
+                    style={styles.logo}
+                    resizeMode="contain"
+                  />
+                </View>
+              </View>
+              <View style={styles.overlayMiddle}>
+                <View style={styles.overlaySide} />
+                <View style={styles.scanFrameContainer}>
+                  <View style={styles.scanFrame}>
+                    {/* Corner brackets */}
+                    <View style={[styles.corner, styles.cornerTL]} />
+                    <View style={[styles.corner, styles.cornerTR]} />
+                    <View style={[styles.corner, styles.cornerBL]} />
+                    <View style={[styles.corner, styles.cornerBR]} />
+                    {/* Animated scan line */}
+                    <Animated.View
+                      style={[
+                        styles.scanLine,
+                        {
+                          transform: [
+                            {
+                              translateY: scanLineAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 298],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
                     />
                   </View>
                 </View>
-                <View style={styles.overlayMiddle}>
-                  <View style={styles.overlaySide} />
-                  <View style={styles.scanFrameContainer}>
-                    {/* Scanning Frame with Camera inside */}
-                    <Pressable style={styles.scanFrame} onPress={triggerFocus}>
-                      {/* Camera only in scan frame */}
-                      {hasPermission && device && (
-                        <Camera
-                          ref={cameraRef}
-                          style={StyleSheet.absoluteFill}
-                          device={device}
-                          isActive={isActive}
-                          codeScanner={codeScanner}
-                          torch={torchOn ? 'on' : 'off'}
-                          format={format}
-                          onInitialized={handleCameraInitialized}
-                          onError={() => {}}
-                          enableZoomGesture={false}
-                          exposure={0}
-                          videoStabilizationMode="off"
-                        />
-                      )}
-
-                      {/* Animated scan line */}
-                      <Animated.View
-                        style={[
-                          styles.scanLine,
-                          {
-                            transform: [
-                              {
-                                translateY: scanLineAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0, 290],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      />
-                    </Pressable>
-                  </View>
-                  <View style={styles.overlaySide} />
-                </View>
-                <View style={styles.overlayBottom} />
+                <View style={styles.overlaySide} />
               </View>
+              <View style={styles.overlayBottom} />
+            </View>
 
             {/* Instructions */}
             <View style={styles.instructionsContainer}>
@@ -323,9 +362,10 @@ export default function BarcodeScanner({
                 </Text>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
       </Modal>
+    </>
   );
 }
 
@@ -396,7 +436,7 @@ const createStyles = (colors: any) =>
     },
     overlayTop: {
       flex: 0.35,
-      backgroundColor: '#000000',
+      backgroundColor: 'transparent',
       justifyContent: 'flex-end',
       alignItems: 'center',
       paddingBottom: 40,
@@ -415,11 +455,11 @@ const createStyles = (colors: any) =>
     },
     overlaySide: {
       flex: 1,
-      backgroundColor: '#000000',
+      backgroundColor: 'transparent',
     },
     overlayBottom: {
       flex: 1,
-      backgroundColor: '#000000',
+      backgroundColor: 'transparent',
     },
     scanFrameContainer: {
       width: 340,
@@ -428,34 +468,54 @@ const createStyles = (colors: any) =>
     },
     scanFrame: {
       flex: 1,
-      borderWidth: 3,
-      borderColor: colors.primary,
-      borderRadius: 32,
+      borderWidth: 1.5,
+      borderColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 24,
       overflow: 'hidden',
-      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 0.5,
-      shadowRadius: 20,
-      elevation: 10,
+      backgroundColor: 'transparent',
+      position: 'relative',
+    },
+    corner: {
+      position: 'absolute',
+      width: 40,
+      height: 40,
+      borderColor: colors.primary,
+    },
+    cornerTL: {
+      top: -1,
+      left: -1,
+      borderTopWidth: 4,
+      borderLeftWidth: 4,
+      borderTopLeftRadius: 24,
+    },
+    cornerTR: {
+      top: -1,
+      right: -1,
+      borderTopWidth: 4,
+      borderRightWidth: 4,
+      borderTopRightRadius: 24,
+    },
+    cornerBL: {
+      bottom: -1,
+      left: -1,
+      borderBottomWidth: 4,
+      borderLeftWidth: 4,
+      borderBottomLeftRadius: 24,
+    },
+    cornerBR: {
+      bottom: -1,
+      right: -1,
+      borderBottomWidth: 4,
+      borderRightWidth: 4,
+      borderBottomRightRadius: 24,
     },
     scanLine: {
       position: 'absolute',
-      left: 0,
-      right: 0,
+      left: 10,
+      right: 10,
       height: 2,
       backgroundColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 1,
-      shadowRadius: 12,
-      elevation: 8,
+      borderRadius: 1,
       zIndex: 2,
     },
     scanLineGlow: {

@@ -70,6 +70,12 @@ export default function QRScanScreen({ onTabChange, onLogout, onQuery }: QRScanS
 
   const handleBarcodeScanned = (barcode: string) => {
     setInputValue(barcode);
+    // Tarama sonrası otomatik sorgula (scanner onClose ile kapanır)
+    setTimeout(() => {
+      if (onQuery) {
+        onQuery(scanMode, barcode);
+      }
+    }, 300);
   };
 
   const handleQuickNumber = (prefix: string) => {
@@ -346,11 +352,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       backgroundColor: 'transparent',
     },
     modeTabActive: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     modeTabText: {
       fontSize: 13,

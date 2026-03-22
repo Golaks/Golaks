@@ -582,7 +582,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,
@@ -694,11 +694,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 16,
       padding: 16,
       borderLeftWidth: 4,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
     },
     previewHeader: {
       flexDirection: 'row',

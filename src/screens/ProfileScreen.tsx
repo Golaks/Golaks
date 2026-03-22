@@ -29,9 +29,10 @@ interface ProfileScreenProps {
   onUserManagement?: () => void;
   onNotificationSend?: () => void;
   onCompanyManagement?: () => void;
+  onFiyatHesaplama?: () => void;
 }
 
-export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement }: ProfileScreenProps) {
+export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement, onFiyatHesaplama }: ProfileScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, user, refreshUser, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
@@ -252,7 +253,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           icon: 'call-outline',
           placeholder: 'Telefon numaranızı girin',
           keyboardType: 'phone-pad',
-          value: user.telefon || '',
+          value: (user as any).phone || user.kullanici_telefon || user.telefon || '',
         },
       ]);
     }
@@ -305,7 +306,8 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
           const updatedUser = {
             ...user,
             name: result.user.name,
-            telefon: result.user.telefon,
+            telefon: result.user.phone || result.user.telefon || phone,
+            kullanici_telefon: result.user.phone || result.user.telefon || phone,
           };
           await authService.updateUser(updatedUser);
           await refreshUser();
@@ -735,11 +737,11 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               onPress={() => setShowClearCacheModal(true)}
             />
             <MenuCard
-              name="Genel Ayarlar"
-              icon="options-outline"
+              name="Fiyat Hesaplama Algoritması"
+              icon="calculator-outline"
               color={colors.primary}
-              description="Genel uygulama ayarları"
-              onPress={() => {}}
+              description="Fiyat hesaplama kurallarını yönet"
+              onPress={onFiyatHesaplama || (() => {})}
               disabled={user?.role === 'user' || user?.kullanici_rol === 0}
             />
           </View>
@@ -1192,7 +1194,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

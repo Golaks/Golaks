@@ -41,6 +41,11 @@ export const API_ENDPOINTS = {
   USER_CREATE: `${BASE_API_URL}/user/create`,
   USER_UPDATE: `${BASE_API_URL}/user/update`,
   USER_DELETE: `${BASE_API_URL}/user/delete`,
+  USER_SUBELER: `${BASE_API_URL}/user/subeler`,
+
+  // Fiyat Hesaplama
+  FIYAT_HESAPLAMA_GET: `${BASE_API_URL}/fiyat-hesaplama`,
+  FIYAT_HESAPLAMA_SAVE: `${BASE_API_URL}/fiyat-hesaplama`,
 
   // Company Management (Super Admin)
   COMPANY_LIST: `${BASE_API_URL}/company/list`,
@@ -59,16 +64,71 @@ export const API_ENDPOINTS = {
 
   // Account endpoints (muhasebe)
   ACCOUNT_CARI_LIST: `${BASE_API_URL}/account/cari-list`,
+  ACCOUNT_CARI_CREATE: `${BASE_API_URL}/account/cari-create`,
+  ACCOUNT_CARI_NEXT_KOD: `${BASE_API_URL}/account/cari-next-kod`,
+  ACCOUNT_CARI_UPDATE: `${BASE_API_URL}/account/cari-update`,
   ACCOUNT_CARI_BALANCE: `${BASE_API_URL}/account/cari-balance`,
   ACCOUNT_CARI_EKSTRE: `${BASE_API_URL}/account/cari-ekstre`,
   ACCOUNT_CARI_DETAIL: (id: string) => `${BASE_API_URL}/account/cari-detail/${id}`,
   ACCOUNT_CASH_BANK_SUMMARY: `${BASE_API_URL}/account/cash-bank-summary`,
   ACCOUNT_CHECK_BILL_LIST: `${BASE_API_URL}/account/check-bill-list`,
+  ACCOUNT_BANKA_KOMISYON_LIST: `${BASE_API_URL}/account/banka-komisyon-list`,
+  ACCOUNT_BANKA_KOMISYON_ORAN_GET: `${BASE_API_URL}/account/banka-komisyon-oran`,
+  ACCOUNT_BANKA_KOMISYON_ORAN_UPDATE: `${BASE_API_URL}/account/banka-komisyon-oran-update`,
+  ACCOUNT_KASA_LIST: `${BASE_API_URL}/account/kasa-list`,
+  ACCOUNT_KASA_CREATE: `${BASE_API_URL}/account/kasa-create`,
+  ACCOUNT_KASA_CARI_LIST: `${BASE_API_URL}/account/kasa-cari-list`,
+  ACCOUNT_KASA_BAKIYE: `${BASE_API_URL}/account/kasa-bakiye`,
+  ACCOUNT_KASA_HAREKET: `${BASE_API_URL}/account/kasa-hareket`,
+  ACCOUNT_KASA_UPLOAD_FIS: `${BASE_API_URL}/account/kasa-upload-fis`,
+
+  // Sales endpoints (global - tüm modüller)
+  SALES_LIST: `${BASE_API_URL}/sales/list`,
+
+  // Orders endpoints (global - tüm modüller)
+  ORDERS_LIST: `${BASE_API_URL}/orders/list`,
+  ORDERS_DETAIL: `${BASE_API_URL}/orders/detail`,
+  ORDERS_URETIME_AL: `${BASE_API_URL}/orders/uretime-al`,
+  ORDERS_RECETE: `${BASE_API_URL}/orders/recete`,
+  ORDERS_LOOKUPS: `${BASE_API_URL}/orders/lookups`,
+  ORDERS_CREATE: `${BASE_API_URL}/orders/create`,
+  ORDERS_UPDATE: `${BASE_API_URL}/orders/update`,
+  ORDERS_DETAIL_LOOKUPS: `${BASE_API_URL}/orders/detail-lookups`,
+  ORDERS_DETAIL_VARYANTLAR: `${BASE_API_URL}/orders/detail-varyantlar`,
+  ORDERS_ADD_DETAIL: `${BASE_API_URL}/orders/add-detail`,
+  ORDERS_CANCEL: `${BASE_API_URL}/orders/cancel`,
+
+  // Doviz endpoints
+  DOVIZ_KURLAR: `${BASE_API_URL}/doviz/kurlar`,
+
+  // Reservation endpoints (mağaza)
+  RESERVATIONS_LIST: `${BASE_API_URL}/reservations/list`,
+  RESERVATIONS_CREATE: `${BASE_API_URL}/reservations/create`,
+  RESERVATIONS_UPDATE: `${BASE_API_URL}/reservations/update`,
+  RESERVATIONS_LOOKUPS: `${BASE_API_URL}/reservations/lookups`,
 
   // Stock endpoints (global - tüm modüller)
   STOCK_LIST: `${BASE_API_URL}/stock/list`,
   STOCK_CREATE: `${BASE_API_URL}/stock/create`,
   STOCK_BARCODE_QUERY: `${BASE_API_URL}/stock/barcode-query`,
+  STOCK_VARYANT_SEARCH: `${BASE_API_URL}/stock/varyant-search`,
+
+  // Model Kart endpoints (global - tüm modüller)
+  MODEL_KART_LIST: `${BASE_API_URL}/model-kart/list`,
+  MODEL_KART_UPLOAD_IMAGE: `${BASE_API_URL}/model-kart/upload-image`,
+  MODEL_KART_DELETE_IMAGE: `${BASE_API_URL}/model-kart/delete-image`,
+  MODEL_KART_COLORS: `${BASE_API_URL}/model-kart/colors`,
+  MODEL_KART_CREATE: `${BASE_API_URL}/model-kart/create`,
+  MODEL_KART_UPDATE: `${BASE_API_URL}/model-kart/update`,
+
+  // Tanimlar endpoints (global - parametrik tanımlar)
+  TANIMLAR_LIST: `${BASE_API_URL}/tanimlar/list`,
+  TANIMLAR_CREATE: `${BASE_API_URL}/tanimlar/create`,
+  TANIMLAR_UPDATE: `${BASE_API_URL}/tanimlar/update`,
+  TANIMLAR_DELETE: `${BASE_API_URL}/tanimlar/delete`,
+
+  // Version Check
+  VERSION_CHECK: `${BASE_API_URL}/health/version-check`,
 
   // Data endpoints (tenant-specific)
   // Bu endpoint'ler her istekte tenant bilgisi ile birlikte kullanılacak

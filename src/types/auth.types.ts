@@ -34,6 +34,7 @@ export interface UserInfo {
   name: string;
   email: string;
   telefon?: string;
+  kullanici_telefon?: string;
   avatar?: string;
   bildirimler: number;
   yetkiler: Record<string, any>;

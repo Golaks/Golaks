@@ -4,15 +4,10 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
-  Modal,
+  Pressable,
 } from 'react-native';
+import {Platform} from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useTheme} from '../contexts/ThemeContext';
-import XButton from './XButton';
-import Button from './Button';
-
-const {width} = Dimensions.get('window');
 
 export type AlertType = 'success' | 'error' | 'warning' | 'info';
 
@@ -25,6 +20,13 @@ export interface AlertDialogProps {
   onClose: (id: string) => void;
 }
 
+const TOAST_CONFIG: Record<AlertType, {icon: string; bg: string; iconBg: string}> = {
+  success: {icon: 'checkmark-circle', bg: '#10B981', iconBg: 'rgba(255,255,255,0.25)'},
+  error: {icon: 'close-circle', bg: '#EF4444', iconBg: 'rgba(255,255,255,0.25)'},
+  warning: {icon: 'warning', bg: '#F59E0B', iconBg: 'rgba(255,255,255,0.25)'},
+  info: {icon: 'information-circle', bg: '#3B82F6', iconBg: 'rgba(255,255,255,0.25)'},
+};
+
 const AlertDialog: React.FC<AlertDialogProps> = ({
   id,
   type,
@@ -33,219 +35,103 @@ const AlertDialog: React.FC<AlertDialogProps> = ({
   duration = 4000,
   onClose,
 }) => {
-  const {colors, isDark} = useTheme();
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const safeTop = Platform.OS === 'ios' ? 54 : 40;
+  const translateY = useRef(new Animated.Value(-200)).current;
 
-  const getAlertConfig = () => {
-    switch (type) {
-      case 'success':
-        return {
-          icon: 'checkmark-circle',
-          iconColor: '#10B981',
-        };
-      case 'error':
-        return {
-          icon: 'close-circle',
-          iconColor: '#EF4444',
-        };
-      case 'warning':
-        return {
-          icon: 'warning',
-          iconColor: '#F59E0B',
-        };
-      case 'info':
-        return {
-          icon: 'information-circle',
-          iconColor: '#3B82F6',
-        };
-    }
-  };
-
-  const config = getAlertConfig();
+  const config = TOAST_CONFIG[type];
 
   useEffect(() => {
-    // Entrance animations
-    Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    translateY.setValue(-200);
 
-    // Auto close
-    const timer = setTimeout(() => {
-      handleClose();
-    }, duration);
+    Animated.spring(translateY, {
+      toValue: 0,
+      damping: 18,
+      stiffness: 140,
+      useNativeDriver: true,
+    }).start();
 
+    const timer = setTimeout(() => handleClose(), duration);
     return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacityAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose(id);
-    });
+    Animated.timing(translateY, {
+      toValue: -200,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => onClose(id));
   };
 
   return (
-    <Modal transparent visible animationType="none">
-      <View style={styles.modalContainer}>
-        {/* Dark overlay */}
-        <Animated.View
-          style={[
-            styles.overlay,
-            {
-              opacity: overlayAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.3],
-              }),
-            },
-          ]}
-        />
-
-        {/* Floating Card */}
-        <Animated.View
-          style={[
-            styles.cardContainer,
-            {
-              transform: [{scale: scaleAnim}],
-              opacity: opacityAnim,
-            },
-          ]}>
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: isDark ? colors.card : '#FFFFFF',
-              },
-            ]}>
-            {/* Close button */}
-            <XButton onPress={handleClose} style={styles.closeButton} />
-
-            {/* Large Icon */}
-            <View style={styles.iconContainer}>
-              <Icon name={config.icon} size={56} color={config.iconColor} />
-            </View>
-
-            {/* Title */}
-            {title && (
-              <Text style={[styles.title, {color: colors.text}]}>
-                {title}
-              </Text>
-            )}
-
-            {/* Message */}
-            <Text style={[styles.message, {color: colors.textSecondary}]}>
-              {message}
-            </Text>
-
-            {/* Action Button */}
-            <Button
-              onPress={handleClose}
-              text="Tamam"
-              icon="checkmark"
-              fullWidth={false}
-              style={{
-                ...styles.actionButton,
-                backgroundColor: config.iconColor,
-              }}
-            />
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          backgroundColor: config.bg,
+          paddingTop: safeTop,
+          transform: [{translateY}],
+        },
+      ]}>
+      <Pressable onPress={handleClose} style={styles.content}>
+        <View style={[styles.iconCircle, {backgroundColor: config.iconBg}]}>
+          <Icon name={config.icon} size={22} color="#FFF" />
+        </View>
+        <View style={styles.textContainer}>
+          {title && <Text style={styles.title}>{title}</Text>}
+          <Text style={styles.message} numberOfLines={2}>{message}</Text>
+        </View>
+        <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
+          <Icon name="close" size={18} color="rgba(255,255,255,0.7)" />
+        </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlay: {
+  container: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    backgroundColor: '#000',
-  },
-  cardContainer: {
-    width: width - 60,
-    maxWidth: 340,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 28,
-    alignItems: 'center',
+    zIndex: 99999,
+    elevation: 99999,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    elevation: 8,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 1,
-  },
-  iconContainer: {
-    justifyContent: 'center',
+  content: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textContainer: {
+    flex: 1,
   },
   title: {
-    fontSize: 20,
+    fontSize: 13,
     fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'center',
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 2,
   },
   message: {
     fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
+    fontWeight: '600',
+    color: '#FFF',
+    lineHeight: 21,
   },
-  actionButton: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 10,
-    minWidth: 100,
+  closeBtn: {
+    padding: 4,
   },
 });
 

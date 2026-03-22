@@ -20,6 +20,14 @@ interface AccountScreenProps {
   onCariDetay?: () => void;
   onCheckBill?: () => void;
   onStock?: () => void;
+  onSales?: () => void;
+  onPersonnelPerformance?: () => void;
+  onCompanyModelPerformance?: () => void;
+  onBankaKomisyon?: () => void;
+  onCariHesaplar?: () => void;
+  onKasaIslemleri?: () => void;
+  initialTab?: AccountTab;
+  onActiveTabChange?: (tab: AccountTab) => void;
 }
 
 type AccountTab = 'reports' | 'transactions';
@@ -29,11 +37,11 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, onCariHesaplar, onKasaIslemleri, initialTab, onActiveTabChange }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [accountTab, setAccountTab] = useState<AccountTab>('reports');
+  const [accountTab, setAccountTab] = useState<AccountTab>(initialTab ?? 'reports');
   const [showParameterModal, setShowParameterModal] = useState(false);
 
   const styles = createStyles(colors, isDark);
@@ -126,7 +134,7 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
           <Tab
             options={ACCOUNT_TABS}
             activeTab={accountTab}
-            onTabChange={setAccountTab}
+            onTabChange={(tab) => { setAccountTab(tab); onActiveTabChange?.(tab); }}
           />
 
           {/* Tab Content */}
@@ -187,17 +195,40 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                   }
                 }}
               />
+              <MenuCard
+                name="Satışlar"
+                icon="cart-outline"
+                color="#10B981"
+                description="Satış faturaları ve raporu"
+                onPress={() => onSales?.()}
+              />
             </>
           )}
 
           {accountTab === 'transactions' && (
-            <MenuCard
-              name="Yeni İşlem"
-              icon="add-circle-outline"
-              color="#10B981"
-              description="Gelir veya gider işlemi ekle"
-              onPress={() => {}}
-            />
+            <>
+              <MenuCard
+                name="Cari Hesaplar"
+                icon="people-outline"
+                color="#8B5CF6"
+                description="Cari hesap işlemleri"
+                onPress={() => onCariHesaplar?.()}
+              />
+              <MenuCard
+                name="Kasa İşlemleri"
+                icon="cash-outline"
+                color="#10B981"
+                description="Kasa giriş/çıkış işlemleri"
+                onPress={() => onKasaIslemleri?.()}
+              />
+              <MenuCard
+                name="Banka Komisyon"
+                icon="card-outline"
+                color="#3B82F6"
+                description="Banka komisyon tanımları"
+                onPress={() => onBankaKomisyon?.()}
+              />
+            </>
           )}
         </ScrollView>
 
@@ -250,7 +281,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

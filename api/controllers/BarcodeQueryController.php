@@ -90,10 +90,12 @@ class BarcodeQueryController {
 
             // Mevcut tabloları kontrol et
             $existingTables = $this->getExistingTables($pdo, [
-                'stok_varyant', 'model_kartlar', 'tanimlar', 'subeler', 'stok_detay', 'model_resimleri'
+                'stok_varyant', 'model_kartlar', 'tanimlar', 'subeler', 'stok_detay', 'dosyalar', 'cariler'
             ]);
 
             // === URUN BILGISI SORGUSU ===
+            error_log("BARCODE DEBUG: firmaId={$firmaId}, subeId={$subeId}, queryType={$queryType}, queryValue={$queryValue}");
+            error_log("BARCODE DEBUG: existingTables=" . json_encode($existingTables));
             $productInfo = null;
 
             if ($queryType === 'barcode') {
@@ -103,25 +105,43 @@ class BarcodeQueryController {
             }
 
             $modelId = $productInfo['model_id'] ?? null;
+            $renkId = $productInfo['renk_id'] ?? null;
 
             // === RESIMLER ===
             $images = [];
-            if ($modelId && !empty($resimDomain) && $existingTables['model_resimleri']) {
-                $images = $this->getModelImages($pdo, $modelId, $resimDomain);
+            if ($modelId && $existingTables['dosyalar']) {
+                $images = $this->getModelImages($pdo, (int)$modelId, $resimDomain, $renkId ? (int)$renkId : null);
             }
 
             // === STOK DAGILIM ===
             $distribution = [];
+            $magazaDistribution = [];
+            $konfeksiyonDistribution = [];
+            $tabakhaneDistribution = [];
+            $muhasebeDistribution = [];
+            $stokModul = $productInfo['stok_modul'] ?? '';
+
             if ($productInfo) {
                 $distribution = $this->getDistribution(
                     $pdo, $firmaId, $subeId, $queryType, $queryValue, $modelId, $existingTables
                 );
+
+                // stok_modul'e göre dağılımı ilgili alana yönlendir
+                if (stripos($stokModul, 'magaza') !== false) {
+                    $magazaDistribution = $distribution;
+                } elseif (stripos($stokModul, 'tabakhane') !== false) {
+                    $tabakhaneDistribution = $distribution;
+                } elseif (stripos($stokModul, 'muhasebe') !== false) {
+                    $muhasebeDistribution = $distribution;
+                } else {
+                    $konfeksiyonDistribution = $distribution;
+                }
             }
 
             // === FIYAT BILGISI ===
             $priceInfo = null;
             if ($productInfo && $existingTables['stok_detay']) {
-                $priceInfo = $this->getProductPrice($pdo, (int)$productInfo['id']);
+                $priceInfo = $this->getProductPrice($pdo, (int)$productInfo['id'], $existingTables);
             }
 
             // Urun bilgisini formatla
@@ -129,17 +149,18 @@ class BarcodeQueryController {
             if ($productInfo) {
                 $product = [
                     'barcode' => $productInfo['barkod'] ?: $queryValue,
+                    'barcodeType' => $productInfo['barkod_tipi'] ?? 'tekil',
                     'model' => $productInfo['model_adi'] ?? '-',
-                    'size' => $productInfo['beden'] ?: '-',
+                    'size' => $productInfo['varyant_beden'] ?: '-',
                     'color' => $productInfo['renk'] ?? '-',
                     'branch' => $productInfo['sube_adi'] ?? '-',
-                    'warehouse' => '-',
-                    'manufacturer' => '-',
-                    'year' => '-',
+                    'warehouse' => $priceInfo['depo_adi'] ?? '-',
+                    'manufacturer' => $productInfo['uretici'] ?: '-',
+                    'year' => $productInfo['varyant_yil'] ? (string)$productInfo['varyant_yil'] : '-',
                     'info' => $productInfo['aciklama'] ?: '-',
-                    'entryPrice' => $priceInfo['giris_fiyat'] ?? '0',
-                    'costPrice' => '0',
-                    'labelPrice' => '0',
+                    'entryPrice' => $productInfo['alis_fiyat'] ? (string)$productInfo['alis_fiyat'] : '0',
+                    'costPrice' => $productInfo['maliyet_fiyat'] ? (string)$productInfo['maliyet_fiyat'] : '0',
+                    'labelPrice' => $productInfo['satis_fiyat'] ? (string)$productInfo['satis_fiyat'] : '0',
                     'entryCostCurrency' => $productInfo['doviz'] ?: 'TRY',
                     'labelCurrency' => $productInfo['doviz'] ?: 'TRY',
                 ];
@@ -148,16 +169,18 @@ class BarcodeQueryController {
             Response::success([
                 'product' => $product,
                 'images' => $images,
-                'magazaDistribution' => [],
-                'konfeksiyonDistribution' => $distribution,
-                'productionDistribution' => [],
-                'noMagazaModule' => true,
-                'noKonfeksiyonModule' => false,
+                'stokModul' => $stokModul,
+                'magazaDistribution' => $magazaDistribution,
+                'konfeksiyonDistribution' => $konfeksiyonDistribution,
+                'tabakhaneDistribution' => $tabakhaneDistribution,
+                'muhasebeDistribution' => $muhasebeDistribution,
             ]);
 
         } catch (PDOException $e) {
+            error_log("BARCODE PDO ERROR: " . $e->getMessage());
             Response::serverError('Veritabanı hatası: ' . $e->getMessage());
         } catch (Exception $e) {
+            error_log("BARCODE ERROR: " . $e->getMessage());
             Response::serverError('Barkod sorgusu başarısız: ' . $e->getMessage());
         }
     }
@@ -222,19 +245,25 @@ class BarcodeQueryController {
         }
 
         if ($tables['stok_varyant']) {
-            $select .= ", COALESCE(t_renk.tanim_deger, '') AS renk";
+            $select .= ", sv.renk_id, COALESCE(t_renk.tanim_deger, '') AS renk, sv.beden AS varyant_beden, YEAR(sv.kayit_tarihi) AS varyant_yil, sv.alis_fiyat, sv.maliyet_fiyat, sv.satis_fiyat";
             $joins .= "
                 LEFT JOIN stok_varyant sv ON sv.stok_master_id = sm.id AND sv.firma_id = sm.firma_id AND sv.aktif = 1";
             if ($tables['tanimlar']) {
                 $joins .= " LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id";
             }
-            $where .= " AND (sm.barkod = :barcode1 OR sv.barkod = :barcode2)";
-            $params[':barcode1'] = $barcode;
-            $params[':barcode2'] = $barcode;
+            // Üretici bilgisi - stok_varyant.uretici_id -> cariler
+            if ($tables['cariler']) {
+                $select .= ", COALESCE(c.unvan, '') AS uretici";
+                $joins .= " LEFT JOIN cariler c ON c.id = sv.uretici_id";
+            } else {
+                $select .= ", '' AS uretici";
+            }
+            $where .= " AND sv.barkod = :barcode";
+            $params[':barcode'] = $barcode;
         } else {
-            $select .= ", '' AS renk";
-            $where .= " AND sm.barkod = :barcode1";
-            $params[':barcode1'] = $barcode;
+            $select .= ", '' AS renk, '' AS varyant_beden, NULL AS varyant_yil, '' AS uretici";
+            // stok_varyant tablosu yoksa barkod sorgulanamaz
+            return null;
         }
 
         if ($subeId > 0) {
@@ -244,9 +273,14 @@ class BarcodeQueryController {
 
         $sql = "SELECT {$select} FROM stok_master sm {$joins} WHERE {$where} LIMIT 1";
 
+        error_log("BARCODE DEBUG SQL: " . $sql);
+        error_log("BARCODE DEBUG PARAMS: " . json_encode($params));
+
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetch() ?: null;
+        $result = $stmt->fetch() ?: null;
+        error_log("BARCODE DEBUG RESULT: " . ($result ? json_encode($result) : 'NULL'));
+        return $result;
     }
 
     /**
@@ -302,41 +336,76 @@ class BarcodeQueryController {
     }
 
     /**
-     * Fiyat bilgisi - stok_detay tablosundan
+     * Fiyat ve depo bilgisi - stok_detay tablosundan
      */
-    private function getProductPrice(PDO $pdo, int $stokMasterId): ?array {
+    private function getProductPrice(PDO $pdo, int $stokMasterId, array $tables): ?array {
         try {
+            $select = "sd.fiyat, sd.doviz";
+            $joins = "";
+
+            if ($tables['tanimlar']) {
+                $select .= ", COALESCE(t_depo.tanim_deger, '') AS depo_adi";
+                $joins .= " LEFT JOIN tanimlar t_depo ON t_depo.id = sd.depo_id AND t_depo.tanim_kodu = 'DEPO'";
+            } else {
+                $select .= ", '' AS depo_adi";
+            }
+
             $stmt = $pdo->prepare("
-                SELECT fiyat, doviz
-                FROM stok_detay
-                WHERE aktif = 1 AND gc = 1 AND stok_master_id = ?
-                ORDER BY id DESC LIMIT 1
+                SELECT {$select}
+                FROM stok_detay sd {$joins}
+                WHERE sd.aktif = 1 AND sd.gc = 1 AND sd.stok_master_id = ?
+                ORDER BY sd.id DESC LIMIT 1
             ");
             $stmt->execute([$stokMasterId]);
             $row = $stmt->fetch();
             if ($row) {
-                return ['giris_fiyat' => (string)$row['fiyat']];
+                return [
+                    'giris_fiyat' => (string)$row['fiyat'],
+                    'depo_adi' => $row['depo_adi'] ?: '-',
+                ];
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            error_log("BARCODE PRICE ERROR: " . $e->getMessage());
+        }
         return null;
     }
 
     /**
      * Model resimlerini getir
      */
-    private function getModelImages(PDO $pdo, int $modelId, string $resimDomain): array {
+    private function getModelImages(PDO $pdo, int $modelId, string $resimDomain, ?int $renkId = null): array {
         $images = [];
         try {
-            $stmt = $pdo->prepare(
-                "SELECT id, resim_yol FROM model_resimleri WHERE model_id = ? AND aktif = 1 ORDER BY sira ASC LIMIT 4"
-            );
-            $stmt->execute([$modelId]);
+            if ($renkId) {
+                $sql = "SELECT d.id, d.dosya_yolu, d.tanim_id, COALESCE(t.tanim_deger, '') AS renk_adi
+                     FROM dosyalar d
+                     LEFT JOIN tanimlar t ON t.id = d.tanim_id AND t.tanim_kodu = 'RENK'
+                     WHERE d.modul = 'model_kartlar' AND d.modul_kayit_id = ? AND d.aktif = 1
+                       AND d.dosya_tipi IN ('jpg', 'jpeg', 'png', 'webp', 'gif')
+                     ORDER BY (d.tanim_id = ?) DESC, d.id ASC LIMIT 4";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$modelId, $renkId]);
+            } else {
+                $sql = "SELECT d.id, d.dosya_yolu, d.tanim_id, COALESCE(t.tanim_deger, '') AS renk_adi
+                     FROM dosyalar d
+                     LEFT JOIN tanimlar t ON t.id = d.tanim_id AND t.tanim_kodu = 'RENK'
+                     WHERE d.modul = 'model_kartlar' AND d.modul_kayit_id = ? AND d.aktif = 1
+                       AND d.dosya_tipi IN ('jpg', 'jpeg', 'png', 'webp', 'gif')
+                     ORDER BY d.id ASC LIMIT 4";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$modelId]);
+            }
             $rows = $stmt->fetchAll();
             foreach ($rows as $row) {
-                if (!empty($row['resim_yol'])) {
+                if (!empty($row['dosya_yolu'])) {
+                    $url = $row['dosya_yolu'];
+                    if (!empty($resimDomain) && !preg_match('/^https?:\/\//', $url)) {
+                        $url = rtrim($resimDomain, '/') . '/' . ltrim($url, '/');
+                    }
                     $images[] = [
                         'id' => (string)$row['id'],
-                        'url' => rtrim($resimDomain, '/') . '/' . ltrim($row['resim_yol'], '/'),
+                        'url' => $url,
+                        'color' => $row['renk_adi'] ?: '',
                     ];
                 }
             }
@@ -351,10 +420,18 @@ class BarcodeQueryController {
         PDO $pdo, int $firmaId, int $subeId,
         string $queryType, string $queryValue, ?int $modelId, array $tables
     ): array {
-        $select = "sm.barkod_tipi, sm.beden";
+        $select = "sm.barkod_tipi";
         $joins = "";
         $where = "sm.firma_id = :firmaId AND sm.aktif = 1";
         $params = [':firmaId' => $firmaId];
+
+        // Şube bilgisi
+        if ($tables['subeler']) {
+            $select .= ", COALESCE(sb.sube_adi, '') AS branch";
+            $joins .= " LEFT JOIN subeler sb ON sb.id = sm.sube_id";
+        } else {
+            $select .= ", '' AS branch";
+        }
 
         if ($tables['model_kartlar']) {
             $select .= ", COALESCE(mk.model_adi, '') AS model";
@@ -376,57 +453,50 @@ class BarcodeQueryController {
             $select .= ", '' AS type, '' AS subtype, '' AS kind";
         }
 
-        $groupBy = "sm.model_id, sm.tipi_id, sm.alt_tipi_id, sm.cinsi_id, sm.barkod_tipi,
-            CASE WHEN sm.barkod_tipi = 'cogul' THEN NULL ELSE sm.beden END";
-
         if ($tables['stok_varyant']) {
-            $select .= ", COALESCE(t_renk.tanim_deger, '') AS color";
-            $select .= ",
-                CASE
-                    WHEN sm.barkod_tipi = 'tekil' THEN COUNT(DISTINCT sm.id)
-                    WHEN sm.barkod_tipi IN ('seri', 'cogul') THEN COALESCE(SUM(sv.miktar1_kalan), 0)
-                    ELSE 0
-                END AS quantity";
+            $select .= ", sv.beden, COALESCE(t_renk.tanim_deger, '') AS color";
+            $select .= ", COALESCE(SUM(sv.miktar1_kalan), 0) AS quantity";
             $joins .= "
                 LEFT JOIN stok_varyant sv ON sv.stok_master_id = sm.id AND sv.firma_id = sm.firma_id AND sv.aktif = 1";
             if ($tables['tanimlar']) {
                 $joins .= " LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id";
             }
-            $groupBy .= ", sv.renk_id";
-        } else {
-            $select .= ", '' AS color";
-            $select .= ",
-                CASE
-                    WHEN sm.barkod_tipi = 'tekil' THEN COUNT(DISTINCT sm.id)
-                    ELSE COALESCE(SUM(sm.miktar1_kalan), 0)
-                END AS quantity";
-        }
-
-        if ($subeId > 0) {
-            $where .= " AND sm.sube_id = :subeId";
-            $params[':subeId'] = $subeId;
-        }
-
-        if ($queryType === 'barcode') {
-            if ($tables['stok_varyant']) {
-                $where .= " AND (sm.barkod = :qv1 OR sv.barkod = :qv2)";
-                $params[':qv1'] = $queryValue;
-                $params[':qv2'] = $queryValue;
+            if ($tables['stok_detay'] && $tables['tanimlar']) {
+                $select .= ", COALESCE((
+                    SELECT t_d.tanim_deger FROM stok_detay sd2
+                    LEFT JOIN tanimlar t_d ON t_d.id = sd2.depo_id AND t_d.tanim_kodu = 'DEPO'
+                    WHERE sd2.stok_master_id = sm.id AND sd2.aktif = 1
+                    ORDER BY sd2.id DESC LIMIT 1
+                ), '') AS warehouse";
             } else {
-                $where .= " AND sm.barkod = :qv1";
-                $params[':qv1'] = $queryValue;
+                $select .= ", '' AS warehouse";
             }
+            $groupBy = "sm.sube_id, sv.beden, sv.renk_id, sm.tipi_id, sm.barkod_tipi";
         } else {
-            if ($modelId) {
-                $where .= " AND sm.model_id = :modelId";
-                $params[':modelId'] = $modelId;
-            } elseif ($tables['model_kartlar']) {
-                $where .= " AND mk.model_adi = :modelName";
-                $params[':modelName'] = $queryValue;
-            }
+            $select .= ", '' AS beden, '' AS color, '' AS warehouse";
+            $select .= ", COALESCE(SUM(sm.miktar1_kalan), 0) AS quantity";
+            $groupBy = "sm.sube_id, sm.tipi_id, sm.barkod_tipi";
         }
 
-        $sql = "SELECT {$select} FROM stok_master sm {$joins} WHERE {$where} GROUP BY {$groupBy} ORDER BY sm.model_id, sm.beden";
+        // Şube filtresi yok - tüm şubelerin dağılımını göster (firma_id zaten filtrede)
+
+        // Barkod veya model sorgusu - her iki durumda da model_id ile filtrele (tüm beden/renk dağılımı için)
+        if ($modelId) {
+            $where .= " AND sm.model_id = :modelId";
+            $params[':modelId'] = $modelId;
+        } elseif ($queryType === 'barcode') {
+            if ($tables['stok_varyant']) {
+                $where .= " AND sv.barkod = :qv1";
+                $params[':qv1'] = $queryValue;
+            } else {
+                return [];
+            }
+        } elseif ($tables['model_kartlar']) {
+            $where .= " AND mk.model_adi = :modelName";
+            $params[':modelName'] = $queryValue;
+        }
+
+        $sql = "SELECT {$select} FROM stok_master sm {$joins} WHERE {$where} GROUP BY {$groupBy} ORDER BY branch, color, beden";
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -435,7 +505,9 @@ class BarcodeQueryController {
         $result = [];
         foreach ($rows as $row) {
             $result[] = [
-                'branchWarehouse' => '-',
+                'branch' => $row['branch'] ?: '-',
+                'warehouse' => $row['warehouse'] ?: '-',
+                'branchWarehouse' => ($row['branch'] ?: '-') . ' / ' . ($row['warehouse'] ?: '-'),
                 'type' => $row['type'] ?: '-',
                 'color' => $row['color'] ?: '-',
                 'size' => $row['beden'] ?: '-',

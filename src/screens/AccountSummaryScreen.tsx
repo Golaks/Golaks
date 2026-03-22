@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
 import SearchInput from '../components/SearchInput';
 import CariCard from '../components/CariCard';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -164,7 +164,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
         <Header
           title="Cari Özet"
           leftButton={<BackButton onPress={onBack} />}
-          rightButton={<IconButton icon="search-outline" onPress={handleToggleSearch} />}
+          rightButton={<SearchButton onPress={handleToggleSearch} />}
           showMenu={true}
           onLogout={handleLogout}
         />
@@ -200,7 +200,8 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterContainer}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterContent}
           >
             {FILTER_OPTIONS.map((filter) => {
               const isSelected = selectedFilter === filter.id;
@@ -209,22 +210,17 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
                   key={filter.id}
                   style={[
                     styles.filterChip,
-                    {
-                      backgroundColor: isSelected ? filter.color : colors.card,
-                      borderColor: isSelected ? filter.color : colors.border,
-                    },
+                    isSelected && { backgroundColor: filter.color, borderColor: filter.color },
                   ]}
                   onPress={() => handleFilterPress(filter.id)}
                 >
-                  <Icon
-                    name={filter.icon}
-                    size={16}
-                    color={isSelected ? '#FFFFFF' : colors.text}
-                  />
+                  {filter.color && !isSelected && (
+                    <View style={[styles.filterDot, { backgroundColor: filter.color }]} />
+                  )}
                   <Text
                     style={[
                       styles.filterChipText,
-                      { color: isSelected ? '#FFFFFF' : colors.text },
+                      isSelected && { color: '#FFF' },
                     ]}
                   >
                     {filter.label}
@@ -235,7 +231,7 @@ export default function AccountSummaryScreen({ onBack, onTabChange, onLogout }: 
           </ScrollView>
 
           {/* Account List */}
-          <View style={styles.listContainer}>
+          <View style={[styles.listContainer, (cariList.length === 0 || isLoading || error) && { flex: 1, justifyContent: 'center' }]}>
             {isLoading ? (
               <View style={styles.centerContainer}>
                 <LoadingSpinner />
@@ -284,6 +280,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
     },
     scrollContent: {
+      flexGrow: 1,
       padding: 16,
       paddingBottom: 100, // Space for TabBar
     },
@@ -303,31 +300,41 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,
     },
-    filterContainer: {
-      paddingVertical: 4,
-      gap: 4,
+    filterScroll: {
+      flexGrow: 0,
+      marginBottom: 14,
+    },
+    filterContent: {
+      gap: 8,
     },
     filterChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
       borderRadius: 20,
+      backgroundColor: isDark ? colors.card : '#fff',
       borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
       gap: 6,
-      marginRight: 4,
+    },
+    filterDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
     },
     filterChipText: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
+      color: colors.text,
     },
     listContainer: {
-      marginTop: 16,
+      marginTop: 4,
     },
     centerContainer: {
       alignItems: 'center',

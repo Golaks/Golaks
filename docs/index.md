@@ -125,6 +125,15 @@ Cache management ProfileScreen'de tam ekran modal olarak gösterilir:
 
 ## 📝 Versiyon Geçmişi
 
+### v1.1.4 (22 Mart 2026)
+- ✅ **Barkod Ekran Ayarları:** Stok dağılım tablo kolonları (Şube, Depo, Tip, Renk, Beden, Adet) kullanıcı tarafından göster/gizle yapılabilir
+- ✅ **Ürün Görseli Ayarı:** Barkod sonuç ekranında ürün görseli göster/gizle toggle eklendi
+- ✅ **Filtreleme Ayarı:** Filtreleme bölümü göster/gizle toggle eklendi
+- ✅ **Ayar Modalı:** Header'a settings ikonu ve ekran ayarları modalı eklendi (Switch toggle'lar)
+- ✅ **Backend Entegrasyonu:** Ekran ayarları `kullanici_yetkiler.ekran_ayarlari` alanına kaydediliyor
+- ✅ **AuthContext:** `updateUserYetkiler` metodu eklendi, yetkiler hem lokale hem backend'e yazılıyor
+- ✅ **UserController:** `updateProfile` endpoint'i yetkiler güncellemesini destekliyor
+
 ### v1.2.0 (28 Ocak 2026)
 - ✅ **AI Chat (GolaksIQ):** Yapay zeka asistanı sistemi eklendi
 - ✅ **AI Load Balancer:** Çoklu AI sunucu desteği (OpenAI, Claude, Groq, Ollama)

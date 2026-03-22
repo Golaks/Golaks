@@ -8,10 +8,14 @@ import { API_ENDPOINTS } from '../constants/ApiConfig';
 export interface ProductImage {
   id: string;
   url: string;
+  color?: string;
 }
+
+export type BarcodeType = 'tekil' | 'seri' | 'cogul';
 
 export interface ProductInfo {
   barcode: string;
+  barcodeType: BarcodeType;
   model: string;
   size: string;
   color: string;
@@ -55,11 +59,11 @@ export interface BarcodeQueryResponse {
   data: {
     product: ProductInfo | null;
     images: ProductImage[];
+    stokModul?: string;
     magazaDistribution: any[];
     konfeksiyonDistribution: any[];
-    productionDistribution: any[];
-    noMagazaModule?: boolean;
-    noKonfeksiyonModule?: boolean;
+    tabakhaneDistribution: any[];
+    muhasebeDistribution: any[];
   };
   message?: string;
   error?: any;

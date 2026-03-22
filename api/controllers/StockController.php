@@ -74,6 +74,13 @@ class StockController {
             $subeAyarlar = $firmaAyarlar['sube'] ?? [];
             $subeId = (int)($subeAyarlar['subeId'] ?? 0);
 
+            // Mağaza rapor modları: gruplanmış rapor döndür
+            $magazaReportModes = ['sube_tipi', 'tumu_tipi', 'tumu_uretici', 'sube_uretici'];
+            if ($stokModul === 'magaza' && in_array($stokAltModul, $magazaReportModes)) {
+                $this->getGroupedReport($pdo, $firmaId, $subeId, $stokModul, $stokAltModul, $search);
+                return;
+            }
+
             // Build query
             $params = [];
             $conditions = ["sm.aktif = 1"];
@@ -265,6 +272,252 @@ class StockController {
     }
 
     /**
+     * Mağaza stok raporu - gruplanmış veri döndürür
+     * sube_tipi: Tip → Şube dağılımı (iki seviyeli)
+     * tumu_tipi: Tip bazlı toplam (tek seviyeli)
+     * sube_uretici: Üretici → Şube dağılımı (iki seviyeli)
+     * tumu_uretici: Üretici bazlı toplam (tek seviyeli)
+     */
+    private function getGroupedReport($pdo, $firmaId, $subeId, $stokModul, $reportMode, $search) {
+        $params = [];
+        $conditions = ["sm.aktif = 1"];
+
+        $conditions[] = "sm.firma_id = :firmaId";
+        $params[':firmaId'] = $firmaId;
+
+        $conditions[] = "sm.stok_modul = :stokModul";
+        $params[':stokModul'] = $stokModul;
+
+        // Arama filtresi
+        if (!empty($search)) {
+            $conditions[] = "(sm.stok_kodu LIKE :search OR sm.stok_adi LIKE :search2 OR sm.barkod LIKE :search3)";
+            $params[':search'] = "%{$search}%";
+            $params[':search2'] = "%{$search}%";
+            $params[':search3'] = "%{$search}%";
+        }
+
+        $whereClause = implode(' AND ', $conditions);
+
+        $isTip = in_array($reportMode, ['sube_tipi', 'tumu_tipi']);
+        $isSube = in_array($reportMode, ['sube_tipi', 'sube_uretici']);
+
+        if ($isTip && $isSube) {
+            // Şube → Tip dağılımı (üst: şube, alt: tip)
+            $sql = "
+                SELECT
+                    COALESCE(s.sube_adi, 'Tanımsız') AS group_name,
+                    sm.sube_id AS group_id,
+                    COALESCE(t_tip.tanim_deger, 'Tanımsız') AS sub_group_name,
+                    sm.tipi_id AS sub_group_id,
+                    sm.doviz,
+                    COUNT(DISTINCT sm.id) AS item_count,
+                    SUM(sm.miktar1_giren) AS total_in,
+                    SUM(sm.miktar1_cikan) AS total_out,
+                    SUM(sm.miktar1_kalan) AS total_remaining,
+                    COALESCE(SUM(sd.tutar_giren), 0) AS amount_in,
+                    COALESCE(SUM(sd.tutar_cikan), 0) AS amount_out,
+                    COALESCE(SUM(sd.tutar_giren), 0) - COALESCE(SUM(sd.tutar_cikan), 0) AS amount_remaining
+                FROM stok_master sm
+                LEFT JOIN tanimlar t_tip ON t_tip.id = sm.tipi_id
+                LEFT JOIN subeler s ON s.id = sm.sube_id
+                LEFT JOIN (
+                    SELECT stok_master_id,
+                        SUM(CASE WHEN gc = 1 THEN fiyat * miktar ELSE 0 END) AS tutar_giren,
+                        SUM(CASE WHEN gc = -1 THEN fiyat * miktar ELSE 0 END) AS tutar_cikan
+                    FROM stok_detay
+                    WHERE aktif = 1
+                    GROUP BY stok_master_id
+                ) sd ON sd.stok_master_id = sm.id
+                WHERE {$whereClause}
+                GROUP BY sm.sube_id, s.sube_adi, sm.tipi_id, t_tip.tanim_deger, sm.doviz
+                ORDER BY s.sube_adi ASC, t_tip.tanim_deger ASC
+            ";
+        } elseif ($isTip) {
+            // Tip bazlı toplam (tek seviyeli)
+            $sql = "
+                SELECT
+                    COALESCE(t_tip.tanim_deger, 'Tanımsız') AS group_name,
+                    sm.tipi_id AS group_id,
+                    sm.doviz,
+                    COUNT(DISTINCT sm.id) AS item_count,
+                    SUM(sm.miktar1_giren) AS total_in,
+                    SUM(sm.miktar1_cikan) AS total_out,
+                    SUM(sm.miktar1_kalan) AS total_remaining
+                FROM stok_master sm
+                LEFT JOIN tanimlar t_tip ON t_tip.id = sm.tipi_id
+                WHERE {$whereClause}
+                GROUP BY sm.tipi_id, t_tip.tanim_deger, sm.doviz
+                ORDER BY t_tip.tanim_deger ASC
+            ";
+        } elseif ($isSube) {
+            // Şube → Üretici dağılımı (üst: şube, alt: üretici)
+            $sql = "
+                SELECT
+                    COALESCE(s.sube_adi, 'Tanımsız') AS group_name,
+                    sm.sube_id AS group_id,
+                    COALESCE(c.cari_adi, 'Tanımsız') AS sub_group_name,
+                    sv.uretici_id AS sub_group_id,
+                    sm.doviz,
+                    COUNT(DISTINCT sm.id) AS item_count,
+                    SUM(sv.miktar1_giren) AS total_in,
+                    SUM(sv.miktar1_cikan) AS total_out,
+                    SUM(sv.miktar1_kalan) AS total_remaining
+                FROM stok_varyant sv
+                INNER JOIN stok_master sm ON sm.id = sv.stok_master_id
+                LEFT JOIN cariler c ON c.id = sv.uretici_id
+                LEFT JOIN subeler s ON s.id = sm.sube_id
+                WHERE {$whereClause} AND sv.aktif = 1
+                GROUP BY sm.sube_id, s.sube_adi, sv.uretici_id, c.cari_adi, sm.doviz
+                ORDER BY s.sube_adi ASC, c.cari_adi ASC
+            ";
+        } else {
+            // Üretici bazlı toplam (tek seviyeli)
+            $sql = "
+                SELECT
+                    COALESCE(c.cari_adi, 'Tanımsız') AS group_name,
+                    sv.uretici_id AS group_id,
+                    sm.doviz,
+                    COUNT(DISTINCT sm.id) AS item_count,
+                    SUM(sv.miktar1_giren) AS total_in,
+                    SUM(sv.miktar1_cikan) AS total_out,
+                    SUM(sv.miktar1_kalan) AS total_remaining
+                FROM stok_varyant sv
+                INNER JOIN stok_master sm ON sm.id = sv.stok_master_id
+                LEFT JOIN cariler c ON c.id = sv.uretici_id
+                WHERE {$whereClause} AND sv.aktif = 1
+                GROUP BY sv.uretici_id, c.cari_adi, sm.doviz
+                ORDER BY c.cari_adi ASC
+            ";
+        }
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+
+        $groups = [];
+        $grandTotals = [];
+
+        if ($isSube) {
+            // İki seviyeli: şube → alt gruplar (tip veya üretici)
+            $groupMap = [];
+
+            foreach ($rows as $row) {
+                $groupId = (string)($row['group_id'] ?: '0');
+                $key = $groupId;
+
+                if (!isset($groupMap[$key])) {
+                    $groupMap[$key] = [
+                        'groupId' => $groupId,
+                        'groupName' => $row['group_name'],
+                        'currency' => '',
+                        'itemCount' => 0,
+                        'totalIn' => 0,
+                        'totalOut' => 0,
+                        'totalRemaining' => 0,
+                        'totalValue' => 0,
+                        'subGroups' => [],
+                    ];
+                }
+
+                $subGroupId = (string)($row['sub_group_id'] ?: '0');
+                $subKey = $row['sub_group_name'] ?: 'Tanımsız';
+
+                // Alt grupları birleştir (aynı isimli tipler tek satırda)
+                $found = false;
+                foreach ($groupMap[$key]['subGroups'] as &$existingSub) {
+                    if ($existingSub['subGroupName'] === $subKey) {
+                        $existingSub['itemCount'] += (int)$row['item_count'];
+                        $existingSub['totalIn'] += (float)$row['total_in'];
+                        $existingSub['totalOut'] += (float)$row['total_out'];
+                        $existingSub['totalRemaining'] += (float)$row['total_remaining'];
+                        $found = true;
+                        break;
+                    }
+                }
+                unset($existingSub);
+
+                if (!$found) {
+                    $groupMap[$key]['subGroups'][] = [
+                        'subGroupId' => $subKey,
+                        'subGroupName' => $row['sub_group_name'],
+                        'itemCount' => (int)$row['item_count'],
+                        'totalIn' => (float)$row['total_in'],
+                        'totalOut' => (float)$row['total_out'],
+                        'totalRemaining' => (float)$row['total_remaining'],
+                    ];
+                }
+                $groupMap[$key]['itemCount'] += (int)$row['item_count'];
+                $groupMap[$key]['totalIn'] += (float)$row['total_in'];
+                $groupMap[$key]['totalOut'] += (float)$row['total_out'];
+                $groupMap[$key]['totalRemaining'] += (float)$row['total_remaining'];
+
+                // Genel toplam (döviz bazlı)
+                $doviz = $row['doviz'] ?: 'TL';
+                if (!isset($grandTotals[$doviz])) {
+                    $grandTotals[$doviz] = [
+                        'currency' => $doviz,
+                        'totalItems' => 0,
+                        'totalIn' => 0,
+                        'totalOut' => 0,
+                        'totalRemaining' => 0,
+                        'totalValue' => 0,
+                        'amountIn' => 0,
+                        'amountOut' => 0,
+                        'amountRemaining' => 0,
+                    ];
+                }
+                $grandTotals[$doviz]['totalItems'] += (int)$row['item_count'];
+                $grandTotals[$doviz]['totalIn'] += (float)$row['total_in'];
+                $grandTotals[$doviz]['totalOut'] += (float)$row['total_out'];
+                $grandTotals[$doviz]['totalRemaining'] += (float)$row['total_remaining'];
+                $grandTotals[$doviz]['amountIn'] += (float)($row['amount_in'] ?? 0);
+                $grandTotals[$doviz]['amountOut'] += (float)($row['amount_out'] ?? 0);
+                $grandTotals[$doviz]['amountRemaining'] += (float)($row['amount_remaining'] ?? 0);
+            }
+
+            $groups = array_values($groupMap);
+        } else {
+            // Tek seviyeli
+            foreach ($rows as $row) {
+                $doviz = $row['doviz'] ?: 'TL';
+
+                $groups[] = [
+                    'groupId' => (string)($row['group_id'] ?: '0'),
+                    'groupName' => $row['group_name'],
+                    'currency' => $doviz,
+                    'itemCount' => (int)$row['item_count'],
+                    'totalIn' => (float)$row['total_in'],
+                    'totalOut' => (float)$row['total_out'],
+                    'totalRemaining' => (float)$row['total_remaining'],
+                    'totalValue' => 0,
+                ];
+
+                if (!isset($grandTotals[$doviz])) {
+                    $grandTotals[$doviz] = [
+                        'currency' => $doviz,
+                        'totalItems' => 0,
+                        'totalIn' => 0,
+                        'totalOut' => 0,
+                        'totalRemaining' => 0,
+                        'totalValue' => 0,
+                    ];
+                }
+                $grandTotals[$doviz]['totalItems'] += (int)$row['item_count'];
+                $grandTotals[$doviz]['totalIn'] += (float)$row['total_in'];
+                $grandTotals[$doviz]['totalOut'] += (float)$row['total_out'];
+                $grandTotals[$doviz]['totalRemaining'] += (float)$row['total_remaining'];
+            }
+        }
+
+        Response::success([
+            'reportMode' => $reportMode,
+            'groups' => $groups,
+            'count' => count($groups),
+            'summary' => array_values($grandTotals),
+        ]);
+    }
+
+    /**
      * POST /stock/create
      * Yeni stok kartı oluştur
      */
@@ -390,6 +643,157 @@ class StockController {
             Response::serverError('Veritabanı hatası: ' . $e->getMessage());
         } catch (Exception $e) {
             Response::serverError('Stok kartı oluşturulamadı: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * POST /stock/varyant-search
+     * Stok varyant arama (barkod, varyant kodu, varyant adı)
+     */
+    public function searchVaryant() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $userId = $auth['user_id'];
+
+        $requestBody = file_get_contents('php://input');
+        $data = json_decode($requestBody, true) ?? [];
+
+        $dataName = $data['dataName'] ?? '';
+        $search = trim($data['search'] ?? '');
+        $stokGrupKodu = $data['stokGrupKodu'] ?? '';
+
+        if (empty($dataName)) {
+            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        // En az 1 karakter arama gerekli
+        if (strlen($search) < 1) {
+            Response::success([]);
+            return;
+        }
+
+        try {
+            $db = Database::getInstance();
+
+            $currentUser = $db->fetchOne(
+                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
+                [$userId]
+            );
+
+            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
+                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
+            }
+
+            $firmaId = $currentUser['mobil_firmalar_id'];
+
+            $firma = $db->fetchOne(
+                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
+                [$firmaId]
+            );
+
+            if (!$firma || empty($firma['firma_ayarlar'])) {
+                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
+            }
+
+            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
+            $veritabani = $firmaAyarlar['veritabani'] ?? [];
+            $dbServer = $veritabani['sunucu'] ?? '';
+            $dbPort = (int)($veritabani['port'] ?? 3306);
+            $dbUser = $veritabani['kullanici'] ?? '';
+            $dbPass = $veritabani['sifre'] ?? '';
+            $dbName = $veritabani['veriAdi'] ?? '';
+
+            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
+                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
+            }
+
+            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
+            $pdo = new PDO($dsn, $dbUser, $dbPass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+
+            // Build query
+            $params = [];
+            $conditions = [
+                "sm.aktif = 1",
+                "sm.firma_id = :firmaId",
+            ];
+            $params[':firmaId'] = $firmaId;
+
+            // Arama filtresi
+            $conditions[] = "(sv.barkod LIKE :search1 OR sv.varyant_kodu LIKE :search2 OR sv.varyant_adi LIKE :search3 OR sm.stok_kodu LIKE :search4 OR sm.stok_adi LIKE :search5)";
+            $params[':search1'] = "%{$search}%";
+            $params[':search2'] = "%{$search}%";
+            $params[':search3'] = "%{$search}%";
+            $params[':search4'] = "%{$search}%";
+            $params[':search5'] = "%{$search}%";
+
+            // Opsiyonel stokGrupKodu filtresi
+            if (!empty($stokGrupKodu)) {
+                $conditions[] = "sv.stok_grup_kodu = :stokGrupKodu";
+                $params[':stokGrupKodu'] = $stokGrupKodu;
+            }
+
+            $whereClause = implode(' AND ', $conditions);
+
+            $sql = "
+                SELECT
+                    sv.id,
+                    sv.barkod,
+                    sv.varyant_kodu,
+                    sv.varyant_adi,
+                    sv.stok_grup_kodu,
+                    COALESCE(t_renk.tanim_deger, '') AS renk_adi,
+                    sv.beden,
+                    sm.stok_kodu,
+                    sm.stok_adi,
+                    COALESCE(t_birim1.tanim_deger, '') AS birim,
+                    sv.miktar1_kalan,
+                    sv.satis_fiyat,
+                    sv.satis_doviz
+                FROM stok_varyant sv
+                INNER JOIN stok_master sm ON sm.id = sv.stok_master_id
+                LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id
+                LEFT JOIN tanimlar t_birim1 ON t_birim1.id = sm.birim1_id
+                WHERE {$whereClause}
+                ORDER BY sv.varyant_adi ASC
+                LIMIT 100
+            ";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+
+            // Map rows
+            $items = [];
+            foreach ($rows as $row) {
+                $items[] = [
+                    'id' => (string)$row['id'],
+                    'barkod' => $row['barkod'] ?: '',
+                    'varyantKodu' => $row['varyant_kodu'] ?: '',
+                    'varyantAdi' => $row['varyant_adi'] ?: '',
+                    'stokGrupKodu' => $row['stok_grup_kodu'] ?: '',
+                    'renkAdi' => $row['renk_adi'],
+                    'beden' => $row['beden'] ?: '',
+                    'stokKodu' => $row['stok_kodu'] ?: '',
+                    'stokAdi' => $row['stok_adi'] ?: '',
+                    'birim' => $row['birim'],
+                    'miktar1Kalan' => (float)$row['miktar1_kalan'],
+                    'satisFiyat' => (float)$row['satis_fiyat'],
+                    'satisDoviz' => $row['satis_doviz'] ?: 'TL',
+                ];
+            }
+
+            Response::success($items);
+
+        } catch (PDOException $e) {
+            Response::serverError('Veritabanı hatası: ' . $e->getMessage());
+        } catch (Exception $e) {
+            Response::serverError('Varyant araması yapılamadı: ' . $e->getMessage());
         }
     }
 }

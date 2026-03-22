@@ -23,6 +23,10 @@ define('APP_VERSION', Env::get('APP_VERSION', '1.0.0'));
 define('APP_ENV', Env::get('APP_ENV', 'development'));
 define('APP_DEBUG', Env::getBool('APP_DEBUG', false));
 
+// Mobil Minimum Versiyon (bu değerin altındaki versiyonlara güncelleme uyarısı gösterilir)
+define('MOBILE_MIN_VERSION_ANDROID', Env::get('MOBILE_MIN_VERSION_ANDROID', '3.3.7'));
+define('MOBILE_MIN_VERSION_IOS', Env::get('MOBILE_MIN_VERSION_IOS', '1.1.4'));
+
 // Security
 define('JWT_SECRET_KEY', Env::get('JWT_SECRET_KEY', 'change-this-secret-key'));
 define('JWT_SECRET', JWT_SECRET_KEY); // Alias for backward compatibility

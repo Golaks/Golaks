@@ -11,59 +11,49 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({
-  icon = 'document-text-outline',
-  title = 'Listelenecek Kayıt Bulunamadı.',
+  icon = 'file-tray-outline',
+  title = 'Kayıt Bulunamadı..!',
   subtitle,
-  iconSize = 80,
+  iconSize = 40,
 }: EmptyStateProps) {
-  const { colors, isDark } = useTheme();
-  const styles = createStyles(colors, isDark);
+  const { colors } = useTheme();
 
   return (
     <View style={styles.wrapper}>
-      <View style={styles.container}>
-        <View style={styles.iconContainer}>
-          <Icon name={icon} size={iconSize} color="#60A5FA" />
-        </View>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      <View style={[styles.iconCircle, { backgroundColor: colors.textSecondary + '10' }]}>
+        <Icon name={icon} size={iconSize} color={colors.textSecondary + '50'} />
       </View>
+      <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
+      {subtitle && <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
     </View>
   );
 }
 
-const createStyles = (colors: any, isDark: boolean) =>
-  StyleSheet.create({
-    wrapper: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    container: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 32,
-    },
-    iconContainer: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      backgroundColor: '#60A5FA15',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 24,
-    },
-    title: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 15,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 22,
-    },
-  });
+const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  iconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    opacity: 0.6,
+  },
+  subtitle: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    opacity: 0.4,
+  },
+});

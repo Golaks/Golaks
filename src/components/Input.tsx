@@ -100,7 +100,7 @@ export default function Input({
           />
           {showClearButton && (
             <Pressable
-              onPress={onClear}
+              onPress={() => { onClear?.(); inputRef.current?.focus(); }}
               style={styles.eyeIcon}
             >
               <Icon
@@ -154,7 +154,7 @@ const createStyles = (colors: any, hasError: boolean) =>
       fontSize: 14,
       fontWeight: '600',
       color: colors.inputLabel,
-      marginBottom: 8,
+      marginBottom: 4,
     },
     inputWrapper: {
       flexDirection: 'row',

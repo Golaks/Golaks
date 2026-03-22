@@ -156,11 +156,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.3 : 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     header: {
       flexDirection: 'row',

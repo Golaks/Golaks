@@ -14,6 +14,15 @@ interface ShopScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onModelOperations?: () => void;
+  onStock?: () => void;
+  onSales?: () => void;
+  onPersonnelPerformance?: () => void;
+  onCompanyModelPerformance?: () => void;
+  onReservations?: () => void;
+  onAgencyPerformance?: () => void;
+  initialTab?: ShopTab;
+  onActiveTabChange?: (tab: ShopTab) => void;
 }
 
 type ShopTab = 'reports' | 'transactions';
@@ -23,11 +32,11 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance, initialTab, onActiveTabChange }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
-  const [shopTab, setShopTab] = useState<ShopTab>('reports');
+  const [shopTab, setShopTab] = useState<ShopTab>(initialTab ?? 'reports');
 
   const styles = createStyles(colors, isDark);
 
@@ -79,7 +88,7 @@ export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreen
           <Tab
             options={SHOP_TABS}
             activeTab={shopTab}
-            onTabChange={setShopTab}
+            onTabChange={(tab) => { setShopTab(tab); onActiveTabChange?.(tab); }}
           />
 
           {/* Tab Content */}
@@ -90,28 +99,54 @@ export default function ShopScreen({ onBack, onTabChange, onLogout }: ShopScreen
                 icon="cart-outline"
                 color="#10B981"
                 description="Mağaza satış raporu"
-                onPress={() => {}}
+                onPress={() => onSales?.()}
               />
               <MenuCard
                 name="Stoklar"
                 icon="cube-outline"
                 color="#3B82F6"
                 description="Mağaza stok durumu raporu"
-                onPress={() => {}}
+                onPress={() => onStock?.()}
               />
               <MenuCard
                 name="Firma Model Performans"
                 icon="trending-up-outline"
                 color="#8B5CF6"
                 description="Firma ve Model performans raporu"
-                onPress={() => {}}
+                onPress={() => onCompanyModelPerformance?.()}
               />
               <MenuCard
                 name="Personel Performans"
                 icon="people-outline"
                 color="#EC4899"
                 description="Personel performans raporu"
-                onPress={() => {}}
+                onPress={() => onPersonnelPerformance?.()}
+              />
+              <MenuCard
+                name="Acenta Performans"
+                icon="business-outline"
+                color="#F59E0B"
+                description="Acenta bazlı performans raporu"
+                onPress={() => onAgencyPerformance?.()}
+              />
+            </>
+          )}
+
+          {shopTab === 'transactions' && (
+            <>
+              <MenuCard
+                name="Rezervasyonlar"
+                icon="calendar-outline"
+                color="#F59E0B"
+                description="Rezervasyon takibi ve işlemleri"
+                onPress={() => onReservations?.()}
+              />
+              <MenuCard
+                name="Model İşlemleri"
+                icon="layers-outline"
+                color="#F59E0B"
+                description="Model kartları ve işlemleri"
+                onPress={() => onModelOperations?.()}
               />
             </>
           )}
@@ -157,7 +192,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       justifyContent: 'center',
     },
     pageTitle: {
-      fontSize: 20,
+      fontSize: 16,
       fontWeight: '700',
       color: colors.text,
       opacity: 0.6,

@@ -5,48 +5,59 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useAlert } from '../contexts/AlertContext';
 import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SearchInput from '../components/SearchInput';
-import Input from '../components/Input';
-import IconButton from '../components/IconButton';
+import SearchButton from '../components/SearchButton';
 import BackButton from '../components/BackButton';
-import Button from '../components/Button';
-import BottomSheet from '../components/BottomSheet';
 import TabBar, { TabName } from '../components/TabBar';
-import stockService, { StockItem, StockSummaryItem, CreateStockData } from '../services/stock.service';
+import stockService, { StockItem, StockSummaryItem, StockGroupItem } from '../services/stock.service';
 import { authService } from '../services/auth.service';
+
+export type StockModul = 'muhasebe' | 'magaza' | 'konfeksiyon';
+
+export type StockTipi = 'hammadde' | 'urun';
 
 interface StockScreenProps {
   onGoBack: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  stokModul?: StockModul;
+  stokTipi?: StockTipi;
 }
 
-const INITIAL_FORM: CreateStockData = {
-  stockCode: '',
-  stockName: '',
-  barcode: '',
-  barcodeType: 'tekil',
-  currency: 'TL',
-  size: '',
-  vatRate: 0,
-  description: '',
+type HammaddeFilter = 'deri' | 'av' | 'tekstil' | 'malzeme' | 'sarf';
+
+const HAMMADDE_FILTER_OPTIONS: { id: HammaddeFilter; label: string; icon: string }[] = [
+  { id: 'deri', label: 'Deri', icon: 'layers-outline' },
+  { id: 'av', label: 'Av', icon: 'paw-outline' },
+  { id: 'tekstil', label: 'Tekstil', icon: 'shirt-outline' },
+  { id: 'malzeme', label: 'Malzeme', icon: 'construct-outline' },
+  { id: 'sarf', label: 'Sarf', icon: 'flask-outline' },
+];
+
+const MODUL_TITLES: Record<StockModul, string> = {
+  muhasebe: 'Muhasebe Stokları',
+  magaza: 'Mağaza Stokları',
+  konfeksiyon: 'Konfeksiyon Ürün Stokları',
 };
 
-export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockScreenProps) {
+const MODUL_ICONS: Record<StockModul, string> = {
+  muhasebe: 'stats-chart',
+  magaza: 'storefront-outline',
+  konfeksiyon: 'shirt-outline',
+};
+
+export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul = 'muhasebe', stokTipi }: StockScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
-  const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
 
   const [searchText, setSearchText] = useState('');
@@ -54,14 +65,12 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<StockItem[]>([]);
+  const [groupedData, setGroupedData] = useState<StockGroupItem[]>([]);
   const [summaryData, setSummaryData] = useState<StockSummaryItem[]>([]);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-
-  // Create stock modal
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<CreateStockData>({ ...INITIAL_FORM });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const isHammadde = stokTipi === 'hammadde';
+  const isGroupedMode = stokModul === 'magaza' && !isHammadde;
+  const [activeHammaddeFilter, setActiveHammaddeFilter] = useState<HammaddeFilter>('deri');
 
   const styles = createStyles(colors, isDark);
 
@@ -79,11 +88,20 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
         setError('Firma veritabanı bilgisi bulunamadı');
         return;
       }
+      const currentFilter = isHammadde ? activeHammaddeFilter : 'sube_tipi';
       const response = await stockService.getList(token, dataName, {
-        stokModul: 'muhasebe',
+        stokModul: stokModul,
+        stokAltModul: currentFilter,
       });
       if (response.success && response.data) {
-        setData(response.data.data || []);
+        // Mağaza rapor modlarında gruplanmış veri gelir
+        if (isGroupedMode) {
+          setGroupedData((response.data as any).groups || []);
+          setData([]);
+        } else {
+          setData(response.data.data || []);
+          setGroupedData([]);
+        }
         setSummaryData(response.data.summary || []);
       } else {
         setError(response.message || 'Veri alınamadı');
@@ -93,7 +111,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, stokModul, activeHammaddeFilter, isHammadde]);
 
   useEffect(() => {
     fetchData();
@@ -119,8 +137,12 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
       : value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const formatAmount = (value: number) => {
+    return value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   const formatCurrency = (value: number, currency: string) => {
-    return `${formatNumber(value)} ${currency}`;
+    return `${formatAmount(value)} ${currency}`;
   };
 
   const toggleCardExpansion = (cardId: string) => {
@@ -152,72 +174,14 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
     }
   };
 
-  const handleOpenCreate = () => {
-    setFormData({ ...INITIAL_FORM });
-    setFormErrors({});
-    setShowCreateModal(true);
-  };
-
-  const handleFormChange = (key: keyof CreateStockData, value: string) => {
-    setFormData(prev => ({ ...prev, [key]: value }));
-    if (formErrors[key]) {
-      setFormErrors(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
-  };
-
-  const handleCreateStock = async () => {
-    const errors: Record<string, string> = {};
-    if (!formData.stockCode?.trim()) errors.stockCode = 'Stok kodu gerekli';
-    if (!formData.stockName?.trim()) errors.stockName = 'Stok adı gerekli';
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) { showError('Oturum bilgisi bulunamadı'); return; }
-
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) { showError('Firma veritabanı bilgisi bulunamadı'); return; }
-
-      const result = await stockService.createStock(token, dataName, {
-        ...formData,
-        module: 'muhasebe',
-        vatRate: formData.vatRate ? Number(formData.vatRate) : 0,
-      });
-
-      if (result.success) {
-        showSuccess(result.message || 'Stok kartı oluşturuldu');
-        setShowCreateModal(false);
-        fetchData();
-      } else {
-        showError(result.message || 'Stok kartı oluşturulamadı');
-      }
-    } catch (err: any) {
-      showError(err.message || 'Stok kartı oluşturulamadı');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
         <Header
-          title="Stoklar"
+          title={isHammadde ? 'Konfeksiyon Hammadde Stokları' : MODUL_TITLES[stokModul]}
           leftButton={<BackButton onPress={onGoBack} />}
           rightButton={
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <IconButton icon="add-outline" onPress={handleOpenCreate} />
-              <IconButton icon="search-outline" onPress={handleToggleSearch} />
-            </View>
+            <SearchButton onPress={handleToggleSearch} />
           }
           showMenu={true}
           onLogout={handleLogout}
@@ -234,6 +198,52 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
           </View>
         )}
 
+        {/* Page Title */}
+        <View style={styles.pageHeader}>
+          <View style={styles.pageTitleContainer}>
+            <View style={[styles.pageTitleIcon, { backgroundColor: colors.primary + '15' }]}>
+              <Icon name={isHammadde ? 'cube-outline' : MODUL_ICONS[stokModul]} size={18} color={colors.primary} />
+            </View>
+            <Text style={styles.pageTitle}>
+              {isHammadde ? 'Konfeksiyon Hammadde' : MODUL_TITLES[stokModul]}
+            </Text>
+          </View>
+        </View>
+
+        {/* Filter Buttons */}
+        <View style={styles.filterContainer}>
+          {isHammadde
+            ? HAMMADDE_FILTER_OPTIONS.map((filter) => {
+                const isActive = activeHammaddeFilter === filter.id;
+                return (
+                  <Pressable
+                    key={filter.id}
+                    style={[
+                      styles.filterCard,
+                      isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => setActiveHammaddeFilter(filter.id)}
+                  >
+                    <Icon
+                      name={filter.icon}
+                      size={18}
+                      color={isActive ? '#fff' : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.filterCardText,
+                        isActive && { color: '#fff' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })
+            : null}
+        </View>
+
         {/* Content */}
         {isLoading ? (
           <LoadingSpinner />
@@ -244,6 +254,216 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
               <Text style={styles.retryButtonText}>Tekrar Dene</Text>
             </Pressable>
           </View>
+        ) : isGroupedMode ? (
+          /* Gruplanmış Rapor Görünümü (Mağaza) */
+          groupedData.filter(g => g.totalRemaining !== 0).length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <EmptyState />
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.content}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+              refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchData} />}
+            >
+              {/* Genel Toplam */}
+              {summaryData.length > 0 && (() => {
+                const isGenelExpanded = expandedCardId === 'genel_toplam';
+                const totalIn = summaryData.reduce((sum, s) => sum + s.totalIn, 0);
+                const totalOut = summaryData.reduce((sum, s) => sum + s.totalOut, 0);
+                const totalRemaining = summaryData.reduce((sum, s) => sum + s.totalRemaining, 0);
+                const filteredBranches = groupedData.filter(g => g.totalRemaining !== 0);
+
+                return (
+                  <View style={styles.genelToplamContainer}>
+                    <Pressable onPress={() => toggleCardExpansion('genel_toplam')}>
+                      <View style={styles.genelToplamHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Icon name="stats-chart" size={16} color={colors.primary} />
+                          <Text style={styles.genelToplamTitle}>Genel Toplam</Text>
+                        </View>
+                        <View style={styles.genelToplamHeaderRight}>
+                          <Text style={styles.genelToplamBranchCount}>
+                            {filteredBranches.length} Şube
+                          </Text>
+                          <Icon
+                            name={isGenelExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                      </View>
+                    </Pressable>
+                    <View style={styles.genelToplamCards}>
+                      <View style={[styles.genelToplamCard, { borderLeftColor: '#3B82F6' }]}>
+                        <Text style={styles.genelToplamCardLabel}>Giren</Text>
+                        <Text style={[styles.genelToplamCardValue, { color: '#3B82F6' }]}>
+                          {formatNumber(totalIn)}
+                        </Text>
+                      </View>
+                      <View style={[styles.genelToplamCard, { borderLeftColor: '#EF4444' }]}>
+                        <Text style={styles.genelToplamCardLabel}>Çıkan</Text>
+                        <Text style={[styles.genelToplamCardValue, { color: '#EF4444' }]}>
+                          {formatNumber(totalOut)}
+                        </Text>
+                      </View>
+                      <View style={[styles.genelToplamCard, { borderLeftColor: '#10B981' }]}>
+                        <Text style={styles.genelToplamCardLabel}>Kalan</Text>
+                        <Text style={[styles.genelToplamCardValue, { color: '#10B981' }]}>
+                          {formatNumber(totalRemaining)}
+                        </Text>
+                      </View>
+                    </View>
+                    {isGenelExpanded && summaryData.length > 0 && (
+                      <View style={styles.genelToplamDetail}>
+                        <View style={styles.genelToplamDetailHeader}>
+                          <Text style={[styles.genelToplamDetailHeaderCell, { flex: 1.2 }]}>{'Döviz'.toLocaleUpperCase('tr-TR')}</Text>
+                          <Text style={[styles.genelToplamDetailHeaderCell, { flex: 1, textAlign: 'right' }]}>{'Giren'.toLocaleUpperCase('tr-TR')}</Text>
+                          <Text style={[styles.genelToplamDetailHeaderCell, { flex: 1, textAlign: 'right' }]}>{'Çıkan'.toLocaleUpperCase('tr-TR')}</Text>
+                          <Text style={[styles.genelToplamDetailHeaderCell, { flex: 1, textAlign: 'right' }]}>{'Kalan'.toLocaleUpperCase('tr-TR')}</Text>
+                        </View>
+                        {summaryData.map((s, i) => (
+                          <View key={s.currency || 'TL'} style={[
+                            styles.genelToplamDetailRow,
+                            i % 2 === 0 && styles.genelToplamDetailRowAlt,
+                          ]}>
+                            <View style={[styles.genelToplamDetailCell, { flex: 1.2 }]}>
+                              <View style={styles.genelToplamCurrencyBadge}>
+                                <Text style={styles.genelToplamCurrencyBadgeText}>{s.currency || 'TL'}</Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.genelToplamDetailValue, { flex: 1, color: '#3B82F6' }]}>
+                              {formatAmount(s.amountIn || 0)}
+                            </Text>
+                            <Text style={[styles.genelToplamDetailValue, { flex: 1, color: '#EF4444' }]}>
+                              {formatAmount(s.amountOut || 0)}
+                            </Text>
+                            <Text style={[styles.genelToplamDetailValue, { flex: 1, color: '#10B981' }]}>
+                              {formatAmount(s.amountRemaining || 0)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
+
+              {/* Branch Cards */}
+              {groupedData.filter(g => g.totalRemaining !== 0).map((group, index) => {
+                const statusColor = getStockStatusColor(group.totalRemaining);
+                const groupKey = `${group.groupId}_${group.currency}_${index}`;
+                const isExpanded = expandedCardId === groupKey;
+                const subGroups = (group.subGroups || []).filter(s => s.totalRemaining !== 0);
+
+                return (
+                  <View key={groupKey} style={styles.card}>
+                    <Pressable
+                      style={styles.cardHeader}
+                      onPress={() => toggleCardExpansion(groupKey)}
+                    >
+                      <View style={styles.cardHeaderLeft}>
+                        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                        <View style={styles.cardTitleContainer}>
+                          <Text style={styles.cardTitle} numberOfLines={1}>{group.groupName}</Text>
+                          <Text style={styles.cardSubtitle}>
+                            {group.itemCount} Kalem{subGroups.length > 0 ? ` · ${subGroups.length} Tip` : ''}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardHeaderRight}>
+                        <Text style={[styles.remainingValue, { color: statusColor }]}>
+                          {formatNumber(group.totalRemaining)}
+                        </Text>
+                        <Text style={styles.unitLabel}>Adet</Text>
+                        <Icon
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={colors.textSecondary}
+                        />
+                      </View>
+                    </Pressable>
+
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <>
+                        {/* Giren / Çıkan / Kalan */}
+                        <View style={styles.groupQuantityRow}>
+                          <View style={styles.groupQuantityItem}>
+                            <Text style={styles.groupQuantityLabel}>Giren</Text>
+                            <Text style={[styles.groupQuantityValue, { color: '#3B82F6' }]}>
+                              {formatNumber(group.totalIn)}
+                            </Text>
+                          </View>
+                          <View style={styles.groupQuantityItem}>
+                            <Text style={styles.groupQuantityLabel}>Çıkan</Text>
+                            <Text style={[styles.groupQuantityValue, { color: '#EF4444' }]}>
+                              {formatNumber(group.totalOut)}
+                            </Text>
+                          </View>
+                          <View style={styles.groupQuantityItem}>
+                            <Text style={styles.groupQuantityLabel}>Kalan</Text>
+                            <Text style={[styles.groupQuantityValue, { color: '#10B981' }]}>
+                              {formatNumber(group.totalRemaining)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Tutar */}
+                        {group.totalValue > 0 && (
+                          <View style={styles.groupValueRow}>
+                            <Text style={styles.groupValueLabel}>Tutar</Text>
+                            <Text style={styles.groupValueAmount}>
+                              {formatCurrency(group.totalValue, group.currency)}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Alt Grup Dağılımı */}
+                        {subGroups.length > 0 && (
+                          <View style={styles.subGroupContainer}>
+                            <Text style={styles.subGroupTitle}>
+                              {'Tip Dağılımı'.toLocaleUpperCase('tr-TR')}
+                            </Text>
+                            {subGroups.map((sub, si) => (
+                              <View key={`${sub.subGroupId}_${si}`} style={styles.subGroupCard}>
+                                <View style={styles.subGroupHeader}>
+                                  <Icon name="pricetag-outline" size={14} color={colors.textSecondary} />
+                                  <Text style={styles.subGroupName}>{sub.subGroupName}</Text>
+                                  <Text style={styles.subGroupCount}>{sub.itemCount} Kalem</Text>
+                                </View>
+                                <View style={styles.subGroupQuantityRow}>
+                                  <View style={styles.groupQuantityItem}>
+                                    <Text style={styles.groupQuantityLabel}>Giren</Text>
+                                    <Text style={[styles.subGroupQuantityValue, { color: '#3B82F6' }]}>
+                                      {formatNumber(sub.totalIn)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.groupQuantityItem}>
+                                    <Text style={styles.groupQuantityLabel}>Çıkan</Text>
+                                    <Text style={[styles.subGroupQuantityValue, { color: '#EF4444' }]}>
+                                      {formatNumber(sub.totalOut)}
+                                    </Text>
+                                  </View>
+                                  <View style={styles.groupQuantityItem}>
+                                    <Text style={styles.groupQuantityLabel}>Kalan</Text>
+                                    <Text style={[styles.subGroupQuantityValue, { color: '#10B981' }]}>
+                                      {formatNumber(sub.totalRemaining)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )
         ) : filteredData.length === 0 ? (
           <View style={styles.emptyContainer}>
             <EmptyState />
@@ -253,13 +473,14 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
             style={styles.content}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
+            refreshControl={<RefreshControl refreshing={isLoading} onRefresh={fetchData} />}
           >
             {/* Summary Card */}
             {summaryData.length > 0 && (
               <View style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
-                  <Icon name="stats-chart" size={18} color={colors.primary} />
-                  <Text style={styles.summaryHeaderText}>Stok Özeti</Text>
+                  <Icon name={MODUL_ICONS[stokModul]} size={18} color={colors.primary} />
+                  <Text style={styles.summaryHeaderText}>{MODUL_TITLES[stokModul]} Özeti</Text>
                   <View style={styles.summaryBadge}>
                     <Text style={styles.summaryBadgeText}>{filteredData.length} Kalem</Text>
                   </View>
@@ -339,7 +560,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
                       <Text style={[styles.remainingValue, { color: statusColor }]}>
                         {formatNumber(item.quantity1Remaining)}
                       </Text>
-                      <Text style={styles.unitLabel}>{item.unit1 || 'Ad'}</Text>
+                      <Text style={styles.unitLabel}>{item.unit1 || 'Adet'}</Text>
                       <Icon
                         name={isExpanded ? 'chevron-up' : 'chevron-down'}
                         size={18}
@@ -410,19 +631,19 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
                           <View style={styles.quantityItem}>
                             <Text style={styles.quantityLabel}>Giren</Text>
                             <Text style={[styles.quantityValue, { color: '#3B82F6' }]}>
-                              {formatNumber(item.quantity1In)} {item.unit1 || 'Ad'}
+                              {formatNumber(item.quantity1In)} {item.unit1 || 'Adet'}
                             </Text>
                           </View>
                           <View style={styles.quantityItem}>
                             <Text style={styles.quantityLabel}>Çıkan</Text>
                             <Text style={[styles.quantityValue, { color: '#EF4444' }]}>
-                              {formatNumber(item.quantity1Out)} {item.unit1 || 'Ad'}
+                              {formatNumber(item.quantity1Out)} {item.unit1 || 'Adet'}
                             </Text>
                           </View>
                           <View style={styles.quantityItem}>
                             <Text style={styles.quantityLabel}>Kalan</Text>
                             <Text style={[styles.quantityValue, { color: '#10B981' }]}>
-                              {formatNumber(item.quantity1Remaining)} {item.unit1 || 'Ad'}
+                              {formatNumber(item.quantity1Remaining)} {item.unit1 || 'Adet'}
                             </Text>
                           </View>
                         </View>
@@ -473,112 +694,6 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout }: StockSc
           </ScrollView>
         )}
 
-        {/* Create Stock Bottom Sheet */}
-        <BottomSheet
-          visible={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-          title="Yeni Stok Kartı"
-          icon="add-circle-outline"
-          iconColor={colors.primary}
-          footer={
-            <>
-              <Button
-                text="İptal"
-                variant="secondary"
-                onPress={() => setShowCreateModal(false)}
-                icon="close-outline"
-                style={{ flex: 1 }}
-              />
-              <Button
-                text="Kaydet"
-                variant="primary"
-                onPress={handleCreateStock}
-                icon="checkmark-outline"
-                loading={isSaving}
-                style={{ flex: 1 }}
-              />
-            </>
-          }>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={100}>
-            <Input
-              label="Stok Kodu *"
-              icon="barcode-outline"
-              value={formData.stockCode || ''}
-              onChangeText={(v) => handleFormChange('stockCode', v)}
-              placeholder="Stok kodunu girin"
-              error={formErrors.stockCode}
-              shake={!!formErrors.stockCode}
-              clearable
-              onClear={() => handleFormChange('stockCode', '')}
-            />
-            <Input
-              label="Stok Adı *"
-              icon="pricetag-outline"
-              value={formData.stockName || ''}
-              onChangeText={(v) => handleFormChange('stockName', v)}
-              placeholder="Stok adını girin"
-              error={formErrors.stockName}
-              shake={!!formErrors.stockName}
-              clearable
-              onClear={() => handleFormChange('stockName', '')}
-              containerStyle={{ marginTop: 4 }}
-            />
-            <Input
-              label="Barkod"
-              icon="scan-outline"
-              value={formData.barcode || ''}
-              onChangeText={(v) => handleFormChange('barcode', v)}
-              placeholder="Barkod numarası"
-              clearable
-              onClear={() => handleFormChange('barcode', '')}
-              containerStyle={{ marginTop: 4 }}
-            />
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  label="Döviz"
-                  icon="cash-outline"
-                  value={formData.currency || 'TL'}
-                  onChangeText={(v) => handleFormChange('currency', v)}
-                  placeholder="TL"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Input
-                  label="KDV Oranı (%)"
-                  icon="receipt-outline"
-                  value={formData.vatRate ? String(formData.vatRate) : ''}
-                  onChangeText={(v) => handleFormChange('vatRate', v)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-            <Input
-              label="Beden"
-              icon="resize-outline"
-              value={formData.size || ''}
-              onChangeText={(v) => handleFormChange('size', v)}
-              placeholder="Beden bilgisi"
-              clearable
-              onClear={() => handleFormChange('size', '')}
-              containerStyle={{ marginTop: 4 }}
-            />
-            <Input
-              label="Açıklama"
-              icon="document-text-outline"
-              value={formData.description || ''}
-              onChangeText={(v) => handleFormChange('description', v)}
-              placeholder="Açıklama (opsiyonel)"
-              clearable
-              onClear={() => handleFormChange('description', '')}
-              containerStyle={{ marginTop: 4 }}
-            />
-          </KeyboardAvoidingView>
-        </BottomSheet>
-
         <TabBar
           activeTab={activeTab}
           onTabPress={handleTabPress}
@@ -595,10 +710,55 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
+    pageHeader: {
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    pageTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    pageTitleIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    pageTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      opacity: 0.6,
+    },
+    filterContainer: {
+      flexDirection: 'row',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      gap: 4,
+    },
+    filterCard: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      gap: 5,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
+      backgroundColor: isDark ? colors.card : '#fff',
+    },
+    filterCardText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
     searchContainer: {
       paddingHorizontal: 16,
-      paddingTop: 8,
-      paddingBottom: 4,
+      paddingTop: 16,
+      paddingBottom: 0,
     },
     emptyContainer: {
       flex: 1,
@@ -620,7 +780,9 @@ const createStyles = (colors: any, isDark: boolean) =>
       flex: 1,
     },
     scrollContent: {
-      padding: 16,
+      flexGrow: 1,
+      paddingHorizontal: 16,
+      paddingTop: 10,
       paddingBottom: 100,
     },
     // Summary Card
@@ -848,5 +1010,187 @@ const createStyles = (colors: any, isDark: boolean) =>
     quantityValue: {
       fontSize: 13,
       fontWeight: '600',
+    },
+    groupQuantityRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 8,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? colors.border : '#F1F5F9',
+    },
+    groupQuantityItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    groupQuantityLabel: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    groupQuantityValue: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    groupValueRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? colors.border : '#F1F5F9',
+    },
+    groupValueLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    groupValueAmount: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    subGroupContainer: {
+      borderTopWidth: 1,
+      borderTopColor: isDark ? colors.border : '#F1F5F9',
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    subGroupTitle: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 8,
+      letterSpacing: 0.5,
+    },
+    subGroupCard: {
+      backgroundColor: isDark ? colors.background : '#F8FAFC',
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 6,
+    },
+    subGroupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+    },
+    subGroupName: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.text,
+      flex: 1,
+    },
+    subGroupCount: {
+      fontSize: 11,
+      color: colors.textSecondary,
+    },
+    subGroupQuantityRow: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    subGroupQuantityValue: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    genelToplamContainer: {
+      marginBottom: 16,
+      marginTop: -10,
+      backgroundColor: isDark ? colors.card : '#fff',
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
+    },
+    genelToplamHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    genelToplamTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    genelToplamCards: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    genelToplamCard: {
+      flex: 1,
+      backgroundColor: isDark ? colors.background : '#F8FAFC',
+      borderRadius: 10,
+      padding: 12,
+      borderLeftWidth: 3,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#F1F5F9',
+    },
+    genelToplamCardLabel: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    genelToplamCardValue: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    genelToplamHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    genelToplamBranchCount: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    genelToplamDetail: {
+      marginTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? colors.border : '#F1F5F9',
+      paddingTop: 10,
+    },
+    genelToplamDetailHeader: {
+      flexDirection: 'row',
+      paddingBottom: 6,
+      marginBottom: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: isDark ? colors.border : '#F1F5F9',
+    },
+    genelToplamDetailHeaderCell: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    genelToplamDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+      borderRadius: 6,
+      paddingHorizontal: 4,
+    },
+    genelToplamDetailRowAlt: {
+      backgroundColor: isDark ? colors.background : '#F8FAFC',
+    },
+    genelToplamDetailCell: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    genelToplamCurrencyBadge: {
+      backgroundColor: `${colors.primary}15`,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 6,
+    },
+    genelToplamCurrencyBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.primary,
+    },
+    genelToplamDetailValue: {
+      fontSize: 13,
+      fontWeight: '600',
+      textAlign: 'right',
     },
   });

@@ -56,9 +56,10 @@ interface ApplicationsScreenProps {
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
   onAppPress?: (appId: string) => void;
+  onCheckUpdate?: () => void;
 }
 
-export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }: ApplicationsScreenProps) {
+export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress, onCheckUpdate }: ApplicationsScreenProps) {
   const { colors, isDark, theme, setTheme } = useTheme();
   const { logout, user, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -136,6 +137,7 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
           title="Uygulamalar"
           showMenu={true}
           onLogout={handleLogout}
+          onCheckUpdate={onCheckUpdate}
         />
 
         {/* Content Area */}
@@ -180,7 +182,7 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress }
               >
                 {app.comingSoon && (
                   <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>Çok Yakında</Text>
+                    <Text style={styles.comingSoonText}>{'Çok Yakında'.toLocaleUpperCase('tr-TR')}</Text>
                   </View>
                 )}
                 <View style={[styles.iconContainer, { backgroundColor: `${app.color}15` }]}>
@@ -271,11 +273,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderWidth: 3,
       borderColor: isDark ? colors.primary + '60' : 'rgba(255, 255, 255, 0.5)',
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-      elevation: 4,
     },
     avatarImage: {
       width: '100%',
@@ -314,11 +311,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
       marginBottom: 16,
       position: 'relative',
     },
@@ -344,7 +336,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 10,
       fontWeight: '700',
       color: '#FFFFFF',
-      textTransform: 'uppercase',
     },
     iconContainer: {
       width: 64,

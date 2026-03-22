@@ -29,7 +29,7 @@ export default function InputPhone({
   icon = 'call-outline',
   value,
   onChangeText,
-  placeholder = '(05__) ___-____',
+  placeholder = '(5__) ___-____',
   error,
   shake,
   clearable,
@@ -60,8 +60,8 @@ export default function InputPhone({
     }
   }, [shake, error]);
 
-  // Phone mask: (0532)274-2233
-  const phoneMask = ['(', /0/, /\d/, /\d/, /\d/, ')', /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/];
+  // Phone mask: (532)274-2233
+  const phoneMask = ['(', /\d/, /\d/, /\d/, ')', /\d/, /\d/, /\d/, '-', /\d/, /\d/, /\d/, /\d/];
 
   const handleMaskedChange = (masked: string, unmasked: string) => {
     // Pass only unmasked value (digits only) to parent
@@ -99,7 +99,7 @@ export default function InputPhone({
           />
           {showClearButton && (
             <Pressable
-              onPress={onClear}
+              onPress={() => { onClear?.(); inputRef.current?.focus(); }}
               style={styles.eyeIcon}
             >
               <Icon
@@ -124,7 +124,7 @@ const createStyles = (colors: any, hasError: boolean) =>
       fontSize: 14,
       fontWeight: '600',
       color: colors.inputLabel,
-      marginBottom: 8,
+      marginBottom: 4,
     },
     inputWrapper: {
       flexDirection: 'row',

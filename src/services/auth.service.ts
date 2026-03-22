@@ -55,9 +55,14 @@ class AuthService {
 
       if (data.success && data.data) {
         // Map role from kullanici_rol
+        const yetkiler = data.data.user.yetkiler || {};
         const userWithRole = {
           ...data.data.user,
           role: mapKullaniciRolToRole(data.data.user.kullanici_rol),
+          barcodePermissions: yetkiler.barcode_permissions ?? {
+            manufacturer: true, year: true, info: true,
+            entryPrice: true, costPrice: true, labelPrice: true,
+          },
         };
 
         // Store authentication data
