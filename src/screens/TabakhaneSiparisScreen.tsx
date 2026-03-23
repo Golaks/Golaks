@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -36,6 +36,7 @@ import TabakhaneSiparisDetayForm from '../components/TabakhaneSiparisDetayForm';
 import accountService from '../services/account.service';
 import { authService } from '../services/auth.service';
 import ordersService from '../services/orders.service';
+import dovizService, { mapKurTipi } from '../services/doviz.service';
 
 interface TabakhaneSiparisScreenProps {
   onGoBack?: () => void;
@@ -79,8 +80,15 @@ export default function TabakhaneSiparisScreen({
   const [formSiparisKodu, setFormSiparisKodu] = useState('');
   const [formDoviz, setFormDoviz] = useState('USD');
   const [formDovizTipleri, setFormDovizTipleri] = useState<any[]>([]);
+  const [formKurlar, setFormKurlar] = useState<Record<string, any>>({});
   const [formCariId, setFormCariId] = useState('');
   const [formCariler, setFormCariler] = useState<any[]>([]);
+
+  const activeKurTipi = useMemo(() => {
+    if (!formCariId) return mapKurTipi();
+    const cari = formCariler.find((c: any) => c.id.toString() === formCariId);
+    return mapKurTipi(cari?.kurTipi);
+  }, [formCariId, formCariler]);
   const [formTarih, setFormTarih] = useState(new Date());
   const [formTeslimTarihi, setFormTeslimTarihi] = useState(() => {
     const d = new Date();
@@ -236,13 +244,19 @@ export default function TabakhaneSiparisScreen({
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
       if (!dataName) return;
-      const response = await ordersService.getLookups(token, dataName);
+      const [response, kurResponse] = await Promise.all([
+        ordersService.getLookups(token, dataName),
+        dovizService.getKurlar(token, dataName),
+      ]);
       if (response.success && response.data) {
         setFormDovizTipleri(response.data.dovizTipleri || []);
         setFormCariler(response.data.cariler || []);
         if (isNewOrder) {
           setFormSiparisKodu(response.data.nextSiparisKodu || '');
         }
+      }
+      if (kurResponse.success && kurResponse.data) {
+        setFormKurlar(kurResponse.data.kurlar || {});
       }
     } catch (_) {}
     finally {
@@ -1150,7 +1164,9 @@ export default function TabakhaneSiparisScreen({
                             value={row.tutar}
                             onChangeText={(v) => {
                               const updated = [...formAvansRows];
-                              updated[idx] = { ...updated[idx], tutar: v };
+                              const numVal = parseFloat(v) || 0;
+                              const converted = dovizService.convert(numVal, formDoviz, row.doviz, formKurlar, activeKurTipi);
+                              updated[idx] = { ...updated[idx], tutar: v, dovizliTutar: converted ? converted.toFixed(2) : '' };
                               setFormAvansRows(updated);
                             }}
                             placeholder="0.00"
@@ -1165,7 +1181,9 @@ export default function TabakhaneSiparisScreen({
                           dovizTipleri={formDovizTipleri}
                           onSelect={(v) => {
                             const updated = [...formAvansRows];
-                            updated[idx] = { ...updated[idx], doviz: v };
+                            const numVal = parseFloat(row.tutar) || 0;
+                            const converted = dovizService.convert(numVal, formDoviz, v, formKurlar, activeKurTipi);
+                            updated[idx] = { ...updated[idx], doviz: v, dovizliTutar: converted ? converted.toFixed(2) : '' };
                             setFormAvansRows(updated);
                           }}
                           shortLabel

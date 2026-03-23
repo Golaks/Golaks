@@ -1133,11 +1133,13 @@ class OrdersController {
             $pdo = $ctx['pdo'];
             $firmaId = $ctx['firmaId'];
 
-            // Sipariş var mı kontrol
-            $check = $pdo->prepare("SELECT id FROM siparis_master WHERE id = ? AND firma_id = ?");
+            // Sipariş mevcut verisi (log için)
+            $check = $pdo->prepare("SELECT * FROM siparis_master WHERE id = ? AND firma_id = ?");
             $check->execute([$siparisId, $firmaId]);
-            if (!$check->fetch()) {
+            $eskiKayit = $check->fetch();
+            if (!$eskiKayit) {
                 Response::error('Sipariş bulunamadı', 'ORDER_NOT_FOUND', 404);
+                return;
             }
 
             $allowedFields = [
@@ -1405,6 +1407,19 @@ class OrdersController {
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
+
+            // Log yaz
+            require_once __DIR__ . '/../includes/LogService.php';
+            $yeniKayit = [];
+            foreach ($allowedFields as $inputKey => $dbColumn) {
+                if (array_key_exists($inputKey, $data)) {
+                    $yeniKayit[$dbColumn] = $data[$inputKey];
+                }
+            }
+            $logFirmaId = $eskiKayit['firma_id'] ?? $firmaId;
+            $logSubeId = $eskiKayit['sube_id'] ?? $ctx['subeId'];
+            $logService = new LogService($pdo, (int)$logFirmaId, (int)$logSubeId, $ctx['userId']);
+            $logService->duzenle('siparis_master', (int)$siparisId, $eskiKayit, $yeniKayit, 'Sipariş güncellendi - ' . ($eskiKayit['siparis_kodu'] ?? ''));
 
             Response::success([
                 'message' => 'Sipariş başarıyla güncellendi',
@@ -1753,6 +1768,13 @@ class OrdersController {
             // İptal et: aktif = -2
             $stmt = $pdo->prepare("UPDATE siparis_master SET aktif = -2, durum_bilgi = ? WHERE id = ?");
             $stmt->execute([$durumBilgiJson, $siparisId]);
+
+            // Log yaz
+            require_once __DIR__ . '/../includes/LogService.php';
+            $logFirmaId = (int)($siparis['firma_id'] ?? $firmaId);
+            $logSubeId = (int)($siparis['sube_id'] ?? $subeId);
+            $logService = new LogService($pdo, $logFirmaId, $logSubeId, $userId);
+            $logService->sil('siparis_master', (int)$siparisId, $siparis, 'Sipariş iptal edildi - ' . $siparis['siparis_kodu']);
 
             Response::success([
                 'message' => $siparis['siparis_kodu'] . ' iptal edildi',

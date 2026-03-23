@@ -493,10 +493,21 @@ class FisService {
      * @return bool
      */
     public function deleteFisWithDetay(int $fisMasterId): bool {
+        // Silmeden önce mevcut veriyi al (log için)
+        $eskiFis = $this->getFisMaster($fisMasterId);
+
         $this->pdo->beginTransaction();
         try {
             $this->deleteFisDetayByMaster($fisMasterId);
             $this->deleteFisMaster($fisMasterId);
+
+            // Log yaz
+            if ($eskiFis) {
+                require_once __DIR__ . '/LogService.php';
+                $logService = new LogService($this->pdo, $this->firmaId, $this->subeId, $this->kullaniciId);
+                $logService->sil('fis_master', $fisMasterId, $eskiFis, 'Fiş silindi - ' . ($eskiFis['fisNo'] ?? ''));
+            }
+
             $this->pdo->commit();
             return true;
         } catch (\Exception $e) {

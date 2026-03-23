@@ -18,6 +18,7 @@
 - [Role-Based Access Control](./features/RoleBasedAccess.md) - Rol tabanlı erişim kontrolü
 - [Legal Documents](./features/LegalDocuments.md) - Yasal doküman yönetimi
 - [Cache Management](./features/CacheManagement.md) - Önbellek yönetim sistemi
+- [İşlem Log](./features/IslemLog.md) - Düzenleme ve silme işlem kayıtları, LogService
 
 ### 4. Backend & API
 - [API Architecture](./api-architecture.md) - Backend API mimarisi, endpoint'ler, controller'lar ve geliştirme rehberi
