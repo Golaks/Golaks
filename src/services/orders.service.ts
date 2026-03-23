@@ -51,6 +51,10 @@ export interface OrderItem {
   teslimSekliId: number;
   paketlemeId: number;
   kayitTarihi: string;
+  deriGrubu?: string;
+  teslimSekliAdi?: string;
+  paketlemeAdi?: string;
+  kayitKullaniciId?: number;
   // Hesaplanmış alanlar (backend tarafından)
   avansTutar?: number;
   avansDoviz?: string;
@@ -225,6 +229,14 @@ export interface OrderCreateData {
   aciklama?: string;
   masterAvansIndirim?: MasterAvansIndirim;
   musteriSube?: string;
+  deriGrubu?: string;
+  siparisGrubuId?: number;
+  siparisTipiId?: number;
+  siparisiAlan?: string;
+  siparisGrubuId?: number;
+  siparisTipiId?: number;
+  siparisGrubuAdi?: string;
+  siparisTipiAdi?: string;
 }
 
 export interface OrderDetailResponse {

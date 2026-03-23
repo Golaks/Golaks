@@ -50,6 +50,12 @@ class OrdersController {
         $subeAyarlar = $firmaAyarlar['sube'] ?? [];
         $subeId = (int)($subeAyarlar['subeId'] ?? 0);
 
+        // Firma ayarlarından gelmezse kullanıcı yetkilerinden varsayılan şubeyi al
+        if (!$subeId) {
+            $yetkiler = $currentUser['kullanici_yetkiler'] ? json_decode($currentUser['kullanici_yetkiler'], true) : [];
+            $subeId = (int)($yetkiler['varsayilan_sube'] ?? 0);
+        }
+
         $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
         $pdo = new PDO($dsn, $dbUser, $dbPass, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -204,13 +210,26 @@ class OrdersController {
                     sm.cariler_id,
                     sm.teslim_sekli_id,
                     sm.paketleme_id,
+                    sm.deri_grubu,
+                    sm.siparisi_alan,
+                    sm.siparis_grubu_id,
+                    sm.siparis_tipi_id,
+                    sm.kayit_kullanici_id,
                     COALESCE(c.unvan, 'Tanımsız') AS cari_adi,
                     COALESCE(s.sube_adi, '') AS sube_adi,
+                    COALESCE(ts.tanim_deger, '') AS teslim_sekli_adi,
+                    COALESCE(pk.tanim_deger, '') AS paketleme_adi,
+                    COALESCE(sg.tanim_deger, '') AS siparis_grubu_adi,
+                    COALESCE(st.tanim_deger, '') AS siparis_tipi_adi,
                     (SELECT COUNT(*) FROM siparis_detay sd WHERE sd.siparis_master_id = sm.id AND sd.aktif = 1) AS detay_sayisi,
                     (SELECT COUNT(*) FROM siparis_detay sd WHERE sd.siparis_master_id = sm.id AND sd.aktif = 1 AND sd.siparis_durum = 1) AS uretimde_sayisi
                 FROM siparis_master sm
                 LEFT JOIN cariler c ON c.id = sm.cariler_id
                 LEFT JOIN subeler s ON s.id = sm.sube_id
+                LEFT JOIN tanimlar ts ON ts.id = sm.teslim_sekli_id
+                LEFT JOIN tanimlar pk ON pk.id = sm.paketleme_id
+                LEFT JOIN tanimlar sg ON sg.id = sm.siparis_grubu_id
+                LEFT JOIN tanimlar st ON st.id = sm.siparis_tipi_id
                 WHERE {$whereClause}
                 ORDER BY sm.tarih DESC, sm.id DESC
                 LIMIT 500
@@ -275,6 +294,15 @@ class OrdersController {
                     'carilerId' => (int)$row['cariler_id'],
                     'teslimSekliId' => (int)$row['teslim_sekli_id'],
                     'paketlemeId' => (int)$row['paketleme_id'],
+                    'deriGrubu' => $row['deri_grubu'] ?: '',
+                    'siparisiAlan' => $row['siparisi_alan'] ?: '',
+                    'siparisGrubuId' => (int)($row['siparis_grubu_id'] ?? 0),
+                    'siparisTipiId' => (int)($row['siparis_tipi_id'] ?? 0),
+                    'siparisGrubuAdi' => $row['siparis_grubu_adi'] ?: '',
+                    'siparisTipiAdi' => $row['siparis_tipi_adi'] ?: '',
+                    'teslimSekliAdi' => $row['teslim_sekli_adi'] ?: '',
+                    'paketlemeAdi' => $row['paketleme_adi'] ?: '',
+                    'kayitKullaniciId' => (int)($row['kayit_kullanici_id'] ?? 0),
                     'kayitTarihi' => $row['kayit_tarihi'] ?? '',
                 ];
 
@@ -883,11 +911,13 @@ class OrdersController {
                 firma_id, sube_id, cariler_id, siparis_modul, siparis_kodu,
                 musteri_siparis_kodu, siparis_tipi, teslim_sekli_id, paketleme_id,
                 tarih, teslim_tarihi, doviz, aciklama, master_avans_indirim, musteri_sube,
+                deri_grubu, siparisi_alan, siparis_grubu_id, siparis_tipi_id,
                 kayit_kullanici_id, kayit_ip, aktif
             ) VALUES (
                 :firmaId, :subeId, :carilerId, :siparisModul, :siparisKodu,
                 :musteriSiparisKodu, :siparisTipi, :teslimSekliId, :paketlemeId,
                 :tarih, :teslimTarihi, :doviz, :aciklama, :masterAvansIndirim, :musteriSube,
+                :deriGrubu, :siparisiAlan, :siparisGrubuId, :siparisTipiId,
                 :kullaniciId, :ip, 1
             )";
 
@@ -908,16 +938,171 @@ class OrdersController {
                 ':aciklama' => $data['aciklama'] ?? '',
                 ':masterAvansIndirim' => isset($data['masterAvansIndirim']) ? json_encode($data['masterAvansIndirim'], JSON_UNESCAPED_UNICODE) : null,
                 ':musteriSube' => $data['musteriSube'] ?? '',
+                ':deriGrubu' => $data['deriGrubu'] ?? '',
+                ':siparisiAlan' => $data['siparisiAlan'] ?? '',
+                ':siparisGrubuId' => (int)($data['siparisGrubuId'] ?? 0),
+                ':siparisTipiId' => (int)($data['siparisTipiId'] ?? 0),
                 ':kullaniciId' => $ctx['userId'],
                 ':ip' => $_SERVER['REMOTE_ADDR'] ?? '',
             ]);
 
             $newId = $pdo->lastInsertId();
 
+            // ─── AVANS FİŞİ OLUŞTUR ─────────────────────────────────
+            $avansFisIds = [];
+            $masterAvansIndirim = $data['masterAvansIndirim'] ?? null;
+
+            if ($masterAvansIndirim && !empty($masterAvansIndirim['avans'])) {
+                require_once __DIR__ . '/../includes/FisService.php';
+
+                // Şirket DB'sindeki firma_id'yi al
+                $firmaStmt = $pdo->prepare("SELECT firma_id FROM subeler WHERE id = ?");
+                $firmaStmt->execute([$subeId]);
+                $firmaRow = $firmaStmt->fetch();
+                $dbFirmaId = $firmaRow ? (int)$firmaRow['firma_id'] : $firmaId;
+
+                $fisService = new FisService($pdo, $dbFirmaId, $subeId, $ctx['userId']);
+
+                // Şube ayarlarından avans hesap kodunu al
+                $subeAyarStmt = $pdo->prepare("SELECT sube_genel_ayar FROM subeler WHERE id = ?");
+                $subeAyarStmt->execute([$subeId]);
+                $subeAyarRow = $subeAyarStmt->fetch();
+                $subeAyar = $subeAyarRow && $subeAyarRow['sube_genel_ayar']
+                    ? json_decode($subeAyarRow['sube_genel_ayar'], true) : [];
+
+                // Avans hesap kodu (340.xx) - şube ayarlarından
+                $avansHesapId = $subeAyar['hesapKodlari']['siparisAvans'] ?? '';
+                $avansHesapKodu = '';
+                if ($avansHesapId) {
+                    $hkStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                    $hkStmt->execute([$avansHesapId]);
+                    $hkRow = $hkStmt->fetch();
+                    $avansHesapKodu = $hkRow ? $hkRow['hesap_kodu'] : '';
+                }
+
+                // Cari hesap kodunu al (alacaklı taraf)
+                $cariStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                $cariStmt->execute([(int)$data['carilerId']]);
+                $cariRow = $cariStmt->fetch();
+                $cariHesapKodu = $cariRow ? $cariRow['hesap_kodu'] : '';
+
+                // Kasa durumu - şube ayarından
+                $kasaDurum = ($subeAyar['fisleri_aktif_yaz'] ?? true) ? 1 : 0;
+
+                // Hesap kodları kontrolü
+                if (empty($avansHesapKodu)) {
+                    Response::error('Avans hesap kodu tanımlı değil. subeId=' . $subeId . ', avansHesapId=' . $avansHesapId . ', subeAyar=' . json_encode($subeAyar), 'AVANS_HESAP_MISSING', 400);
+                    return;
+                }
+                if (empty($cariHesapKodu)) {
+                    Response::error('Cari hesap kodu bulunamadı. carilerId=' . $data['carilerId'], 'CARI_HESAP_MISSING', 400);
+                    return;
+                }
+
+                // Şube ve cari döviz bilgileri
+                $subeDoviz = $fisService->getSubeVarsayilanDoviz();
+                $borcCariDoviz = $fisService->getCariDoviz($avansHesapKodu);
+                $alacakCariDoviz = $fisService->getCariDoviz($cariHesapKodu);
+                $siparisDoviz = $data['doviz'] ?? 'TL';
+                $siparisTarih = $data['tarih'] ?? date('Y-m-d');
+
+                // Her avans satırı için fiş oluştur
+                $updatedAvansRows = $masterAvansIndirim['avans'];
+                foreach ($updatedAvansRows as $idx => &$avansRow) {
+                    $tutar = (float)($avansRow['tutar'] ?? 0);
+                    if ($tutar <= 0) continue;
+
+                    $result = $fisService->createParametrikFis(
+                        [
+                            'fisTipi' => 'Sipariş Avans',
+                            'fisTarihi' => $siparisTarih . ' ' . date('H:i:s'),
+                            'fisAciklama' => 'Sipariş Avans - ' . $data['siparisKodu'],
+                            'kayitId' => (int)$newId,
+                            'kayitTablo' => 'siparis_master',
+                            'kasaDurum' => $kasaDurum,
+                        ],
+                        [
+                            'tutar' => $tutar,
+                            'islemDoviz' => $avansRow['doviz'] ?? $siparisDoviz,
+                            'subeDoviz' => $subeDoviz,
+                            'borcHesapKodu' => $avansHesapKodu,
+                            'borcCariDoviz' => $borcCariDoviz,
+                            'alacakHesapKodu' => $cariHesapKodu,
+                            'alacakCariDoviz' => $alacakCariDoviz,
+                            'tarih' => $siparisTarih,
+                            'aciklama' => 'Sipariş Avans - ' . $data['siparisKodu'],
+                        ]
+                    );
+
+                    $avansRow['fisId'] = $result['fisMasterId'];
+                    $avansRow['fisNo'] = $result['fisNo'];
+                    $avansRow['cariIslendi'] = true;
+                    $avansFisIds[] = $result['fisMasterId'];
+                }
+                unset($avansRow);
+
+                // JSON'ı fiş bilgileriyle güncelle
+                $masterAvansIndirim['avans'] = $updatedAvansRows;
+
+                // ─── İNDİRİM FİŞİ ───────────────────────────────────
+                $indirim = $masterAvansIndirim['indirim'] ?? null;
+                if ($indirim && ($indirim['tip'] ?? -1) !== -1 && ($indirim['deger'] ?? 0) > 0) {
+                    if (empty($indirim['cariIslendi']) || empty($indirim['fisId'])) {
+                        $indirimHesapId = $subeAyar['hesapKodlari']['siparisIndirim'] ?? '';
+                        $indirimHesapKodu = '';
+                        if ($indirimHesapId) {
+                            $ihStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                            $ihStmt->execute([$indirimHesapId]);
+                            $ihRow = $ihStmt->fetch();
+                            $indirimHesapKodu = $ihRow ? $ihRow['hesap_kodu'] : '';
+                        }
+
+                        if (!empty($indirimHesapKodu) && !empty($cariHesapKodu)) {
+                            $indirimTutar = (float)$indirim['deger'];
+                            $indirimDoviz = $indirim['doviz'] ?? $siparisDoviz;
+                            $indirimBorcCariDoviz = $fisService->getCariDoviz($indirimHesapKodu);
+
+                            $result = $fisService->createParametrikFis(
+                                [
+                                    'fisTipi' => 'Sipariş İndirim',
+                                    'fisTarihi' => $siparisTarih . ' ' . date('H:i:s'),
+                                    'fisAciklama' => 'Sipariş İndirim - ' . $data['siparisKodu'],
+                                    'kayitId' => (int)$newId,
+                                    'kayitTablo' => 'siparis_master',
+                                    'kasaDurum' => $kasaDurum,
+                                ],
+                                [
+                                    'tutar' => $indirimTutar,
+                                    'islemDoviz' => $indirimDoviz,
+                                    'subeDoviz' => $subeDoviz,
+                                    'borcHesapKodu' => $indirimHesapKodu,
+                                    'borcCariDoviz' => $indirimBorcCariDoviz,
+                                    'alacakHesapKodu' => $cariHesapKodu,
+                                    'alacakCariDoviz' => $alacakCariDoviz,
+                                    'tarih' => $siparisTarih,
+                                    'aciklama' => 'Sipariş İndirim - ' . $data['siparisKodu'],
+                                ]
+                            );
+
+                            $masterAvansIndirim['indirim']['fisId'] = $result['fisMasterId'];
+                            $masterAvansIndirim['indirim']['fisNo'] = $result['fisNo'];
+                            $masterAvansIndirim['indirim']['cariIslendi'] = true;
+                        }
+                    }
+                }
+
+                $updateJsonStmt = $pdo->prepare("UPDATE siparis_master SET master_avans_indirim = ? WHERE id = ?");
+                $updateJsonStmt->execute([
+                    json_encode($masterAvansIndirim, JSON_UNESCAPED_UNICODE),
+                    $newId
+                ]);
+            }
+
             Response::success([
                 'message' => 'Sipariş başarıyla oluşturuldu',
                 'id' => (int)$newId,
                 'siparisKodu' => $data['siparisKodu'],
+                'avansFisIds' => $avansFisIds,
             ]);
 
         } catch (PDOException $e) {
@@ -968,6 +1153,10 @@ class OrdersController {
                 'masterAvansIndirim' => 'master_avans_indirim',
                 'carilerId' => 'cariler_id',
                 'musteriSube' => 'musteri_sube',
+                'deriGrubu' => 'deri_grubu',
+                'siparisiAlan' => 'siparisi_alan',
+                'siparisGrubuId' => 'siparis_grubu_id',
+                'siparisTipiId' => 'siparis_tipi_id',
             ];
 
             $updates = [];
@@ -989,6 +1178,228 @@ class OrdersController {
                 Response::error('Güncellenecek alan bulunamadı', 'VALIDATION_ERROR', 400);
             }
 
+            // ─── AVANS FİŞ YÖNETİMİ ─────────────────────────────────
+            $masterAvansIndirim = $data['masterAvansIndirim'] ?? null;
+            $avansFisIds = [];
+
+            if ($masterAvansIndirim && isset($masterAvansIndirim['avans'])) {
+                require_once __DIR__ . '/../includes/FisService.php';
+
+                // Mevcut JSON'ı al
+                $mevcutStmt = $pdo->prepare("SELECT master_avans_indirim, cariler_id, siparis_kodu, tarih, doviz, sube_id FROM siparis_master WHERE id = ?");
+                $mevcutStmt->execute([$siparisId]);
+                $mevcutRow = $mevcutStmt->fetch();
+                $mevcutJson = $mevcutRow['master_avans_indirim'] ? json_decode($mevcutRow['master_avans_indirim'], true) : [];
+                $mevcutAvanslar = $mevcutJson['avans'] ?? [];
+
+                $siparisKodu = $data['siparisKodu'] ?? $mevcutRow['siparis_kodu'] ?? '';
+                $siparisTarihi = $data['tarih'] ?? $mevcutRow['tarih'] ?? date('Y-m-d');
+                $siparisDoviz = $data['doviz'] ?? $mevcutRow['doviz'] ?? 'TL';
+                $carilerId = (int)($data['carilerId'] ?? $mevcutRow['cariler_id'] ?? 0);
+                $siparisSubeId = (int)($mevcutRow['sube_id'] ?? $ctx['subeId']);
+
+                // Şirket DB'sindeki firma_id
+                $firmaStmt = $pdo->prepare("SELECT firma_id FROM subeler WHERE id = ?");
+                $firmaStmt->execute([$siparisSubeId]);
+                $firmaRow = $firmaStmt->fetch();
+                $dbFirmaId = $firmaRow ? (int)$firmaRow['firma_id'] : $firmaId;
+
+                $fisService = new FisService($pdo, $dbFirmaId, $siparisSubeId, $ctx['userId']);
+
+                // Şube ayarlarından avans hesap kodu
+                $subeAyarStmt = $pdo->prepare("SELECT sube_genel_ayar FROM subeler WHERE id = ?");
+                $subeAyarStmt->execute([$siparisSubeId]);
+                $subeAyarRow = $subeAyarStmt->fetch();
+                $subeAyar = $subeAyarRow && $subeAyarRow['sube_genel_ayar']
+                    ? json_decode($subeAyarRow['sube_genel_ayar'], true) : [];
+
+                $avansHesapId = $subeAyar['hesapKodlari']['siparisAvans'] ?? '';
+                $avansHesapKodu = '';
+                if ($avansHesapId) {
+                    $hkStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                    $hkStmt->execute([$avansHesapId]);
+                    $hkRow = $hkStmt->fetch();
+                    $avansHesapKodu = $hkRow ? $hkRow['hesap_kodu'] : '';
+                }
+
+                // Cari hesap kodu
+                $cariStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                $cariStmt->execute([$carilerId]);
+                $cariRow = $cariStmt->fetch();
+                $cariHesapKodu = $cariRow ? $cariRow['hesap_kodu'] : '';
+
+                $kasaDurum = ($subeAyar['fisleri_aktif_yaz'] ?? true) ? 1 : 0;
+
+                // Mevcut fişleri topla (silinen/değişen için)
+                $eskiFisIds = [];
+                foreach ($mevcutAvanslar as $ma) {
+                    if (!empty($ma['fisId'])) $eskiFisIds[] = (int)$ma['fisId'];
+                }
+
+                // Hesap kodları kontrolü
+                if (empty($avansHesapKodu)) {
+                    Response::error('Avans hesap kodu tanımlı değil. subeId=' . $ctx['subeId'] . ', avansHesapId=' . $avansHesapId . ', subeAyar=' . json_encode($subeAyar), 'AVANS_HESAP_MISSING', 400);
+                    return;
+                }
+                if (empty($cariHesapKodu)) {
+                    Response::error('Cari hesap kodu bulunamadı. Lütfen geçerli bir cari hesap seçin.', 'CARI_HESAP_MISSING', 400);
+                    return;
+                }
+
+                // Yeni avans satırlarını işle
+                $yeniAvanslar = $masterAvansIndirim['avans'];
+                $yeniFisIds = [];
+
+                foreach ($yeniAvanslar as $idx => &$avansRow) {
+                    $tutar = (float)($avansRow['tutar'] ?? 0);
+
+                    // cariIslendi=true ve fisId varsa → tutar değişmiş mi kontrol et
+                    if (!empty($avansRow['cariIslendi']) && !empty($avansRow['fisId'])) {
+                        // Eski tutarı bul
+                        $eskiTutar = 0;
+                        foreach ($mevcutAvanslar as $ma) {
+                            if (!empty($ma['fisId']) && (int)$ma['fisId'] === (int)$avansRow['fisId']) {
+                                $eskiTutar = (float)($ma['tutar'] ?? 0);
+                                break;
+                            }
+                        }
+                        // Tutar değişmediyse dokunma
+                        if (abs($eskiTutar - $tutar) < 0.01) {
+                            $yeniFisIds[] = (int)$avansRow['fisId'];
+                            $avansFisIds[] = (int)$avansRow['fisId'];
+                            continue;
+                        }
+                        // Tutar değiştiyse eski fişi sil, yenisi aşağıda yazılacak
+                        $fisService->deleteFisWithDetay((int)$avansRow['fisId']);
+                        $avansRow['cariIslendi'] = false;
+                        unset($avansRow['fisId'], $avansRow['fisNo']);
+                    }
+
+                    // Tutar 0 veya hesap kodu yoksa atla
+                    if ($tutar <= 0 || empty($avansHesapKodu) || empty($cariHesapKodu)) continue;
+
+                    // Şube ve cari döviz bilgileri
+                    $subeDoviz = $fisService->getSubeVarsayilanDoviz();
+                    $borcCariDoviz = $fisService->getCariDoviz($avansHesapKodu);
+                    $alacakCariDoviz = $fisService->getCariDoviz($cariHesapKodu);
+
+                    $result = $fisService->createParametrikFis(
+                        [
+                            'fisTipi' => 'Sipariş Avans',
+                            'fisTarihi' => $siparisTarihi . ' ' . date('H:i:s'),
+                            'fisAciklama' => 'Sipariş Avans - ' . $siparisKodu,
+                            'kayitId' => (int)$siparisId,
+                            'kayitTablo' => 'siparis_master',
+                            'kasaDurum' => $kasaDurum,
+                        ],
+                        [
+                            'tutar' => $tutar,
+                            'islemDoviz' => $avansRow['doviz'] ?? $siparisDoviz,
+                            'subeDoviz' => $subeDoviz,
+                            'borcHesapKodu' => $avansHesapKodu,
+                            'borcCariDoviz' => $borcCariDoviz,
+                            'alacakHesapKodu' => $cariHesapKodu,
+                            'alacakCariDoviz' => $alacakCariDoviz,
+                            'tarih' => $siparisTarihi,
+                            'aciklama' => 'Sipariş Avans - ' . $siparisKodu,
+                        ]
+                    );
+
+                    $avansRow['fisId'] = $result['fisMasterId'];
+                    $avansRow['fisNo'] = $result['fisNo'];
+                    $avansRow['cariIslendi'] = true;
+                    $yeniFisIds[] = $result['fisMasterId'];
+                    $avansFisIds[] = $result['fisMasterId'];
+                }
+                unset($avansRow);
+
+                // Silinen avansların fişlerini soft delete
+                $silinenFisIds = array_diff($eskiFisIds, $yeniFisIds);
+                foreach ($silinenFisIds as $eskiFisId) {
+                    $fisService->deleteFisWithDetay($eskiFisId);
+                }
+
+                // JSON güncelle
+                $masterAvansIndirim['avans'] = $yeniAvanslar;
+
+                // ─── İNDİRİM FİŞİ ───────────────────────────────────
+                $indirim = $masterAvansIndirim['indirim'] ?? null;
+                if ($indirim && ($indirim['tip'] ?? -1) !== -1 && ($indirim['deger'] ?? 0) > 0) {
+                    $indirimHesapId = $subeAyar['hesapKodlari']['siparisIndirim'] ?? '';
+                    $indirimHesapKodu = '';
+                    if ($indirimHesapId) {
+                        $ihStmt = $pdo->prepare("SELECT hesap_kodu FROM cariler WHERE id = ?");
+                        $ihStmt->execute([$indirimHesapId]);
+                        $ihRow = $ihStmt->fetch();
+                        $indirimHesapKodu = $ihRow ? $ihRow['hesap_kodu'] : '';
+                    }
+
+                    if (!empty($indirimHesapKodu) && !empty($cariHesapKodu)) {
+                        // Mevcut indirim fişi varsa tutar değişmiş mi kontrol et
+                        if (!empty($indirim['cariIslendi']) && !empty($indirim['fisId'])) {
+                            $eskiIndirim = $mevcutJson['indirim'] ?? [];
+                            $eskiDeger = (float)($eskiIndirim['deger'] ?? 0);
+                            $yeniDeger = (float)$indirim['deger'];
+
+                            if (abs($eskiDeger - $yeniDeger) < 0.01) {
+                                // Tutar değişmedi, dokunma
+                            } else {
+                                // Tutar değişti, eski fişi sil
+                                $fisService->deleteFisWithDetay((int)$indirim['fisId']);
+                                $indirim['cariIslendi'] = false;
+                                unset($indirim['fisId'], $indirim['fisNo']);
+                                $masterAvansIndirim['indirim'] = $indirim;
+                            }
+                        }
+
+                        // Fiş yazılmamışsa yaz
+                        if (empty($indirim['cariIslendi']) || empty($indirim['fisId'])) {
+                            $indirimTutar = (float)$indirim['deger'];
+                            $indirimDoviz = $indirim['doviz'] ?? $siparisDoviz;
+                            $indirimBorcCariDoviz = $fisService->getCariDoviz($indirimHesapKodu);
+                            $updSubeDoviz = $fisService->getSubeVarsayilanDoviz();
+                            $updAlacakCariDoviz = $fisService->getCariDoviz($cariHesapKodu);
+
+                            $result = $fisService->createParametrikFis(
+                                [
+                                    'fisTipi' => 'Sipariş İndirim',
+                                    'fisTarihi' => $siparisTarihi . ' ' . date('H:i:s'),
+                                    'fisAciklama' => 'Sipariş İndirim - ' . $siparisKodu,
+                                    'kayitId' => (int)$siparisId,
+                                    'kayitTablo' => 'siparis_master',
+                                    'kasaDurum' => $kasaDurum,
+                                ],
+                                [
+                                    'tutar' => $indirimTutar,
+                                    'islemDoviz' => $indirimDoviz,
+                                    'subeDoviz' => $updSubeDoviz,
+                                    'borcHesapKodu' => $indirimHesapKodu,
+                                    'borcCariDoviz' => $indirimBorcCariDoviz,
+                                    'alacakHesapKodu' => $cariHesapKodu,
+                                    'alacakCariDoviz' => $updAlacakCariDoviz,
+                                    'tarih' => $siparisTarihi,
+                                    'aciklama' => 'Sipariş İndirim - ' . $siparisKodu,
+                                ]
+                            );
+
+                            $masterAvansIndirim['indirim']['fisId'] = $result['fisMasterId'];
+                            $masterAvansIndirim['indirim']['fisNo'] = $result['fisNo'];
+                            $masterAvansIndirim['indirim']['cariIslendi'] = true;
+                        }
+                    }
+                } else if ($indirim && !empty($indirim['fisId'])) {
+                    // İndirim kaldırıldı ama eski fişi var, sil
+                    $fisService->deleteFisWithDetay((int)$indirim['fisId']);
+                    $masterAvansIndirim['indirim']['cariIslendi'] = false;
+                    unset($masterAvansIndirim['indirim']['fisId'], $masterAvansIndirim['indirim']['fisNo']);
+                }
+
+                $params[':masterAvansIndirim'] = json_encode($masterAvansIndirim, JSON_UNESCAPED_UNICODE);
+                if (!in_array('master_avans_indirim = :masterAvansIndirim', $updates)) {
+                    $updates[] = 'master_avans_indirim = :masterAvansIndirim';
+                }
+            }
+
             $updateClause = implode(', ', $updates);
             $sql = "UPDATE siparis_master SET {$updateClause} WHERE id = :id AND firma_id = :firmaId";
 
@@ -997,6 +1408,7 @@ class OrdersController {
 
             Response::success([
                 'message' => 'Sipariş başarıyla güncellendi',
+                'avansFisIds' => $avansFisIds,
             ]);
 
         } catch (PDOException $e) {

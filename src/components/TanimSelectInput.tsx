@@ -22,6 +22,18 @@ const TANIM_META: Record<string, { title: string; icon: string; addPlaceholder: 
   CINSIYET: { title: 'Cinsiyetler', icon: 'person-outline', addPlaceholder: 'Yeni cinsiyet...' },
   SEZON: { title: 'Sezonlar', icon: 'sunny-outline', addPlaceholder: 'Yeni sezon...' },
   TARZ: { title: 'Tarzlar', icon: 'color-palette-outline', addPlaceholder: 'Yeni tarz...' },
+  MENSEI: { title: 'Menşeiler', icon: 'flag-outline', addPlaceholder: 'Yeni menşei...' },
+  DERI_CINSI: { title: 'Deri Cinsleri', icon: 'layers-outline', addPlaceholder: 'Yeni deri cinsi...' },
+  DERI_RENK: { title: 'Deri Renkleri', icon: 'color-palette-outline', addPlaceholder: 'Yeni deri rengi...' },
+  DERI_KALITE: { title: 'Deri Kaliteleri', icon: 'shield-checkmark-outline', addPlaceholder: 'Yeni kalite...' },
+  FINISAJ: { title: 'Finisajlar', icon: 'brush-outline', addPlaceholder: 'Yeni finisaj...' },
+  TUY_RENK: { title: 'Tüy Renkleri', icon: 'color-fill-outline', addPlaceholder: 'Yeni tüy rengi...' },
+  TUY_EFEKT: { title: 'Tüy Efektleri', icon: 'sparkles-outline', addPlaceholder: 'Yeni tüy efekti...' },
+  SUED_RENK: { title: 'Süed Renkleri', icon: 'color-wand-outline', addPlaceholder: 'Yeni süed rengi...' },
+  SUED_EFEKT: { title: 'Süed Efektleri', icon: 'diamond-outline', addPlaceholder: 'Yeni süed efekti...' },
+  BIRIM: { title: 'Birimler', icon: 'scale-outline', addPlaceholder: 'Yeni birim...' },
+  SIPARIS_GRUBU: { title: 'Sipariş Grupları', icon: 'folder-outline', addPlaceholder: 'Yeni sipariş grubu...' },
+  SIPARIS_TIPI: { title: 'Sipariş Tipleri', icon: 'document-outline', addPlaceholder: 'Yeni sipariş tipi...' },
 };
 
 const getDefaultMeta = (tanimKodu: string) => {

@@ -521,7 +521,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingBottom: 100, // Space for TabBar
     },
     pageHeader: {
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',

@@ -386,7 +386,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     pageTitleIcon: {

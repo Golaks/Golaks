@@ -82,6 +82,8 @@ class Router {
         $this->post('/account/cari-create', 'AccountController', 'createCari');
         $this->post('/account/cari-next-kod', 'AccountController', 'getNextHesapKodu');
         $this->post('/account/cari-update', 'AccountController', 'updateCari');
+        $this->post('/account/sube-ayarlar', 'AccountController', 'getSubeAyarlar');
+        $this->post('/account/sube-ayarlar-save', 'AccountController', 'saveSubeAyarlar');
         $this->post('/account/cari-balance', 'AccountController', 'getCariBalance');
         $this->post('/account/cari-ekstre', 'AccountController', 'getCariEkstre');
         $this->post('/account/cash-bank-summary', 'AccountController', 'getCashBankSummary');

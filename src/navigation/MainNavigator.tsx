@@ -32,8 +32,10 @@ import KasaIslemleriScreen from '../screens/KasaIslemleriScreen';
 import FiyatHesaplamaScreen from '../screens/FiyatHesaplamaScreen';
 import KonfeksiyonUretimScreen from '../screens/KonfeksiyonUretimScreen';
 import SiparisIslemleriScreen from '../screens/SiparisIslemleriScreen';
+import TabakhaneSiparisScreen from '../screens/TabakhaneSiparisScreen';
+import SubeAyarlariScreen from '../screens/SubeAyarlariScreen';
 
-type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cariHesaplar' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler' | 'confectionSiparisIslemleri';
+type AppScreen = TabName | 'account' | 'accountSummary' | 'cariDetay' | 'cariHesaplar' | 'cashBank' | 'checkBill' | 'stock' | 'tannery' | 'confection' | 'shop' | 'barcodeResult' | 'modelOperations' | 'shopStock' | 'confectionStock' | 'confectionHammaddeStock' | 'accountSales' | 'shopSales' | 'confectionSales' | 'accountPersonnelPerformance' | 'shopPersonnelPerformance' | 'confectionPersonnelPerformance' | 'accountCompanyModelPerformance' | 'shopCompanyModelPerformance' | 'confectionCompanyModelPerformance' | 'confectionOrders' | 'shopReservations' | 'shopAgencyPerformance' | 'bankaKomisyon' | 'fiyatHesaplama' | 'confectionUretimIslemleri' | 'confectionMaliyetler' | 'confectionSiparisIslemleri' | 'tannerySiparisIslemleri' | 'tanneryStock' | 'subeAyarlari';
 
 interface MainNavigatorProps {
   onLogout?: () => void;
@@ -100,6 +102,7 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
             onNotificationSend={() => setActiveScreen('notificationSend')}
             onCompanyManagement={() => setActiveScreen('companyManagement')}
             onFiyatHesaplama={() => setActiveScreen('fiyatHesaplama')}
+            onSubeAyarlari={() => setActiveScreen('subeAyarlari')}
           />
         );
       case 'notifications':
@@ -148,7 +151,11 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
       case 'confectionHammaddeStock':
         return <StockScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} stokModul="konfeksiyon" stokTipi="hammadde" />;
       case 'tannery':
-        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} initialTab={tanneryTab} onActiveTabChange={setTanneryTab} />;
+        return <TanneryScreen onBack={() => setActiveScreen('dashboard')} onTabChange={setActiveScreen} onLogout={onLogout} onStock={() => setActiveScreen('tanneryStock')} onSiparisIslemleri={() => setActiveScreen('tannerySiparisIslemleri')} initialTab={tanneryTab} onActiveTabChange={setTanneryTab} />;
+      case 'tanneryStock':
+        return <StockScreen onGoBack={() => setActiveScreen('tannery')} onTabChange={setActiveScreen} onLogout={onLogout} stokModul="tabakhane" />;
+      case 'tannerySiparisIslemleri':
+        return <TabakhaneSiparisScreen onGoBack={() => { setTanneryTab('transactions'); setActiveScreen('tannery'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confection':
         return (
           <ConfectionScreen
@@ -236,6 +243,8 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
         return <BankaKomisyonScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'fiyatHesaplama':
         return <FiyatHesaplamaScreen onGoBack={() => setActiveScreen('profile')} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'subeAyarlari':
+        return <SubeAyarlariScreen onGoBack={() => setActiveScreen('profile')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confectionUretimIslemleri':
         return <KonfeksiyonUretimScreen onGoBack={() => setActiveScreen('confection')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'confectionMaliyetler':

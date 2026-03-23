@@ -958,8 +958,8 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     flex: 1,
   },
   pageHeader: {
-    paddingTop: 4,
-    marginBottom: 4,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   pageTitleRow: {
     flexDirection: 'row',

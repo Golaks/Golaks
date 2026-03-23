@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,9 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  Modal,
-  ActivityIndicator,
   TextInput,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -19,14 +19,10 @@ import Header from '../components/Header';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BackButton from '../components/BackButton';
-import IconButton from '../components/IconButton';
 import SearchButton from '../components/SearchButton';
 import AddButton from '../components/AddButton';
 import TabBar, { TabName } from '../components/TabBar';
 import DateFilter, { DatePreset } from '../components/DateFilter';
-import ordersService, { OrderItem, OrderSummaryItem, OrderStats, OrderDetailItem, ReceteItem, ReceteSummary, DovizTipi, CariLookupItem, DetailBedenSetItem, DetailVaryantItem } from '../services/orders.service';
-import { authService } from '../services/auth.service';
-import dovizService, { KurItem, mapKurTipi } from '../services/doviz.service';
 import InModalToast from '../components/InModalToast';
 import { useFieldErrors } from '../hooks/useFieldErrors';
 import SelectInput from '../components/SelectInput';
@@ -34,23 +30,30 @@ import DovizSelect from '../components/DovizSelect';
 import DatePickerModal from '../components/DatePickerModal';
 import TanimSelectInput from '../components/TanimSelectInput';
 import BottomSheet, { BottomSheetToastRef } from '../components/BottomSheet';
-import SiparisDetayForm, { DetayFormData } from '../components/SiparisDetayForm';
 import Input from '../components/Input';
 import Button from '../components/Button';
+import TabakhaneSiparisDetayForm from '../components/TabakhaneSiparisDetayForm';
 import accountService from '../services/account.service';
-import { generateSiparisPDF } from '../utils/pdfSiparis';
+import { authService } from '../services/auth.service';
+import ordersService from '../services/orders.service';
 
-interface SiparisIslemleriScreenProps {
+interface TabakhaneSiparisScreenProps {
   onGoBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
 }
 
-export default function SiparisIslemleriScreen({
+const DERI_TIPI_OPTIONS = [
+  { id: 'Kürk', label: 'Kürk' },
+  { id: 'Zig', label: 'Zig' },
+  { id: 'Vidala', label: 'Vidala' },
+];
+
+export default function TabakhaneSiparisScreen({
   onGoBack,
   onTabChange,
   onLogout,
-}: SiparisIslemleriScreenProps) {
+}: TabakhaneSiparisScreenProps) {
   const { colors, isDark } = useTheme();
   const { user, logout, notificationCount } = useAuth();
   const { showConfirm } = useAlert();
@@ -60,50 +63,49 @@ export default function SiparisIslemleriScreen({
   const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<OrderItem[]>([]);
-  const [summaryData, setSummaryData] = useState<OrderSummaryItem[]>([]);
-  const [stats, setStats] = useState<OrderStats>({ totalSatis: 0, totalSatinalma: 0, totalUretimde: 0, totalBeklemede: 0, totalKapali: 0, totalIptal: 0 });
+  const [data, setData] = useState<any[]>([]);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
-  const [detailData, setDetailData] = useState<Record<string, OrderDetailItem[]>>({});
-  const [detailLoading, setDetailLoading] = useState<string | null>(null);
-  const [uretimModalVisible, setUretimModalVisible] = useState(false);
-  const [uretimSiparis, setUretimSiparis] = useState<OrderItem | null>(null);
-  const [uretimLoading, setUretimLoading] = useState(false);
+  const [durumFilter, setDurumFilter] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const formToastRef = useRef<BottomSheetToastRef | null>(null);
-  const detayToastRef = useRef<BottomSheetToastRef | null>(null);
-  const [durumFilter, setDurumFilter] = useState<string | null>(null);
-  const [receteModalVisible, setReceteModalVisible] = useState(false);
-  const [receteSiparis, setReceteSiparis] = useState<OrderItem | null>(null);
-  const [receteItems, setReceteItems] = useState<ReceteItem[]>([]);
-  const [receteSummary, setReceteSummary] = useState<ReceteSummary[]>([]);
-  const [receteLoading, setReceteLoading] = useState(false);
+
   // Sipariş Form State
   const [formModalVisible, setFormModalVisible] = useState(false);
-  const [formEditingItem, setFormEditingItem] = useState<OrderItem | null>(null);
+  const [formEditingItem, setFormEditingItem] = useState<any | null>(null);
   const [formSaving, setFormSaving] = useState(false);
   const [formLookupsLoading, setFormLookupsLoading] = useState(false);
-  const [formDovizTipleri, setFormDovizTipleri] = useState<DovizTipi[]>([]);
-  const [formCariler, setFormCariler] = useState<CariLookupItem[]>([]);
+  const [formDeriTipi, setFormDeriTipi] = useState('');
+  const lastDeriTipi = useRef('');
   const [formSiparisKodu, setFormSiparisKodu] = useState('');
-  const [formMusteriSiparisKodu, setFormMusteriSiparisKodu] = useState('');
-  const [formSiparisTipi, setFormSiparisTipi] = useState(1);
-  const [formCariId, setFormCariId] = useState('');
-  const [formTarih, setFormTarih] = useState(new Date());
-  const [formTeslimTarihi, setFormTeslimTarihi] = useState(new Date());
   const [formDoviz, setFormDoviz] = useState('USD');
+  const [formDovizTipleri, setFormDovizTipleri] = useState<any[]>([]);
+  const [formCariId, setFormCariId] = useState('');
+  const [formCariler, setFormCariler] = useState<any[]>([]);
+  const [formTarih, setFormTarih] = useState(new Date());
+  const [formTeslimTarihi, setFormTeslimTarihi] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
   const [formTeslimSekliId, setFormTeslimSekliId] = useState('');
   const [formPaketlemeId, setFormPaketlemeId] = useState('');
+  const [formSiparisGrubuId, setFormSiparisGrubuId] = useState('');
+  const [formSiparisTipiId, setFormSiparisTipiId] = useState('');
+  const [formSiparisiAlan, setFormSiparisiAlan] = useState('');
   const [formIndirimTipi, setFormIndirimTipi] = useState(-1);
   const [formIndirimDeger, setFormIndirimDeger] = useState('');
-  const [formAvansRows, setFormAvansRows] = useState<{ tutar: string; doviz: string; dovizliTutar: string; aciklama: string; cariIslendi: boolean }[]>([]);
+  const [formAvansRows, setFormAvansRows] = useState<{ tutar: string; doviz: string; dovizliTutar: string; cariIslendi: boolean; fisId?: number; fisNo?: string }[]>([]);
   const [formIndirimCariIslendi, setFormIndirimCariIslendi] = useState(false);
-  const [formKurlar, setFormKurlar] = useState<Record<string, KurItem>>({});
+  const [formIndirimFisId, setFormIndirimFisId] = useState<number | undefined>(undefined);
+  const [formIndirimFisNo, setFormIndirimFisNo] = useState<string | undefined>(undefined);
   const [formAciklama, setFormAciklama] = useState('');
-  const [formMusteriSube, setFormMusteriSube] = useState('');
   const [formTarihPickerVisible, setFormTarihPickerVisible] = useState(false);
   const [formTeslimTarihPickerVisible, setFormTeslimTarihPickerVisible] = useState(false);
   const formFieldErrors = useFieldErrors();
+
+  // Detay Form State
+  const [detayFormVisible, setDetayFormVisible] = useState(false);
+  const [detayFormSiparis, setDetayFormSiparis] = useState<any | null>(null);
 
   // Cari ekleme state
   const [showCariForm, setShowCariForm] = useState(false);
@@ -115,26 +117,6 @@ export default function SiparisIslemleriScreen({
   const [cariFormSubeId, setCariFormSubeId] = useState(0);
   const cariFormFieldErrors = useFieldErrors();
 
-  // Seçili carinin kur tipi
-  const activeKurTipi = useMemo(() => {
-    if (!formCariId) return mapKurTipi();
-    const cari = formCariler.find(c => c.id.toString() === formCariId);
-    return mapKurTipi(cari?.kurTipi);
-  }, [formCariId, formCariler]);
-
-  // Sipariş Detay Form State
-  const [detayFormVisible, setDetayFormVisible] = useState(false);
-  const [detayFormSiparis, setDetayFormSiparis] = useState<OrderItem | null>(null);
-  const [detayFormSaving, setDetayFormSaving] = useState(false);
-  const [detayBedenSetleri, setDetayBedenSetleri] = useState<DetailBedenSetItem[]>([]);
-  const [detayVaryantlar, setDetayVaryantlar] = useState<DetailVaryantItem[]>([]);
-  const [detayVaryantLoading, setDetayVaryantLoading] = useState(false);
-  const [detayLookupsLoaded, setDetayLookupsLoaded] = useState(false);
-
-  // PDF Paylaş
-  const [pdfModalVisible, setPdfModalVisible] = useState(false);
-  const [pdfSiparis, setPdfSiparis] = useState<OrderItem | null>(null);
-
   // Tarih filtreleri
   const getYearStart = () => new Date(new Date().getFullYear() - 2, 0, 1);
   const getTodayEnd = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; };
@@ -145,6 +127,12 @@ export default function SiparisIslemleriScreen({
   const styles = createStyles(colors, isDark);
 
   const formatDateStr = (date: Date) => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${d}.${m}.${date.getFullYear()}`;
+  };
+
+  const formatDateDisplay = (date: Date) => {
     const d = date.getDate().toString().padStart(2, '0');
     const m = (date.getMonth() + 1).toString().padStart(2, '0');
     return `${d}.${m}.${date.getFullYear()}`;
@@ -186,85 +174,25 @@ export default function SiparisIslemleriScreen({
   const handleStartDateChange = (date: Date) => { setStartDate(date); setSelectedPreset(null); };
   const handleEndDateChange = (date: Date) => { setEndDate(date); setSelectedPreset(null); };
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const token = await authService.getToken();
-      if (!token) throw new Error('Token bulunamadı');
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) { setError('Firma veritabanı bilgisi bulunamadı'); return; }
-
-      const response = await ordersService.getList(token, dataName, {
-        modul: 'konfeksiyon',
-        startDate: formatDateISO(startDate),
-        endDate: formatDateISO(endDate),
-        siparisTipi: 1,
-      });
-
-      if (response.success && response.data) {
-        setData(response.data.items || []);
-        setSummaryData(response.data.summary || []);
-        setStats(response.data.stats || { totalSatis: 0, totalSatinalma: 0, totalUretimde: 0, totalBeklemede: 0, totalKapali: 0, totalIptal: 0 });
-      } else {
-        setError(response.message || 'Veri alınamadı');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Sipariş listesi alınamadı');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, startDate, endDate]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const [detailError, setDetailError] = useState<string | null>(null);
-
-  const fetchDetail = async (siparisId: string) => {
-    if (detailData[siparisId]) return;
-    setDetailLoading(siparisId);
-    setDetailError(null);
-    try {
-      const token = await authService.getToken();
-      if (!token) return;
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) return;
-      const response = await ordersService.getDetail(token, dataName, siparisId);
-      if (response.success && response.data) {
-        setDetailData(prev => ({ ...prev, [siparisId]: response.data.details || [] }));
-      } else {
-        setDetailError(response.message || 'Detay alınamadı');
-      }
-    } catch (e: any) {
-      setDetailError(e?.message || 'Detay yüklenemedi');
-    } finally {
-      setDetailLoading(null);
-    }
-  };
-
-  // Arama filtresi (stats buna göre hesaplanır)
-  const searchFilteredData = data.filter((item) => {
+  const searchFilteredData = data.filter((item: any) => {
     if (!searchText) return true;
     const q = searchText.toLowerCase();
     return (
-      item.cariAdi.toLowerCase().includes(q) ||
-      item.siparisKodu.toLowerCase().includes(q) ||
-      item.musteriSiparisKodu.toLowerCase().includes(q)
+      (item.cariAdi || '').toLowerCase().includes(q) ||
+      (item.siparisKodu || '').toLowerCase().includes(q)
     );
   });
 
-  // Arama sonucuna göre stats hesapla
   const filteredStats = {
     total: searchFilteredData.length,
-    uretimde: searchFilteredData.filter(i => i.durum === 'uretimde').length,
-    beklemede: searchFilteredData.filter(i => i.durum === 'beklemede').length,
-    kapali: searchFilteredData.filter(i => i.durum === 'kapali').length,
-    iptal: searchFilteredData.filter(i => i.durum === 'iptal').length,
+    uretimde: searchFilteredData.filter((i: any) => i.durum === 'uretimde').length,
+    beklemede: searchFilteredData.filter((i: any) => i.durum === 'beklemede').length,
+    kapali: searchFilteredData.filter((i: any) => i.durum === 'kapali').length,
+    iptal: searchFilteredData.filter((i: any) => i.durum === 'iptal').length,
   };
 
-  // Durum filtresi (liste buna göre gösterilir)
   const filteredData = durumFilter
-    ? searchFilteredData.filter(item => item.durum === durumFilter)
+    ? searchFilteredData.filter((item: any) => item.durum === durumFilter)
     : searchFilteredData;
 
   const formatAmount = (value: number) =>
@@ -285,20 +213,8 @@ export default function SiparisIslemleriScreen({
     }
   };
 
-  const getSiparisTipiInfo = (tipi: number) => {
-    if (tipi === 2) return { label: 'Satınalma', color: '#8B5CF6', icon: 'arrow-down-circle' };
-    return { label: 'Satış', color: '#10B981', icon: 'arrow-up-circle' };
-  };
-
   const toggleCardExpansion = (cardId: string) => {
-    if (expandedCardId === cardId) {
-      setExpandedCardId(null);
-    } else {
-      setExpandedCardId(cardId);
-      if (cardId !== 'summary') {
-        fetchDetail(cardId);
-      }
-    }
+    setExpandedCardId(expandedCardId === cardId ? null : cardId);
   };
 
   const handleTabPress = (tab: TabName) => {
@@ -313,154 +229,87 @@ export default function SiparisIslemleriScreen({
     } catch {}
   };
 
-  const handleRecetePress = async (item: OrderItem) => {
-    setReceteSiparis(item);
-    setReceteModalVisible(true);
-    setReceteLoading(true);
+  const fetchLookups = async (isNewOrder = false) => {
+    setFormLookupsLoading(true);
     try {
       const token = await authService.getToken();
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
       if (!dataName) return;
-      const response = await ordersService.getRecete(token, dataName, item.id);
+      const response = await ordersService.getLookups(token, dataName);
       if (response.success && response.data) {
-        setReceteItems(response.data.items || []);
-        setReceteSummary(response.data.summary || []);
-      }
-    } catch (_e) {
-    } finally {
-      setReceteLoading(false);
-    }
-  };
-
-  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
-    setToast({ type, text });
-  };
-
-  const handleSharePDF = (item: OrderItem) => {
-    if (item.detaySayisi === 0) {
-      showToast('error', 'Detay kaydı olmayan sipariş PDF olarak paylaşılamaz');
-      return;
-    }
-    setPdfSiparis(item);
-    setPdfModalVisible(true);
-  };
-
-  const handlePdfGenerate = async (fiyatli: boolean) => {
-    setPdfModalVisible(false);
-    if (!pdfSiparis) return;
-    try {
-      let details = detailData[pdfSiparis.id];
-      if (!details || details.length === 0) {
-        const token = await authService.getToken();
-        if (!token) return;
-        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-        if (!dataName) return;
-        const response = await ordersService.getDetail(token, dataName, pdfSiparis.id);
-        if (response.success && response.data) {
-          details = response.data;
+        setFormDovizTipleri(response.data.dovizTipleri || []);
+        setFormCariler(response.data.cariler || []);
+        if (isNewOrder) {
+          setFormSiparisKodu(response.data.nextSiparisKodu || '');
         }
       }
-      if (!details || details.length === 0) {
-        showToast('error', 'Sipariş detayları bulunamadı');
-        return;
-      }
-      await generateSiparisPDF({ siparis: pdfSiparis, detaylar: details, fiyatli });
-    } catch (_e) {
-      showToast('error', 'PDF oluşturulurken hata oluştu');
+    } catch (_) {}
+    finally {
+      setFormLookupsLoading(false);
     }
   };
 
-  const handleUretimeAlPress = (item: OrderItem) => {
-    if (item.uretim === 1) {
-      showToast('info', 'Bu sipariş zaten üretime alınmış');
-      return;
-    }
-    if (item.detaySayisi === 0) {
-      showToast('error', 'Detay kaydı olmayan sipariş üretime alınamaz');
-      return;
-    }
-    setUretimSiparis(item);
-    setUretimModalVisible(true);
-  };
-
-  const handleUretimeAlConfirm = async () => {
-    if (!uretimSiparis) return;
-    setUretimLoading(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) throw new Error('Token bulunamadı');
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-
-      const response = await ordersService.uretimeAl(token, dataName, uretimSiparis.id);
-      if (response.success) {
-        setUretimModalVisible(false);
-        setUretimSiparis(null);
-        showToast('success', `${uretimSiparis.siparisKodu} üretime alındı`);
-        await fetchData();
-      } else {
-        showToast('error', response.message || 'Üretime alma başarısız');
-      }
-    } catch (err: any) {
-      showToast('error', err.message || 'Üretime alma başarısız');
-    } finally {
-      setUretimLoading(false);
-    }
-  };
-
-  const handleCancelOrder = (item: OrderItem) => {
-    if (item.aktif === -2 || item.durum === 'iptal') {
-      showToast('info', 'Bu sipariş zaten iptal edilmiş');
-      return;
-    }
-    if (item.durum === 'uretimde') {
-      showToast('info', 'Üretime alınan sipariş iptal edilemez');
-      return;
-    }
-    showConfirm({
-      title: 'Sipariş İptal',
-      message: `"${item.siparisKodu}" kodlu siparişi iptal etmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz.`,
-      confirmText: 'İptal Et',
-      icon: 'close-circle-outline',
-      iconColor: '#EF4444',
-      onConfirm: async () => {
-        try {
-          const token = await authService.getToken();
-          if (!token) throw new Error('Token bulunamadı');
-          const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-          const response = await ordersService.cancelOrder(token, dataName, item.id);
-          if (response.success) {
-            showToast('success', `${item.siparisKodu} iptal edildi`);
-            await fetchData();
-          } else {
-            showToast('error', response.message || 'İptal işlemi başarısız');
-          }
-        } catch (err: any) {
-          showToast('error', err.message || 'İptal işlemi başarısız');
-        }
-      },
-    });
-  };
-
-  // Sipariş Form Handlers
   const resetForm = () => {
+    setFormDeriTipi(lastDeriTipi.current);
     setFormSiparisKodu('');
-    setFormMusteriSiparisKodu('');
-    setFormSiparisTipi(1);
+    setFormDoviz('USD');
     setFormCariId('');
     setFormTarih(new Date());
-    setFormTeslimTarihi(new Date());
-    setFormDoviz('USD');
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    setFormTeslimTarihi(d);
     setFormTeslimSekliId('');
     setFormPaketlemeId('');
+    setFormSiparisGrubuId('');
+    setFormSiparisTipiId('');
+    setFormSiparisiAlan(user?.name || '');
     setFormIndirimTipi(-1);
     setFormIndirimDeger('');
     setFormIndirimCariIslendi(false);
+    setFormIndirimFisId(undefined);
+    setFormIndirimFisNo(undefined);
     setFormAvansRows([]);
     setFormAciklama('');
-    setFormMusteriSube('');
-    setFormEditingItem(null);
     formFieldErrors.clearAll();
+  };
+
+  const handleOpenEditForm = (item: any) => {
+    setFormEditingItem(item);
+    setFormDeriTipi(item.deriGrubu || '');
+    setFormSiparisKodu(item.siparisKodu || '');
+    setFormDoviz(item.doviz || 'USD');
+    setFormCariId(item.carilerId != null && item.carilerId > 0 ? item.carilerId.toString() : '');
+    setFormTarih(item.tarih ? new Date(item.tarih) : new Date());
+    setFormTeslimTarihi(item.teslimTarihi ? new Date(item.teslimTarihi) : new Date());
+    setFormTeslimSekliId(item.teslimSekliId ? item.teslimSekliId.toString() : '');
+    setFormPaketlemeId(item.paketlemeId ? item.paketlemeId.toString() : '');
+    setFormSiparisiAlan(item.siparisiAlan || user?.name || '');
+    setFormSiparisGrubuId(item.siparisGrubuId && item.siparisGrubuId > 0 ? item.siparisGrubuId.toString() : '');
+    setFormSiparisTipiId(item.siparisTipiId && item.siparisTipiId > 0 ? item.siparisTipiId.toString() : '');
+    setFormIndirimTipi(item.masterAvansIndirim?.indirim?.tip ?? -1);
+    setFormIndirimDeger(item.masterAvansIndirim?.indirim?.deger ? item.masterAvansIndirim.indirim.deger.toString() : '');
+    setFormIndirimCariIslendi(item.masterAvansIndirim?.indirim?.cariIslendi ?? false);
+    setFormIndirimFisId(item.masterAvansIndirim?.indirim?.fisId || undefined);
+    setFormIndirimFisNo(item.masterAvansIndirim?.indirim?.fisNo || undefined);
+    setFormAvansRows((item.masterAvansIndirim?.avans || []).map((a: any) => ({
+      tutar: a.tutar.toString(),
+      doviz: a.doviz,
+      dovizliTutar: a.dovizliTutar ? a.dovizliTutar.toString() : '',
+      cariIslendi: a.cariIslendi ?? false,
+      fisId: a.fisId || undefined,
+      fisNo: a.fisNo || undefined,
+    })));
+    setFormAciklama(item.aciklama || '');
+    setFormModalVisible(true);
+    fetchLookups();
+  };
+
+  const handleNewOrder = () => {
+    resetForm();
+    setFormEditingItem(null);
+    setFormModalVisible(true);
+    fetchLookups(true);
   };
 
   const handleOpenCariForm = () => {
@@ -469,17 +318,15 @@ export default function SiparisIslemleriScreen({
     setCariFormHesapKodu('');
     setCariFormDoviz('TL');
     cariFormFieldErrors.clearAll();
-    // Sipariş formunu geçici kapat, cari formunu aç
     setFormModalVisible(false);
     setTimeout(() => {
       setShowCariForm(true);
     }, 350);
-    // Varsayılan şube ve otomatik hesap kodu al
     (async () => {
       try {
         const token = await authService.getToken();
         if (!token) return;
-        // Varsayılan şubeyi al
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
         const subeRes = await fetch(
           `${require('../config/env').BASE_URL}/user/subeler`,
           { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
@@ -490,8 +337,6 @@ export default function SiparisIslemleriScreen({
           subeId = subeData.data.varsayilanSube || subeData.data.subeler?.[0]?.id || 1;
         }
         setCariFormSubeId(subeId);
-        // Hesap kodu al
-        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
         const response = await accountService.getNextHesapKodu(token, dataName, 'customers', subeId);
         if (response.success && response.data.hesapKodu) {
           setCariFormHesapKodu(response.data.hesapKodu);
@@ -521,90 +366,62 @@ export default function SiparisIslemleriScreen({
         unvan: cariFormUnvan.trim(),
         kisaUnvan: cariFormKisaUnvan.trim(),
         doviz: cariFormDoviz,
-        subeId: cariFormSubeId || 1,
+        subeId: cariFormSubeId,
       });
-      if (response.success) {
+      if (response.success && response.data) {
+        const newCari = response.data as any;
+        setFormCariler((prev: any[]) => [...prev, { id: newCari.id, unvan: newCari.unvan }]);
+        setFormCariId(newCari.id.toString());
+        formFieldErrors.clearFieldError('cari');
         setShowCariForm(false);
-        // Lookupları yenile ve yeni cariyi seç
-        await fetchLookups();
-        if (response.data?.id) {
-          setFormCariId(response.data.id.toString());
-        }
-        setTimeout(() => {
-          setFormModalVisible(true);
-        }, 350);
+        setTimeout(() => setFormModalVisible(true), 350);
+      } else {
+        cariFormFieldErrors.setFieldError('unvan');
       }
-    } catch (err: any) {
-      showError(err.message || 'Cari oluşturulamadı');
+    } catch (_) {
+      cariFormFieldErrors.setFieldError('unvan');
     } finally {
       setCariFormSaving(false);
     }
   };
 
-  const fetchLookups = async (isNewOrder = false) => {
-    setFormLookupsLoading(true);
+  const showToast = (type: 'success' | 'error' | 'info', text: string) => {
+    setToast({ type, text });
+  };
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const token = await authService.getToken();
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) return;
-      const [response, kurResponse] = await Promise.all([
-        ordersService.getLookups(token, dataName),
-        dovizService.getKurlar(token, dataName),
-      ]);
+      if (!dataName) { setError('Firma veritabanı bilgisi bulunamadı'); return; }
+
+      const response = await ordersService.getList(token, dataName, {
+        modul: 'tabakhane',
+        startDate: formatDateISO(startDate),
+        endDate: formatDateISO(endDate),
+        siparisTipi: 1,
+      });
+
       if (response.success && response.data) {
-        setFormDovizTipleri(response.data.dovizTipleri || []);
-        setFormCariler(response.data.cariler || []);
-        if (isNewOrder) {
-          setFormSiparisKodu(response.data.nextSiparisKodu || '');
-        }
+        setData(response.data.items || []);
+      } else {
+        setError(response.message || 'Veri alınamadı');
       }
-      if (kurResponse.success && kurResponse.data) {
-        setFormKurlar(kurResponse.data.kurlar || {});
-      }
-    } catch (_e) {
+    } catch (err: any) {
+      setError(err.message || 'Sipariş listesi alınamadı');
     } finally {
-      setFormLookupsLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [user, startDate, endDate]);
 
-  const handleOpenCreateForm = () => {
-    resetForm();
-    setFormModalVisible(true);
-    fetchLookups(true);
-  };
-
-  const handleOpenEditForm = (item: OrderItem) => {
-    setFormEditingItem(item);
-    setFormSiparisKodu(item.siparisKodu);
-    setFormMusteriSiparisKodu(item.musteriSiparisKodu || '');
-    setFormSiparisTipi(item.siparisTipi);
-    setFormCariId(item.carilerId != null && item.carilerId > 0 ? item.carilerId.toString() : '');
-    setFormTarih(item.tarih ? new Date(item.tarih) : new Date());
-    setFormTeslimTarihi(item.teslimTarihi ? new Date(item.teslimTarihi) : new Date());
-    setFormDoviz(item.doviz || 'USD');
-    setFormTeslimSekliId(item.teslimSekliId ? item.teslimSekliId.toString() : '');
-    setFormPaketlemeId(item.paketlemeId ? item.paketlemeId.toString() : '');
-    setFormIndirimTipi(item.masterAvansIndirim?.indirim?.tip ?? -1);
-    setFormIndirimDeger(item.masterAvansIndirim?.indirim?.deger ? item.masterAvansIndirim.indirim.deger.toString() : '');
-    setFormIndirimCariIslendi(item.masterAvansIndirim?.indirim?.cariIslendi ?? false);
-    setFormAvansRows((item.masterAvansIndirim?.avans || []).map(a => ({
-      tutar: a.tutar.toString(),
-      doviz: a.doviz,
-      dovizliTutar: a.dovizliTutar ? a.dovizliTutar.toString() : '',
-      aciklama: a.aciklama || '',
-      cariIslendi: a.cariIslendi ?? false,
-    })));
-    setFormAciklama(item.aciklama || '');
-    setFormMusteriSube(item.musteriSube || '');
-    setFormModalVisible(true);
-    fetchLookups();
-  };
-
-
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleSaveOrder = async () => {
     const requiredFields: Record<string, string | null | undefined> = {
+      deriTipi: formDeriTipi,
       siparisKodu: formSiparisKodu.trim(),
       cari: formCariId,
       doviz: formDoviz,
@@ -621,9 +438,9 @@ export default function SiparisIslemleriScreen({
 
       const orderData = {
         siparisKodu: formSiparisKodu,
-        musteriSiparisKodu: formMusteriSiparisKodu,
-        siparisTipi: formSiparisTipi,
-        siparisModul: 'konfeksiyon',
+        siparisModul: 'tabakhane',
+        deriGrubu: formDeriTipi,
+        siparisTipi: 1,
         carilerId: parseInt(formCariId, 10),
         teslimSekliId: formTeslimSekliId ? parseInt(formTeslimSekliId, 10) : 0,
         paketlemeId: formPaketlemeId ? parseInt(formPaketlemeId, 10) : 0,
@@ -631,21 +448,31 @@ export default function SiparisIslemleriScreen({
         teslimTarihi: formatDateISO(formTeslimTarihi),
         doviz: formDoviz,
         aciklama: formAciklama,
+        siparisGrubuId: formSiparisGrubuId ? parseInt(formSiparisGrubuId, 10) : 0,
+        siparisTipiId: formSiparisTipiId ? parseInt(formSiparisTipiId, 10) : 0,
+        siparisiAlan: formSiparisiAlan,
         masterAvansIndirim: {
           avans: formAvansRows.filter(r => r.tutar && parseFloat(r.tutar) > 0).map(r => ({
             tutar: parseFloat(r.tutar),
             doviz: r.doviz,
             dovizliTutar: r.dovizliTutar ? parseFloat(r.dovizliTutar) : 0,
-            aciklama: r.aciklama,
             cariIslendi: r.cariIslendi,
+            ...(r.fisId ? { fisId: r.fisId } : {}),
+            ...(r.fisNo ? { fisNo: r.fisNo } : {}),
           })),
-          indirim: { tip: formIndirimTipi, deger: formIndirimDeger ? parseFloat(formIndirimDeger) : 0, doviz: formDoviz, cariIslendi: formIndirimCariIslendi },
+          indirim: {
+            tip: formIndirimTipi,
+            deger: formIndirimDeger ? parseFloat(formIndirimDeger) : 0,
+            doviz: formDoviz,
+            cariIslendi: formIndirimCariIslendi,
+            ...(formIndirimFisId ? { fisId: formIndirimFisId } : {}),
+            ...(formIndirimFisNo ? { fisNo: formIndirimFisNo } : {}),
+          },
         },
-        musteriSube: formMusteriSube,
       };
 
       if (formEditingItem) {
-        const response = await ordersService.updateOrder(token, dataName, formEditingItem.id, orderData);
+        const response = await ordersService.updateOrder(token, dataName, formEditingItem.id, orderData as any);
         if (response.success) {
           setFormModalVisible(false);
           setTimeout(() => showToast('success', 'Sipariş güncellendi'), 400);
@@ -654,10 +481,10 @@ export default function SiparisIslemleriScreen({
           formToastRef.current?.show({ type: 'error', text: response.message || 'Güncelleme başarısız' });
         }
       } else {
-        const response = await ordersService.createOrder(token, dataName, orderData);
+        const response = await ordersService.createOrder(token, dataName, orderData as any);
         if (response.success) {
           setFormModalVisible(false);
-          setTimeout(() => showToast('success', `${response.data?.siparisKodu || 'Sipariş'} oluşturuldu`), 400);
+          setTimeout(() => showToast('success', `${(response.data as any)?.siparisKodu || 'Sipariş'} oluşturuldu`), 400);
           await fetchData();
         } else {
           formToastRef.current?.show({ type: 'error', text: response.message || 'Oluşturma başarısız' });
@@ -670,146 +497,49 @@ export default function SiparisIslemleriScreen({
     }
   };
 
-  // ─── Detay Form Handlers ──────────────────────────────────────
-  const fetchDetailLookups = async () => {
-    if (detayLookupsLoaded) return;
-    try {
-      const token = await authService.getToken();
-      if (!token) return;
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) return;
-
-      // Detay lookups + döviz tipleri
-      const [detayRes, lookupsRes] = await Promise.all([
-        ordersService.getDetailLookups(token, dataName),
-        formDovizTipleri.length === 0 ? ordersService.getLookups(token, dataName) : Promise.resolve(null),
-      ]);
-
-      if (detayRes.success && detayRes.data) {
-        setDetayBedenSetleri(detayRes.data.bedenSetleri || []);
-        setDetayLookupsLoaded(true);
-      }
-      if (lookupsRes && lookupsRes.success && lookupsRes.data) {
-        setFormDovizTipleri(lookupsRes.data.dovizTipleri || []);
-      }
-    } catch (_e) {}
-  };
-
-  const handleOpenDetayForm = (siparis: OrderItem) => {
-    setDetayFormSiparis(siparis);
-    setDetayVaryantlar([]);
-    setDetayFormVisible(true);
-    fetchDetailLookups();
-  };
-
-  const handleDetayModelChange = async (modelId: string) => {
-    setDetayVaryantlar([]);
-    if (!modelId) return;
-    setDetayVaryantLoading(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) return;
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      if (!dataName) return;
-      const response = await ordersService.getDetailVaryantlar(token, dataName, modelId);
-      if (response.success && response.data) {
-        setDetayVaryantlar(response.data.varyantlar || []);
-      }
-    } catch (_e) {
-    } finally {
-      setDetayVaryantLoading(false);
-    }
-  };
-
-  const handleSaveDetay = async (formData: DetayFormData) => {
-    if (!detayFormSiparis) return;
-    setDetayFormSaving(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) throw new Error('Token bulunamadı');
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-
-      const response = await ordersService.addDetail(token, dataName, detayFormSiparis.id, {
-        modelId: formData.modelId ? parseInt(formData.modelId, 10) : 0,
-        varyantId: formData.varyantId ? parseInt(formData.varyantId, 10) : 0,
-        bedenSetId: formData.bedenSetId ? parseInt(formData.bedenSetId, 10) : 0,
-        bedenMiktarlar: formData.bedenMiktarlar,
-        fiyat: parseFloat(formData.fiyat) || 0,
-        doviz: formData.doviz,
-        indirimTipi: formData.indirimTipi,
-        indirimDeger: parseFloat(formData.indirimDeger) || 0,
-        aciklama: formData.aciklama,
-      });
-
-      if (response.success) {
-        setDetayFormVisible(false);
-        setTimeout(() => showToast('success', 'Sipariş kalemi eklendi'), 400);
-        // Refresh detail data for this order
-        setDetailData(prev => {
-          const next = { ...prev };
-          delete next[detayFormSiparis.id];
-          return next;
-        });
-        fetchDetail(detayFormSiparis.id);
-        await fetchData();
-      } else {
-        detayToastRef.current?.show({ type: 'error', text: response.message || 'Kalem eklenemedi' });
-      }
-    } catch (err: any) {
-      detayToastRef.current?.show({ type: 'error', text: err.message || 'Kalem eklenemedi' });
-    } finally {
-      setDetayFormSaving(false);
-    }
-  };
-
-  const totalCount = summaryData.reduce((sum, s) => sum + s.totalCount, 0);
-
   return (
     <>
     <SafeAreaProvider>
       <View style={styles.container}>
         <Header
-          title="Sipariş İşlemleri"
-          leftButton={<BackButton onPress={onGoBack} />}
+          title="Tabakhane Siparişleri"
+          leftButton={<BackButton onPress={onGoBack || (() => {})} />}
+          showMenu={true}
+          onLogout={handleLogout}
           rightButton={
-            <View style={{ flexDirection: 'row', gap: 4 }}>
-              <AddButton onPress={handleOpenCreateForm} />
-              <SearchButton onPress={() => {
-                setFilterVisible(v => !v);
-                if (filterVisible) setSearchText('');
-              }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <AddButton onPress={handleNewOrder} />
+              <SearchButton onPress={() => setFilterVisible(!filterVisible)} />
             </View>
           }
-          showMenu
-          onLogout={handleLogout}
         />
 
-        {/* Page Title */}
+        {/* Page Header */}
         <View style={styles.pageHeader}>
           <View style={styles.pageTitleContainer}>
-            <View style={[styles.pageTitleIcon, { backgroundColor: '#3B82F615' }]}>
-              <Icon name="receipt-outline" size={18} color="#3B82F6" />
+            <View style={[styles.pageTitleIcon, { backgroundColor: colors.primary + '15' }]}>
+              <Icon name="document-text" size={18} color={colors.primary} />
             </View>
-            <Text style={styles.pageTitle}>Sipariş İşlemleri</Text>
+            <Text style={styles.pageTitle}>Tabakhane Siparişleri</Text>
           </View>
         </View>
 
-        {/* Date Filter */}
+        {/* Filtre */}
         {filterVisible && (
           <View style={styles.filterCard}>
             <DateFilter
-              selectedPreset={selectedPreset}
-              onPresetChange={handlePresetChange}
-              startDate={formatDateStr(startDate)}
-              endDate={formatDateStr(endDate)}
+              startDate={formatDateDisplay(startDate)}
+              endDate={formatDateDisplay(endDate)}
               startDateObj={startDate}
               endDateObj={endDate}
+              selectedPreset={selectedPreset}
+              onPresetChange={handlePresetChange}
               onStartDateChange={handleStartDateChange}
               onEndDateChange={handleEndDateChange}
-              showSearch={true}
+              showSearch
               searchValue={searchText}
               onSearchChange={setSearchText}
-              searchPlaceholder="Müşteri, sipariş kodu ara..."
+              searchPlaceholder="Sipariş kodu, cari adı ara..."
             />
           </View>
         )}
@@ -862,11 +592,11 @@ export default function SiparisIslemleriScreen({
             {/* Summary by Currency */}
             {(() => {
               const filteredSummary: Record<string, { currency: string; totalQuantity: number; totalAmount: number }> = {};
-              filteredData.forEach((item) => {
+              filteredData.forEach((item: any) => {
                 const key = item.doviz || 'TL';
                 if (!filteredSummary[key]) filteredSummary[key] = { currency: key, totalQuantity: 0, totalAmount: 0 };
-                filteredSummary[key].totalQuantity += item.miktar;
-                filteredSummary[key].totalAmount += item.tutar;
+                filteredSummary[key].totalQuantity += item.miktar || 0;
+                filteredSummary[key].totalAmount += item.tutar || 0;
               });
               const summaryList = Object.values(filteredSummary);
               if (summaryList.length === 0) return null;
@@ -885,7 +615,6 @@ export default function SiparisIslemleriScreen({
                       </View>
                     </View>
                   </Pressable>
-
                   {isSummaryExpanded && (
                     <View style={styles.summaryDetail}>
                       <View style={styles.summaryDetailHeader}>
@@ -910,7 +639,7 @@ export default function SiparisIslemleriScreen({
               );
             })()}
 
-            {/* Order List */}
+            {/* Filtre sonucu boş */}
             {filteredData.length === 0 && (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="filter-outline" size={40} color={colors.textSecondary} />
@@ -920,13 +649,11 @@ export default function SiparisIslemleriScreen({
                 </Pressable>
               </View>
             )}
-            {filteredData.map((item) => {
-              const durumInfo = getDurumInfo(item.durum);
-              const tipiInfo = getSiparisTipiInfo(item.siparisTipi);
-              const isExpanded = expandedCardId === item.id;
-              const details = detailData[item.id];
-              const isDetailLoading = detailLoading === item.id;
 
+            {/* Order List */}
+            {filteredData.map((item: any) => {
+              const durumInfo = getDurumInfo(item.durum);
+              const isExpanded = expandedCardId === item.id;
               return (
                 <Pressable key={item.id} style={[styles.card, isExpanded && { borderColor: colors.primary + '40' }]} onPress={() => toggleCardExpansion(item.id)}>
                   {/* Card Header */}
@@ -934,7 +661,7 @@ export default function SiparisIslemleriScreen({
                     <View style={styles.cardHeaderLeft}>
                       <View style={[styles.durumDot, { backgroundColor: durumInfo.color }]} />
                       <View style={styles.cardTitleContainer}>
-                        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>{item.cariAdi}{item.musteriSube ? ` - ${item.musteriSube}` : ''}</Text>
+                        <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>{item.cariAdi || '-'}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                           <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>{item.siparisKodu || '-'}</Text>
                           <Text style={[styles.cardSubtitle, { color: colors.textSecondary, opacity: 0.5 }]}>·</Text>
@@ -943,9 +670,9 @@ export default function SiparisIslemleriScreen({
                       </View>
                     </View>
                     <View style={styles.cardHeaderRight}>
-                      <Text style={styles.cardAmount}>{formatAmount(item.tutar)} <Text style={[styles.cardCurrency, { color: colors.textSecondary }]}>{item.doviz}</Text></Text>
+                      <Text style={styles.cardAmount}>{formatAmount(item.tutar || 0)} <Text style={[styles.cardCurrency, { color: colors.textSecondary }]}>{item.doviz}</Text></Text>
                       {item.masterAvansIndirim?.avans && item.masterAvansIndirim.avans.length > 0 ? (() => {
-                        const topAvans = item.masterAvansIndirim.avans.reduce((s, a) => s + (a.dovizliTutar || a.tutar), 0);
+                        const topAvans = item.masterAvansIndirim.avans.reduce((s: number, a: any) => s + (a.dovizliTutar || a.tutar), 0);
                         return topAvans > 0 ? (
                           <Text style={{ fontSize: 11, color: '#3B82F6', textAlign: 'right', marginTop: 2 }}>
                             Avans: {formatAmount(topAvans)} {item.doviz}
@@ -958,14 +685,14 @@ export default function SiparisIslemleriScreen({
                         </Text>
                       ) : null}
                       {(() => {
-                        const avansTop = (item.masterAvansIndirim?.avans || []).reduce((s, a) => s + (a.dovizliTutar || a.tutar), 0);
+                        const avansTop = (item.masterAvansIndirim?.avans || []).reduce((s: number, a: any) => s + (a.dovizliTutar || a.tutar), 0);
                         const ind = item.masterAvansIndirim?.indirim;
                         const indTutar = ind && ind.tip !== -1 && ind.deger > 0
-                          ? (ind.tip === 0 ? item.tutar * ind.deger / 100 : ind.deger)
+                          ? (ind.tip === 0 ? (item.tutar || 0) * ind.deger / 100 : ind.deger)
                           : 0;
-                        const kalan = item.tutar - indTutar - avansTop;
+                        const kalan = (item.tutar || 0) - indTutar - avansTop;
                         return (avansTop > 0 || indTutar > 0) ? (
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981', textAlign: 'right', marginTop: 3 }}>
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: kalan >= 0 ? '#10B981' : '#EF4444', textAlign: 'right', marginTop: 3 }}>
                             Kalan: {formatAmount(kalan)} {item.doviz}
                           </Text>
                         ) : null;
@@ -975,22 +702,31 @@ export default function SiparisIslemleriScreen({
 
                   {/* Quick Info Row */}
                   <View style={styles.quickInfoRow}>
+                    {item.deriGrubu ? (() => {
+                      const deriInfo = item.deriGrubu === 'Kürk'
+                        ? { color: '#8B5CF6', bg: isDark ? '#8B5CF620' : '#F5F3FF', icon: 'paw-outline' }
+                        : item.deriGrubu === 'Zig'
+                        ? { color: '#F59E0B', bg: isDark ? '#F59E0B20' : '#FFFBEB', icon: 'flash-outline' }
+                        : { color: '#EC4899', bg: isDark ? '#EC489920' : '#FDF2F8', icon: 'construct-outline' };
+                      return (
+                        <View style={[styles.quickInfoBadge, { backgroundColor: deriInfo.bg }]}>
+                          <Icon name={deriInfo.icon} size={12} color={deriInfo.color} />
+                          <Text style={[styles.quickInfoText, { color: deriInfo.color }]}>{item.deriGrubu}</Text>
+                        </View>
+                      );
+                    })() : null}
                     <View style={[styles.quickInfoBadge, { backgroundColor: durumInfo.bg }]}>
                       <Icon name={durumInfo.icon} size={12} color={durumInfo.color} />
                       <Text style={[styles.quickInfoText, { color: durumInfo.color }]}>{durumInfo.label}</Text>
                     </View>
-                    <View style={[styles.quickInfoBadge, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
-                      <Icon name="layers-outline" size={12} color={colors.textSecondary} />
-                      <Text style={[styles.quickInfoText, { color: colors.textSecondary }]}>{item.detaySayisi} kalem</Text>
-                    </View>
-                    {item.miktar > 0 && (
+                    {(item.miktar || 0) > 0 && (
                       <View style={[styles.quickInfoBadge, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
                         <Icon name="cube-outline" size={12} color={colors.textSecondary} />
                         <Text style={[styles.quickInfoText, { color: colors.textSecondary }]}>{item.miktar.toLocaleString('tr-TR')} ad.</Text>
                       </View>
                     )}
                     {item.teslimTarihi && item.teslimTarihi !== '0000-00-00' && (
-                      <View style={[styles.quickInfoBadge, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                      <View style={[styles.quickInfoBadge, { backgroundColor: isDark ? '#6B728020' : '#F3F4F6' }]}>
                         <Icon name="calendar-outline" size={12} color={colors.textSecondary} />
                         <Text style={[styles.quickInfoText, { color: colors.textSecondary }]}>{formatDate(item.teslimTarihi)}</Text>
                       </View>
@@ -1000,104 +736,68 @@ export default function SiparisIslemleriScreen({
                   {/* Expanded Detail */}
                   {isExpanded && (
                     <View style={[styles.cardDetail, { borderTopColor: isDark ? colors.border : '#F1F5F9' }]}>
-                      {/* Info Grid */}
+                      {/* Detay Bilgileri */}
                       <View style={styles.infoGrid}>
-
+                        {item.siparisiAlan ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Siparişi Alan</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.siparisiAlan}</Text>
+                          </View>
+                        ) : null}
+                        {item.siparisGrubuAdi ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Sipariş Grubu</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.siparisGrubuAdi}</Text>
+                          </View>
+                        ) : null}
+                        {item.siparisTipiAdi ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Sipariş Tipi</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.siparisTipiAdi}</Text>
+                          </View>
+                        ) : null}
+                        {item.teslimSekliAdi ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Teslim Şekli</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.teslimSekliAdi}</Text>
+                          </View>
+                        ) : null}
+                        {item.paketlemeAdi ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Paketleme</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.paketlemeAdi}</Text>
+                          </View>
+                        ) : null}
+                        <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>İndirim Fişi</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>
+                              {item.masterAvansIndirim?.indirim && item.masterAvansIndirim.indirim.tip !== -1 && item.masterAvansIndirim.indirim.deger > 0
+                                ? (item.masterAvansIndirim.indirim.fisNo || '-')
+                                : '-'}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Avans Fişi</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>
+                              {item.masterAvansIndirim?.avans?.length > 0
+                                ? item.masterAvansIndirim.avans.map((a: any) => a.fisNo || '-').join(', ')
+                                : '-'}
+                            </Text>
+                          </View>
+                        </View>
+                        {item.musteriSube ? (
+                          <View style={[styles.infoItem, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Müşteri Şube</Text>
+                            <Text style={[styles.infoValue, { color: colors.text }]}>{item.musteriSube}</Text>
+                          </View>
+                        ) : null}
                       </View>
-
-                      {/* Progress Bar */}
-                      {item.detaySayisi > 0 && (
-                        <View style={[styles.progressSection, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
-                          <View style={styles.progressHeader}>
-                            <Text style={[styles.progressLabel, { color: colors.text }]}>Üretim İlerlemesi</Text>
-                            <Text style={styles.progressPercent}>
-                              {Math.round((item.uretimdeCount / item.detaySayisi) * 100)}%
-                            </Text>
-                          </View>
-                          <View style={[styles.progressBar, { backgroundColor: isDark ? colors.border : '#E2E8F0' }]}>
-                            <View style={[
-                              styles.progressFill,
-                              { width: `${(item.uretimdeCount / item.detaySayisi) * 100}%` },
-                            ]} />
-                          </View>
-                          <View style={styles.progressInfo}>
-                            <Text style={[styles.progressInfoText, { color: colors.textSecondary }]}>
-                              <Text style={{ color: '#3B82F6', fontWeight: '600' }}>{item.uretimdeCount}</Text> üretimde
-                            </Text>
-                            <Text style={[styles.progressInfoText, { color: colors.textSecondary }]}>
-                              <Text style={{ color: '#F59E0B', fontWeight: '600' }}>{item.beklemedeSayisi}</Text> beklemede
-                            </Text>
-                          </View>
-                        </View>
-                      )}
-
-                      {/* Detail Items */}
-                      {isDetailLoading ? (
-                        <View style={styles.detailLoadingContainer}>
-                          <Text style={[styles.detailLoadingText, { color: colors.textSecondary }]}>Detaylar yükleniyor...</Text>
-                        </View>
-                      ) : detailError ? (
-                        <View style={styles.detailLoadingContainer}>
-                          <Text style={{ color: '#EF4444', fontSize: 12 }}>Hata: {detailError}</Text>
-                        </View>
-                      ) : details && details.length > 0 ? (
-                        <View style={styles.detailSection}>
-                          <Text style={[styles.detailSectionTitle, { color: colors.text }]}>Sipariş Kalemleri</Text>
-                          {details.map((det, idx) => (
-                            <View key={det.id} style={[styles.detailItem, idx > 0 && { borderTopWidth: 1, borderTopColor: isDark ? colors.border : '#F1F5F9' }]}>
-                              {/* Satır 1: Ürün adı + Toplam fiyat */}
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <View style={{ flex: 1, marginRight: 8 }}>
-                                  <Text style={[styles.detailItemName, { color: colors.text }]} numberOfLines={1}>
-                                    {det.modelAdi || det.stokAdi || 'Ürün'}{det.varyantAdi ? <Text style={{ color: '#8B5CF6' }}> · {det.varyantAdi}</Text> : null}
-                                  </Text>
-                                </View>
-                                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                                  {det.miktar.toLocaleString('tr-TR')} × {formatAmount(det.fiyat)} = <Text style={{ fontWeight: '700', color: '#10B981' }}>{formatAmount(det.fiyat * det.miktar)} {det.doviz}</Text>
-                                </Text>
-                              </View>
-
-                              {/* Satır 2: KDV · İndirim · Hammadde tek satırda */}
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 4, gap: 4 }}>
-                                {det.indirim > 0 && (
-                                  <Text style={{ fontSize: 10, color: '#EF4444', backgroundColor: isDark ? '#EF444415' : '#FEF2F2', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                    İnd. {det.indirimTip === 1 ? `%${det.indirim}` : formatAmount(det.indirim)}
-                                  </Text>
-                                )}
-                              </View>
-
-                              {/* Maliyet */}
-                              {det.maliyetFiyat > 0 && (
-                                <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 4 }}>Maliyet: <Text style={{ fontWeight: '600', color: colors.text }}>{formatAmount(det.maliyetFiyat)}</Text></Text>
-                              )}
-
-                              {/* Beden Dağılımı */}
-                              {det.bedenler && det.bedenler.length > 0 && (
-                                <View style={[styles.bedenRow, { marginTop: 6 }]}>
-                                  {det.bedenler.map((b, bi) => (
-                                    <View key={bi} style={[styles.bedenChip, { backgroundColor: isDark ? colors.background : '#F0F4FF' }]}>
-                                      <Text style={styles.bedenChipLabel}>{b.beden}</Text>
-                                      <Text style={[styles.bedenChipValue, { color: colors.text }]}>{b.miktar}</Text>
-                                    </View>
-                                  ))}
-                                </View>
-                              )}
-
-                              {/* Açıklama */}
-                              {det.aciklama ? (
-                                <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 4, fontStyle: 'italic' }} numberOfLines={2}>{det.aciklama}</Text>
-                              ) : null}
-                            </View>
-                          ))}
-                        </View>
-                      ) : null}
 
                       {/* Açıklama */}
                       {item.aciklama ? (
-                        <Text style={[styles.cardNote, { color: colors.textSecondary }]} numberOfLines={3}>{item.aciklama}</Text>
+                        <Text style={[styles.cardNote, { color: colors.textSecondary }]}>{item.aciklama}</Text>
                       ) : null}
-
-
 
                       {/* Alt Butonlar */}
                       <View style={styles.cardBottomButtons}>
@@ -1110,7 +810,7 @@ export default function SiparisIslemleriScreen({
                         </Pressable>
                         <Pressable
                           style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                          onPress={(e) => { e.stopPropagation(); handleOpenDetayForm(item); }}
+                          onPress={(e) => { e.stopPropagation(); setDetayFormSiparis(item); setDetayFormVisible(true); }}
                         >
                           <Icon name="add-circle-outline" size={18} color="#fff" />
                           <Text style={styles.actionBtnText}>Detay</Text>
@@ -1118,7 +818,7 @@ export default function SiparisIslemleriScreen({
                         {item.uretim === 0 ? (
                           <Pressable
                             style={[styles.actionBtn, { backgroundColor: '#10B981' }]}
-                            onPress={(e) => { e.stopPropagation(); handleUretimeAlPress(item); }}
+                            onPress={(e) => { e.stopPropagation(); /* TODO: handleUretimeAl(item); */ }}
                           >
                             <Icon name="construct-outline" size={18} color="#fff" />
                             <Text style={styles.actionBtnText}>Üretime</Text>
@@ -1130,15 +830,8 @@ export default function SiparisIslemleriScreen({
                           </View>
                         )}
                         <Pressable
-                          style={[styles.actionBtn, { backgroundColor: '#8B5CF6' }]}
-                          onPress={(e) => { e.stopPropagation(); handleRecetePress(item); }}
-                        >
-                          <Icon name="document-text-outline" size={18} color="#fff" />
-                          <Text style={styles.actionBtnText}>Reçete</Text>
-                        </Pressable>
-                        <Pressable
                           style={[styles.actionBtn, { backgroundColor: '#0EA5E9' }]}
-                          onPress={(e) => { e.stopPropagation(); handleSharePDF(item); }}
+                          onPress={(e) => { e.stopPropagation(); /* TODO: handleSharePDF(item); */ }}
                         >
                           <Icon name="share-outline" size={18} color="#fff" />
                           <Text style={styles.actionBtnText}>PDF</Text>
@@ -1146,7 +839,7 @@ export default function SiparisIslemleriScreen({
                         {item.aktif !== -2 && item.durum !== 'iptal' && item.durum !== 'uretimde' && (
                           <Pressable
                             style={[styles.actionBtn, { backgroundColor: '#EF4444' }]}
-                            onPress={(e) => { e.stopPropagation(); handleCancelOrder(item); }}
+                            onPress={(e) => { e.stopPropagation(); /* TODO: handleCancelOrder(item); */ }}
                           >
                             <Icon name="close-circle-outline" size={18} color="#fff" />
                             <Text style={styles.actionBtnText}>İptal</Text>
@@ -1161,191 +854,11 @@ export default function SiparisIslemleriScreen({
           </ScrollView>
         )}
 
-        {/* PDF Seçim Modalı */}
-        <Modal
-          visible={pdfModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setPdfModalVisible(false)}
-        >
-          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setPdfModalVisible(false)}>
-            <Pressable style={{ backgroundColor: isDark ? colors.card : '#fff', borderRadius: 16, padding: 24, width: '80%', maxWidth: 320 }} onPress={() => {}}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-                <Icon name="document-text-outline" size={22} color={colors.primary} />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>PDF Paylaş</Text>
-              </View>
-              <Pressable
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: isDark ? colors.background : '#F0FDF4', borderWidth: 1, borderColor: '#10B981', borderRadius: 12, padding: 14, marginBottom: 10 }}
-                onPress={() => handlePdfGenerate(true)}
-              >
-                <Icon name="cash-outline" size={22} color="#10B981" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Fiyatlı</Text>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>Fiyat ve toplam bilgileri ile</Text>
-                </View>
-                <Icon name="chevron-forward" size={18} color={colors.textSecondary} />
-              </Pressable>
-              <Pressable
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: isDark ? colors.background : '#EFF6FF', borderWidth: 1, borderColor: '#3B82F6', borderRadius: 12, padding: 14 }}
-                onPress={() => handlePdfGenerate(false)}
-              >
-                <Icon name="eye-off-outline" size={22} color="#3B82F6" />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Fiyatsız</Text>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 1 }}>Model, varyant ve miktar</Text>
-                </View>
-                <Icon name="chevron-forward" size={18} color={colors.textSecondary} />
-              </Pressable>
-            </Pressable>
-          </Pressable>
-        </Modal>
-
-        {/* Üretime Al Onay Modalı */}
-        <Modal
-          visible={uretimModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => !uretimLoading && setUretimModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-              <View style={styles.modalIconWrap}>
-                <Icon name="construct-outline" size={32} color="#10B981" />
-              </View>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Üretime Al</Text>
-              <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-                <Text style={{ fontWeight: '700', color: colors.text }}>{uretimSiparis?.siparisKodu}</Text>
-                {'\n'}kodlu siparişi üretime almak istediğinize emin misiniz?
-              </Text>
-              {uretimSiparis && (
-                <View style={[styles.modalInfo, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
-                  <Text style={[styles.modalInfoText, { color: colors.text }]}>{uretimSiparis.cariAdi}</Text>
-                  <Text style={[styles.modalInfoSub, { color: colors.textSecondary }]}>
-                    {uretimSiparis.detaySayisi} kalem · {uretimSiparis.miktar.toLocaleString('tr-TR')} adet
-                  </Text>
-                </View>
-              )}
-              <View style={styles.modalButtons}>
-                <Pressable
-                  style={[styles.modalBtn, styles.modalBtnCancel, { borderColor: colors.border }]}
-                  onPress={() => setUretimModalVisible(false)}
-                  disabled={uretimLoading}
-                >
-                  <Icon name="close-outline" size={18} color={colors.textSecondary} />
-                  <Text style={[styles.modalBtnText, { color: colors.textSecondary }]}>İptal</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.modalBtn, styles.modalBtnConfirm]}
-                  onPress={handleUretimeAlConfirm}
-                  disabled={uretimLoading}
-                >
-                  {uretimLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Icon name="checkmark-outline" size={18} color="#fff" />
-                      <Text style={[styles.modalBtnText, { color: '#fff' }]}>Onayla</Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Reçete Modal */}
-        <Modal
-          visible={receteModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setReceteModalVisible(false)}
-        >
-          <View style={styles.receteModalOverlay}>
-            <View style={[styles.receteModalContent, { backgroundColor: isDark ? colors.card : '#fff' }]}>
-              {/* Header */}
-              <View style={styles.receteModalHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.receteModalTitle, { color: colors.text }]}>Reçete</Text>
-                  {receteSiparis && (
-                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{receteSiparis.siparisKodu} · {receteSiparis.cariAdi}</Text>
-                  )}
-                </View>
-                <Pressable onPress={() => setReceteModalVisible(false)} style={styles.receteCloseBtn}>
-                  <Icon name="close" size={22} color={colors.text} />
-                </Pressable>
-              </View>
-
-              {receteLoading ? (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <ActivityIndicator size="large" color={colors.primary} />
-                </View>
-              ) : receteItems.length === 0 ? (
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Icon name="document-text-outline" size={48} color={colors.textSecondary} />
-                  <Text style={{ color: colors.textSecondary, marginTop: 8, fontSize: 14 }}>Reçete kaydı bulunamadı</Text>
-                </View>
-              ) : (
-                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                  {/* Özet */}
-                  {receteSummary.length > 0 && (
-                    <View style={[styles.receteSummaryRow, { borderBottomColor: isDark ? colors.border : '#F1F5F9' }]}>
-                      {receteSummary.map((s, i) => (
-                        <View key={i} style={[styles.receteSummaryItem, { backgroundColor: isDark ? colors.background : '#F0FDF4' }]}>
-                          <Text style={{ fontSize: 11, color: colors.textSecondary }}>Toplam</Text>
-                          <Text style={{ fontSize: 14, fontWeight: '700', color: '#10B981' }}>{formatAmount(s.toplam)} <Text style={{ fontSize: 11, fontWeight: '500' }}>{s.doviz}</Text></Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Kalemler - kalem tipine göre grupla */}
-                  {(() => {
-                    const grouped: Record<string, ReceteItem[]> = {};
-                    receteItems.forEach(item => {
-                      const key = item.kalemTipiLabel;
-                      if (!grouped[key]) grouped[key] = [];
-                      grouped[key].push(item);
-                    });
-                    return Object.entries(grouped).map(([grupAdi, items]) => (
-                      <View key={grupAdi} style={{ marginBottom: 12 }}>
-                        <Text style={[styles.receteGroupTitle, { color: colors.primary }]}>{grupAdi}</Text>
-                        {items.map((r, ri) => (
-                          <View key={r.id} style={[styles.receteItem, ri > 0 && { borderTopWidth: 1, borderTopColor: isDark ? colors.border : '#F1F5F9' }]}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                              <View style={{ flex: 1, marginRight: 8 }}>
-                                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }} numberOfLines={1}>
-                                  {r.varyantAdi || r.stokAdi || r.islemAdi || 'Kalem'}
-                                </Text>
-                                {r.malzemeTipi ? (
-                                  <Text style={{ fontSize: 10, color: '#8B5CF6', marginTop: 1 }}>{r.malzemeTipi}</Text>
-                                ) : null}
-                              </View>
-                              <Text style={{ fontSize: 12, fontWeight: '700', color: '#10B981' }}>
-                                {formatAmount(r.toplamTutar)} <Text style={{ fontSize: 10, fontWeight: '500', color: colors.textSecondary }}>{r.doviz}</Text>
-                              </Text>
-                            </View>
-                            <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 3 }}>
-                              {r.miktar.toLocaleString('tr-TR')} {r.birimAdi} × {formatAmount(r.birimFiyat)}
-                            </Text>
-                            {r.aciklama ? (
-                              <Text style={{ fontSize: 10, color: colors.textSecondary, fontStyle: 'italic', marginTop: 2 }} numberOfLines={2}>{r.aciklama}</Text>
-                            ) : null}
-                          </View>
-                        ))}
-                      </View>
-                    ));
-                  })()}
-                </ScrollView>
-              )}
-            </View>
-          </View>
-        </Modal>
-
         {/* Sipariş Form BottomSheet */}
         <BottomSheet
           visible={formModalVisible}
           onClose={() => setFormModalVisible(false)}
-          title={formEditingItem ? `Sipariş Düzenle - ${formEditingItem.siparisKodu}` : 'Yeni Sipariş'}
+          title={formEditingItem ? `Sipariş Düzenle - ${formEditingItem.siparisKodu}` : `Yeni Sipariş${formDeriTipi ? ` · ${formDeriTipi}` : ''}`}
           icon={formEditingItem ? 'create-outline' : 'receipt-outline'}
           toastRef={formToastRef}
           footer={!formLookupsLoading ? (
@@ -1382,17 +895,34 @@ export default function SiparisIslemleriScreen({
             </View>
           ) : (
             <View style={styles.formSection}>
+              {/* Deri Tipi */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <SelectInput
+                    label="Deri Tipi *"
+                    icon="layers-outline"
+                    placeholder="Deri tipi seçiniz..."
+                    value={formDeriTipi}
+                    items={DERI_TIPI_OPTIONS}
+                    onSelect={(v) => { setFormDeriTipi(v); lastDeriTipi.current = v; formFieldErrors.clearFieldError('deriTipi'); }}
+                    containerStyle={{ marginBottom: 0 }}
+                    error={formFieldErrors.errors.deriTipi}
+                    shake={formFieldErrors.shakes.deriTipi}
+                  />
+                </View>
+              </View>
+
               {/* Sipariş Kodu & Döviz */}
               <View style={[styles.formRow, { gap: 10 }]}>
                 <View style={[styles.formField, { flex: 1 }]}>
-                  <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Sipariş Kodu</Text>
+                  <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Sipariş Kodu *</Text>
                   <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: formFieldErrors.errors.siparisKodu ? colors.danger : colors.inputBorder }]}>
                     <Icon name="barcode-outline" size={18} color={formFieldErrors.errors.siparisKodu ? colors.danger : colors.textSecondary} style={{ marginRight: 8 }} />
                     <TextInput
                       style={[styles.formInputText, { color: colors.text }]}
                       value={formSiparisKodu}
                       onChangeText={(v) => { setFormSiparisKodu(v); formFieldErrors.clearFieldError('siparisKodu'); }}
-                      placeholder="ORD..."
+                      placeholder="ORD2026..."
                       placeholderTextColor={colors.placeholder}
                     />
                   </View>
@@ -1401,42 +931,10 @@ export default function SiparisIslemleriScreen({
                   <DovizSelect
                     value={formDoviz}
                     dovizTipleri={formDovizTipleri}
-                    onSelect={(v) => { setFormDoviz(v); formFieldErrors.clearFieldError('doviz'); }}
+                    onSelect={setFormDoviz}
                     shortLabel
                     containerStyle={{ marginBottom: 0 }}
-                    error={formFieldErrors.errors.doviz}
-                    shake={formFieldErrors.shakes.doviz}
                   />
-                </View>
-              </View>
-
-              {/* Cari */}
-              <View style={styles.formRow}>
-                <View style={[styles.formField, { flexDirection: 'row', alignItems: 'flex-end', gap: 8 }]}>
-                  <View style={{ flex: 1 }}>
-                    <SelectInput
-                      label="Cari"
-                      icon="person-outline"
-                      placeholder="Cari seçiniz..."
-                      value={formCariId}
-                      items={formCariler.map(c => ({ id: c.id.toString(), label: c.unvan }))}
-                      onSelect={(v) => { setFormCariId(v); formFieldErrors.clearFieldError('cari'); }}
-                      searchPlaceholder="Cari ara..."
-                      containerStyle={{ marginBottom: 0 }}
-                      error={formFieldErrors.errors.cari}
-                      shake={formFieldErrors.shakes.cari}
-                    />
-                  </View>
-                  <Pressable
-                    style={{
-                      width: 48, height: 48, borderRadius: 12,
-                      backgroundColor: colors.primary,
-                      justifyContent: 'center', alignItems: 'center',
-                    }}
-                    onPress={handleOpenCariForm}
-                  >
-                    <Icon name="add" size={22} color="#fff" />
-                  </Pressable>
                 </View>
               </View>
 
@@ -1464,59 +962,102 @@ export default function SiparisIslemleriScreen({
                 </View>
               </View>
 
-              {/* Teslim Şekli & Paketleme */}
+              {/* Cari */}
+              <View style={styles.formRow}>
+                <View style={[styles.formField, { flexDirection: 'row', alignItems: 'flex-end', gap: 8 }]}>
+                  <View style={{ flex: 1 }}>
+                    <SelectInput
+                      label="Cari *"
+                      icon="person-outline"
+                      placeholder="Cari seçiniz..."
+                      value={formCariId}
+                      items={formCariler.map((c: any) => ({ id: c.id.toString(), label: c.unvan }))}
+                      onSelect={(v) => { setFormCariId(v); formFieldErrors.clearFieldError('cari'); }}
+                      searchPlaceholder="Cari ara..."
+                      containerStyle={{ marginBottom: 0 }}
+                      error={formFieldErrors.errors.cari}
+                      shake={formFieldErrors.shakes.cari}
+                    />
+                  </View>
+                  <Pressable
+                    style={{
+                      width: 48, height: 48, borderRadius: 12,
+                      backgroundColor: colors.primary,
+                      justifyContent: 'center', alignItems: 'center',
+                    }}
+                    onPress={handleOpenCariForm}
+                  >
+                    <Icon name="add" size={22} color="#fff" />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Siparişi Alan */}
+              <View style={styles.formRow}>
+                <View style={styles.formField}>
+                  <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Siparişi Alan</Text>
+                  <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <Icon name="person-circle-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={[styles.formInputText, { color: colors.text }]}
+                      value={formSiparisiAlan}
+                      onChangeText={setFormSiparisiAlan}
+                      placeholder="Siparişi alan kişi"
+                      placeholderTextColor={colors.placeholder}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Sipariş Grubu & Sipariş Tipi */}
               <View style={[styles.formRow, { gap: 10 }]}>
                 <View style={{ flex: 1 }}>
                   <TanimSelectInput
-                    tanimKodu="TESLIM_SEKLI"
-                    label="Teslim Şekli"
-                    placeholder="Seçiniz..."
-                    value={formTeslimSekliId}
-                    onSelect={setFormTeslimSekliId}
+                    tanimKodu="SIPARIS_GRUBU"
+                    label="Sipariş Grubu"
+                    placeholder="Grup seçin..."
+                    value={formSiparisGrubuId}
+                    onSelect={setFormSiparisGrubuId}
                     useDbId
                     containerStyle={{ marginBottom: 0 }}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
                   <TanimSelectInput
-                    tanimKodu="PAKETLEME"
-                    label="Paketleme"
-                    placeholder="Seçiniz..."
-                    value={formPaketlemeId}
-                    onSelect={setFormPaketlemeId}
+                    tanimKodu="SIPARIS_TIPI"
+                    label="Sipariş Tipi"
+                    placeholder="Tip seçin..."
+                    value={formSiparisTipiId}
+                    onSelect={setFormSiparisTipiId}
                     useDbId
                     containerStyle={{ marginBottom: 0 }}
                   />
                 </View>
               </View>
 
-              {/* Müşteri Sipariş Kodu & Müşteri Şube */}
+              {/* Paketleme & Teslim Şekli */}
               <View style={[styles.formRow, { gap: 10 }]}>
-                <View style={[styles.formField, { flex: 1 }]}>
-                  <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Müşteri Sip. Kodu</Text>
-                  <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Icon name="document-text-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-                    <TextInput
-                      style={[styles.formInputText, { color: colors.text }]}
-                      value={formMusteriSiparisKodu}
-                      onChangeText={setFormMusteriSiparisKodu}
-                      placeholder="Opsiyonel"
-                      placeholderTextColor={colors.placeholder}
-                    />
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="PAKETLEME"
+                    label="Paketleme"
+                    placeholder="Seçin..."
+                    value={formPaketlemeId}
+                    onSelect={setFormPaketlemeId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
                 </View>
-                <View style={[styles.formField, { flex: 1 }]}>
-                  <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Müşteri Şube</Text>
-                  <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Icon name="business-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-                    <TextInput
-                      style={[styles.formInputText, { color: colors.text }]}
-                      value={formMusteriSube}
-                      onChangeText={setFormMusteriSube}
-                      placeholder="Opsiyonel"
-                      placeholderTextColor={colors.placeholder}
-                    />
-                  </View>
+                <View style={{ flex: 1 }}>
+                  <TanimSelectInput
+                    tanimKodu="TESLIM_SEKLI"
+                    label="Teslim Şekli"
+                    placeholder="Seçin..."
+                    value={formTeslimSekliId}
+                    onSelect={setFormTeslimSekliId}
+                    useDbId
+                    containerStyle={{ marginBottom: 0 }}
+                  />
                 </View>
               </View>
 
@@ -1591,7 +1132,7 @@ export default function SiparisIslemleriScreen({
                   </View>
                   <Pressable
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#3B82F6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 }}
-                    onPress={() => setFormAvansRows(prev => [...prev, { tutar: '', doviz: formDoviz, dovizliTutar: '', aciklama: '', cariIslendi: false }])}
+                    onPress={() => setFormAvansRows(prev => [...prev, { tutar: '', doviz: formDoviz, dovizliTutar: '', cariIslendi: false }])}
                     hitSlop={8}
                   >
                     <Icon name="add" size={14} color="#fff" />
@@ -1609,9 +1150,7 @@ export default function SiparisIslemleriScreen({
                             value={row.tutar}
                             onChangeText={(v) => {
                               const updated = [...formAvansRows];
-                              const numVal = parseFloat(v) || 0;
-                              const converted = dovizService.convert(numVal, formDoviz, row.doviz, formKurlar, activeKurTipi);
-                              updated[idx] = { ...updated[idx], tutar: v, dovizliTutar: converted ? converted.toFixed(2) : '' };
+                              updated[idx] = { ...updated[idx], tutar: v };
                               setFormAvansRows(updated);
                             }}
                             placeholder="0.00"
@@ -1626,9 +1165,7 @@ export default function SiparisIslemleriScreen({
                           dovizTipleri={formDovizTipleri}
                           onSelect={(v) => {
                             const updated = [...formAvansRows];
-                            const numVal = parseFloat(row.tutar) || 0;
-                            const converted = dovizService.convert(numVal, formDoviz, v, formKurlar, activeKurTipi);
-                            updated[idx] = { ...updated[idx], doviz: v, dovizliTutar: converted ? converted.toFixed(2) : '' };
+                            updated[idx] = { ...updated[idx], doviz: v };
                             setFormAvansRows(updated);
                           }}
                           shortLabel
@@ -1665,6 +1202,7 @@ export default function SiparisIslemleriScreen({
               </View>
             </View>
           )}
+
           {/* Date Pickers */}
           <DatePickerModal
             visible={formTarihPickerVisible}
@@ -1682,22 +1220,15 @@ export default function SiparisIslemleriScreen({
           />
         </BottomSheet>
 
-        {/* Sipariş Detay Form */}
-        <SiparisDetayForm
+        {/* Detay Form */}
+        <TabakhaneSiparisDetayForm
           visible={detayFormVisible}
           onClose={() => setDetayFormVisible(false)}
-          onSave={handleSaveDetay}
-          saving={detayFormSaving}
-          bedenSetleri={detayBedenSetleri}
-          dovizTipleri={formDovizTipleri}
-          defaultDoviz={detayFormSiparis?.doviz || 'USD'}
-          varyantlar={detayVaryantlar}
-          varyantLoading={detayVaryantLoading}
-          onModelChange={handleDetayModelChange}
-          toastRef={detayToastRef}
+          siparisKodu={detayFormSiparis?.siparisKodu}
+          deriTipi={detayFormSiparis?.deriGrubu}
         />
 
-        {/* Toast - en üstte görünmesi için en son render */}
+        {/* Toast */}
         <InModalToast
           toast={toast}
           onDismiss={() => setToast(null)}
@@ -1710,7 +1241,7 @@ export default function SiparisIslemleriScreen({
         />
       </View>
     </SafeAreaProvider>
-    {/* Cari Ekleme Modal - en dışta, BottomSheet üzerinde açılabilmesi için */}
+    {/* Cari Ekleme Modal */}
     <Modal visible={showCariForm} animationType="fade" transparent onRequestClose={handleCloseCariForm}>
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 }} onPress={handleCloseCariForm}>
         <Pressable style={{ backgroundColor: colors.card, borderRadius: 14, padding: 20 }} onPress={(e) => e.stopPropagation()}>
@@ -1788,7 +1319,7 @@ export default function SiparisIslemleriScreen({
         </Pressable>
       </Pressable>
     </Modal>
-  </>
+    </>
   );
 }
 
@@ -1807,7 +1338,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     content: { flex: 1 },
     scrollContent: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 100 },
-    emptyContainer: { flex: 1 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 400 },
     retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
     retryButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
 
@@ -1819,10 +1350,6 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderRadius: 10, padding: 10,
       borderLeftWidth: 3, borderWidth: 1,
       borderColor: isDark ? colors.border : '#F1F5F9',
-    },
-    statCardActive: {
-      borderColor: colors.primary,
-      borderWidth: 1.5,
     },
     statLabel: { fontSize: 10, color: colors.textSecondary, marginBottom: 3 },
     statValue: { fontSize: 16, fontWeight: '700' },
@@ -1856,8 +1383,6 @@ const createStyles = (colors: any, isDark: boolean) =>
     summaryDetailValue: { fontSize: 13, fontWeight: '600', textAlign: 'right' },
     currencyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
     currencyBadgeText: { fontSize: 12, fontWeight: '700' },
-
-    // Order Card
     card: {
       backgroundColor: isDark ? colors.card : '#fff',
       borderRadius: 12, padding: 10, marginBottom: 10,
@@ -1872,80 +1397,18 @@ const createStyles = (colors: any, isDark: boolean) =>
     cardHeaderRight: { alignItems: 'flex-end', marginLeft: 8 },
     cardAmount: { fontSize: 15, fontWeight: '700', color: '#10B981' },
     cardCurrency: { fontSize: 11, marginTop: 1 },
-
-    // Quick Info
     quickInfoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
     quickInfoBadge: {
       flexDirection: 'row', alignItems: 'center', gap: 4,
       paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
     },
     quickInfoText: { fontSize: 11, fontWeight: '500' },
-
-    // Card Detail
-    cardDetail: { marginTop: 6, paddingTop: 6, borderTopWidth: 1 },
-    infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-    infoItem: { minWidth: '45%', borderRadius: 8, padding: 6 },
+    infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+    infoItem: { width: '48%', flexGrow: 1, borderRadius: 8, padding: 8 },
     infoLabel: { fontSize: 11, marginBottom: 3 },
     infoValue: { fontSize: 13, fontWeight: '600' },
-
-    // Progress
-    progressSection: { marginBottom: 10, borderRadius: 10, padding: 6 },
-    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    progressLabel: { fontSize: 12, fontWeight: '600' },
-    progressPercent: { fontSize: 13, fontWeight: '700', color: '#3B82F6' },
-    progressBar: { height: 6, borderRadius: 3, overflow: 'hidden' },
-    progressFill: { height: '100%', backgroundColor: '#3B82F6', borderRadius: 3 },
-    progressInfo: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-    progressInfoText: { fontSize: 11 },
-
-    // Detail Items
-    detailSection: { marginBottom: 10 },
-    detailSectionTitle: { fontSize: 13, fontWeight: '700', marginBottom: 10 },
-    detailItem: { paddingVertical: 10 },
-    detailItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    detailItemName: { fontSize: 13, fontWeight: '600' },
-    detailItemCode: { fontSize: 11, marginTop: 2 },
-    detailItemRight: { alignItems: 'flex-end', marginLeft: 8 },
-    detailItemPrice: { fontSize: 13, fontWeight: '600', color: '#10B981' },
-    detailItemQty: { fontSize: 11, marginTop: 2 },
-
-    // Beden
-    bedenRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-    bedenChip: {
-      flexDirection: 'row', alignItems: 'center',
-      borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, gap: 4,
-    },
-    bedenChipLabel: { fontSize: 11, fontWeight: '600', color: '#6366F1' },
-    bedenChipValue: { fontSize: 11, fontWeight: '700' },
-
-    // Detail price grid
-    detailPriceGrid: {
-      flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8,
-      padding: 8, borderRadius: 8,
-    },
-    detailPriceItem: { minWidth: '28%' },
-    detailPriceLabel: { fontSize: 10, marginBottom: 2 },
-    detailPriceValue: { fontSize: 12, fontWeight: '600' },
-
-    // Detail badges
-    detailItemFooter: { flexDirection: 'row', gap: 6, marginTop: 8 },
-    detailBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    detailBadgeText: { fontSize: 11, fontWeight: '600' },
-
-    // Loading
-    detailLoadingContainer: { paddingVertical: 16, alignItems: 'center' },
-    detailLoadingText: { fontSize: 12 },
-
-    // Footer
     cardNote: { fontSize: 12, marginTop: 1, marginBottom: 6, fontStyle: 'italic' },
-    cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
-    branchTag: {
-      flexDirection: 'row', alignItems: 'center', gap: 4,
-      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-    },
-    branchTagText: { fontSize: 11 },
-
-    // Üretime Al Butonu
+    cardDetail: { marginTop: 6, paddingTop: 6, borderTopWidth: 1 },
     cardBottomButtons: {
       flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap',
       gap: 6, marginTop: 0,
@@ -1956,64 +1419,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     actionBtnText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 
-    // Reçete Modal
-    receteModalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'flex-end',
-    },
-    receteModalContent: {
-      maxHeight: '85%', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-      paddingHorizontal: 16, paddingBottom: 30,
-    },
-    receteModalHeader: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingVertical: 16, borderBottomWidth: 1,
-      borderBottomColor: isDark ? colors.border : '#F1F5F9',
-    },
-    receteModalTitle: { fontSize: 18, fontWeight: '700' },
-    receteCloseBtn: { padding: 4 },
-    receteSummaryRow: {
-      flexDirection: 'row', gap: 8, paddingVertical: 12,
-      borderBottomWidth: 1,
-    },
-    receteSummaryItem: {
-      flex: 1, padding: 10, borderRadius: 10, alignItems: 'center',
-    },
-    receteGroupTitle: {
-      fontSize: 13, fontWeight: '700', marginTop: 12, marginBottom: 6,
-    },
-    receteItem: { paddingVertical: 8 },
-
-    // Modal
-    modalOverlay: {
-      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center', alignItems: 'center', padding: 24,
-    },
-    modalContent: {
-      width: '100%', borderRadius: 16, padding: 24, alignItems: 'center',
-    },
-    modalIconWrap: {
-      width: 64, height: 64, borderRadius: 32,
-      backgroundColor: '#10B98115', alignItems: 'center', justifyContent: 'center',
-      marginBottom: 16,
-    },
-    modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-    modalMessage: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
-    modalInfo: {
-      width: '100%', borderRadius: 10, padding: 12, marginBottom: 20, alignItems: 'center',
-    },
-    modalInfoText: { fontSize: 14, fontWeight: '600' },
-    modalInfoSub: { fontSize: 12, marginTop: 4 },
-    modalButtons: { flexDirection: 'row', gap: 10, width: '100%' },
-    modalBtn: {
-      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      gap: 6, paddingVertical: 12, borderRadius: 10,
-    },
-    modalBtnCancel: { borderWidth: 1 },
-    modalBtnConfirm: { backgroundColor: '#10B981' },
-    modalBtnText: { fontSize: 14, fontWeight: '600' },
-
-    // Sipariş Form Modal
+    // Form
     formSection: { paddingTop: 16, paddingBottom: 20 },
     formRow: { marginBottom: 12, flexDirection: 'row' },
     formField: { flex: 1 },
@@ -2034,8 +1440,12 @@ const createStyles = (colors: any, isDark: boolean) =>
       backgroundColor: isDark ? colors.background : '#F8FAFC',
     },
     formSegmentText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-    formFooter: {
-      flexDirection: 'row', gap: 10, paddingTop: 12,
-      borderTopWidth: 1, borderTopColor: isDark ? colors.border : '#F1F5F9',
+
+    // Modal buttons
+    modalBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 6, paddingVertical: 12, borderRadius: 10,
     },
+    modalBtnCancel: { borderWidth: 1 },
+    modalBtnText: { fontSize: 14, fontWeight: '600' },
   });

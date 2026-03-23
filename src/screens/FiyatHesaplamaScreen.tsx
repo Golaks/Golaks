@@ -310,7 +310,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     container: { flex: 1, backgroundColor: colors.background },
     scrollView: { flex: 1 },
     scrollContent: { padding: 16, paddingBottom: 120 },
-    pageHeader: { marginBottom: 16 },
+    pageHeader: { marginBottom: 8 },
     pageTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     pageTitleIcon: {
       width: 36, height: 36, borderRadius: 10,

@@ -702,7 +702,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingBottom: 12,
     },
     pageHeader: {
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleRow: {
       flexDirection: 'row',

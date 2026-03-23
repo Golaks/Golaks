@@ -30,9 +30,10 @@ interface ProfileScreenProps {
   onNotificationSend?: () => void;
   onCompanyManagement?: () => void;
   onFiyatHesaplama?: () => void;
+  onSubeAyarlari?: () => void;
 }
 
-export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement, onFiyatHesaplama }: ProfileScreenProps) {
+export default function ProfileScreen({ onTabChange, onLogout, onUserManagement, onNotificationSend, onCompanyManagement, onFiyatHesaplama, onSubeAyarlari }: ProfileScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, user, refreshUser, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
@@ -744,6 +745,14 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
               onPress={onFiyatHesaplama || (() => {})}
               disabled={user?.role === 'user' || user?.kullanici_rol === 0}
             />
+            <MenuCard
+              name="Şube Ayarları"
+              icon="business-outline"
+              color={colors.primary}
+              description="Şube bilgilerini ve ayarlarını yönet"
+              onPress={onSubeAyarlari || (() => {})}
+              disabled={user?.role === 'user' || user?.kullanici_rol === 0}
+            />
           </View>
 
           {/* About Section */}
@@ -1179,7 +1188,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingBottom: 120,
     },
     pageHeader: {
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',

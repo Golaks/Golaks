@@ -8,11 +8,14 @@ import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import BackButton from '../components/BackButton';
 import Tab, { TabOption } from '../components/Tab';
+import MenuCard from '../components/MenuCard';
 
 interface TanneryScreenProps {
   onBack?: () => void;
   onTabChange?: (tab: TabName) => void;
   onLogout?: () => void;
+  onStock?: () => void;
+  onSiparisIslemleri?: () => void;
   initialTab?: TanneryTab;
   onActiveTabChange?: (tab: TanneryTab) => void;
 }
@@ -24,7 +27,7 @@ const TANNERY_TABS: TabOption<TanneryTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function TanneryScreen({ onBack, onTabChange, onLogout, initialTab, onActiveTabChange }: TanneryScreenProps) {
+export default function TanneryScreen({ onBack, onTabChange, onLogout, onStock, onSiparisIslemleri, initialTab, onActiveTabChange }: TanneryScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -82,6 +85,31 @@ export default function TanneryScreen({ onBack, onTabChange, onLogout, initialTa
             activeTab={tanneryTab}
             onTabChange={(tab) => { setTanneryTab(tab); onActiveTabChange?.(tab); }}
           />
+
+          {/* Tab Content */}
+          {tanneryTab === 'reports' && (
+            <>
+              <MenuCard
+                name="Stoklar"
+                icon="cube-outline"
+                color="#3B82F6"
+                description="Tabakhane stok durumu raporu"
+                onPress={() => onStock?.()}
+              />
+            </>
+          )}
+
+          {tanneryTab === 'transactions' && (
+            <>
+              <MenuCard
+                name="Siparişler"
+                icon="document-text-outline"
+                color="#10B981"
+                description="Tabakhane sipariş işlemleri"
+                onPress={() => onSiparisIslemleri?.()}
+              />
+            </>
+          )}
         </ScrollView>
 
         {/* Bottom TabBar */}
@@ -109,7 +137,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingBottom: 100, // Space for TabBar
     },
     pageHeader: {
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',

@@ -347,7 +347,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flexGrow: 1,
     },
     pageHeader: {
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',

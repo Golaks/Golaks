@@ -149,12 +149,16 @@ class AccountService {
     dataName: string,
     filterType: 'all' | 'customers' | 'suppliers' | 'safes' | 'banks' | 'personnel' | 'stocks' = 'all',
     search: string = '',
-    subeId?: number
+    subeId?: number,
+    prefix?: string
   ): Promise<CariListResponse> {
     try {
       const body: any = { dataName, filterType, search };
       if (subeId) {
         body.subeId = subeId;
+      }
+      if (prefix) {
+        body.prefix = prefix;
       }
       const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_LIST, {
         method: 'POST',
@@ -243,13 +247,14 @@ class AccountService {
     token: string,
     dataName: string,
     filterType: string,
-    subeId: number
+    subeId: number,
+    prefix?: string
   ): Promise<{ success: boolean; data: { hesapKodu: string; prefix: string; subeKodu: string } }> {
     try {
       const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_NEXT_KOD, {
         method: 'POST',
         headers: this.getAuthHeader(token),
-        body: JSON.stringify({ dataName, filterType, subeId }),
+        body: JSON.stringify({ dataName, filterType, subeId, ...(prefix ? { prefix } : {}) }),
       });
 
       const data = await response.json();

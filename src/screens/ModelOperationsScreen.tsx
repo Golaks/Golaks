@@ -1000,7 +1000,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 16,
+      marginBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',

@@ -27,6 +27,7 @@ class AccountController {
         $filterType = $data['filterType'] ?? 'all';
         $search = $data['search'] ?? '';
         $subeId = isset($data['subeId']) ? (int)$data['subeId'] : null;
+        $customPrefix = $data['prefix'] ?? '';
 
         // Validasyon
         if (empty($dataName)) {
@@ -105,6 +106,11 @@ class AccountController {
                 case 'stocks':
                     $hesapKoduFilter = '150%'; // Stoklar
                     break;
+            }
+
+            // Custom prefix varsa onu kullan
+            if (!empty($customPrefix)) {
+                $hesapKoduFilter = $customPrefix . '%';
             }
 
             // Arama terimi
@@ -451,6 +457,7 @@ class AccountController {
         $dataName = $data['dataName'] ?? '';
         $filterType = $data['filterType'] ?? 'customers';
         $subeId = (int)($data['subeId'] ?? 0);
+        $customPrefix = $data['prefix'] ?? '';
 
         if (empty($dataName)) {
             Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
@@ -469,7 +476,7 @@ class AccountController {
             'stocks' => '150',
         ];
 
-        $prefix = $prefixMap[$filterType] ?? '120';
+        $prefix = !empty($customPrefix) ? $customPrefix : ($prefixMap[$filterType] ?? '120');
 
         try {
             $db = Database::getInstance();
@@ -2031,5 +2038,89 @@ class AccountController {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
+    }
+
+    /**
+     * POST /account/sube-ayarlar
+     * Şube genel ayarlarını getirir
+     */
+    public function getSubeAyarlar() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $subeId = (int)($data['subeId'] ?? 0);
+
+        if (empty($dataName) || $subeId <= 0) {
+            Response::error('dataName ve subeId gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $pdo = $this->getFirmaPdo($auth['user_id'], $dataName);
+
+            $stmt = $pdo->prepare("SELECT sube_genel_ayar FROM subeler WHERE id = ?");
+            $stmt->execute([$subeId]);
+            $row = $stmt->fetch();
+
+            if (!$row) {
+                Response::error('Şube bulunamadı', 'NOT_FOUND', 404);
+                return;
+            }
+
+            $ayarlar = $row['sube_genel_ayar'] ? json_decode($row['sube_genel_ayar'], true) : [];
+
+            Response::success($ayarlar);
+
+        } catch (PDOException $e) {
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /account/sube-ayarlar-save
+     * Şube genel ayarlarını kaydeder
+     */
+    public function saveSubeAyarlar() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        $auth = Auth::requireAuth();
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $dataName = $data['dataName'] ?? '';
+        $subeId = (int)($data['subeId'] ?? 0);
+        $ayarlar = $data['ayarlar'] ?? [];
+
+        if (empty($dataName) || $subeId <= 0) {
+            Response::error('dataName ve subeId gereklidir', 'VALIDATION_ERROR', 400);
+        }
+
+        try {
+            $pdo = $this->getFirmaPdo($auth['user_id'], $dataName);
+
+            // Mevcut ayarları al ve merge et
+            $stmt = $pdo->prepare("SELECT sube_genel_ayar FROM subeler WHERE id = ?");
+            $stmt->execute([$subeId]);
+            $row = $stmt->fetch();
+
+            if (!$row) {
+                Response::error('Şube bulunamadı', 'NOT_FOUND', 404);
+                return;
+            }
+
+            $mevcutAyarlar = $row['sube_genel_ayar'] ? json_decode($row['sube_genel_ayar'], true) : [];
+            $yeniAyarlar = array_merge($mevcutAyarlar, $ayarlar);
+
+            $stmt = $pdo->prepare("UPDATE subeler SET sube_genel_ayar = ? WHERE id = ?");
+            $stmt->execute([json_encode($yeniAyarlar, JSON_UNESCAPED_UNICODE), $subeId]);
+
+            Response::success(['message' => 'Ayarlar kaydedildi']);
+
+        } catch (PDOException $e) {
+            Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
+        }
     }
 }

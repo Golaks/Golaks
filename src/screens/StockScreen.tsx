@@ -21,7 +21,7 @@ import TabBar, { TabName } from '../components/TabBar';
 import stockService, { StockItem, StockSummaryItem, StockGroupItem } from '../services/stock.service';
 import { authService } from '../services/auth.service';
 
-export type StockModul = 'muhasebe' | 'magaza' | 'konfeksiyon';
+export type StockModul = 'muhasebe' | 'magaza' | 'konfeksiyon' | 'tabakhane';
 
 export type StockTipi = 'hammadde' | 'urun';
 
@@ -43,16 +43,30 @@ const HAMMADDE_FILTER_OPTIONS: { id: HammaddeFilter; label: string; icon: string
   { id: 'sarf', label: 'Sarf', icon: 'flask-outline' },
 ];
 
+type TabakhaneFilter = 'hamderi' | 'altkat' | 'crustkat' | 'boyalikat' | 'finisajkat' | 'kimyasal' | 'yedekmalzeme';
+
+const TABAKHANE_FILTER_OPTIONS: { id: TabakhaneFilter; label: string; icon: string }[] = [
+  { id: 'hamderi', label: 'Hamderi', icon: 'layers-outline' },
+  { id: 'altkat', label: 'Alt Kat', icon: 'arrow-down-outline' },
+  { id: 'crustkat', label: 'Crust Kat', icon: 'square-outline' },
+  { id: 'boyalikat', label: 'Boyalı Kat', icon: 'color-palette-outline' },
+  { id: 'finisajkat', label: 'Finisaj Kat', icon: 'sparkles-outline' },
+  { id: 'kimyasal', label: 'Kimyasal', icon: 'beaker-outline' },
+  { id: 'yedekmalzeme', label: 'Yedek Malzeme', icon: 'build-outline' },
+];
+
 const MODUL_TITLES: Record<StockModul, string> = {
   muhasebe: 'Muhasebe Stokları',
   magaza: 'Mağaza Stokları',
   konfeksiyon: 'Konfeksiyon Ürün Stokları',
+  tabakhane: 'Tabakhane Stokları',
 };
 
 const MODUL_ICONS: Record<StockModul, string> = {
   muhasebe: 'stats-chart',
   magaza: 'storefront-outline',
   konfeksiyon: 'shirt-outline',
+  tabakhane: 'business-outline',
 };
 
 export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul = 'muhasebe', stokTipi }: StockScreenProps) {
@@ -71,6 +85,8 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
   const isHammadde = stokTipi === 'hammadde';
   const isGroupedMode = stokModul === 'magaza' && !isHammadde;
   const [activeHammaddeFilter, setActiveHammaddeFilter] = useState<HammaddeFilter>('deri');
+  const [activeTabakhaneFilter, setActiveTabakhaneFilter] = useState<TabakhaneFilter>('hamderi');
+  const isTabakhane = stokModul === 'tabakhane';
 
   const styles = createStyles(colors, isDark);
 
@@ -88,7 +104,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
         setError('Firma veritabanı bilgisi bulunamadı');
         return;
       }
-      const currentFilter = isHammadde ? activeHammaddeFilter : 'sube_tipi';
+      const currentFilter = isHammadde ? activeHammaddeFilter : isTabakhane ? activeTabakhaneFilter : 'sube_tipi';
       const response = await stockService.getList(token, dataName, {
         stokModul: stokModul,
         stokAltModul: currentFilter,
@@ -111,7 +127,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
     } finally {
       setIsLoading(false);
     }
-  }, [user, stokModul, activeHammaddeFilter, isHammadde]);
+  }, [user, stokModul, activeHammaddeFilter, activeTabakhaneFilter, isHammadde, isTabakhane]);
 
   useEffect(() => {
     fetchData();
@@ -224,23 +240,32 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
                     ]}
                     onPress={() => setActiveHammaddeFilter(filter.id)}
                   >
-                    <Icon
-                      name={filter.icon}
-                      size={18}
-                      color={isActive ? '#fff' : colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.filterCardText,
-                        isActive && { color: '#fff' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {filter.label}
-                    </Text>
+                    <Icon name={filter.icon} size={18} color={isActive ? '#fff' : colors.textSecondary} />
+                    <Text style={[styles.filterCardText, isActive && { color: '#fff' }]} numberOfLines={1}>{filter.label}</Text>
                   </Pressable>
                 );
               })
+            : isTabakhane
+            ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}>
+                {TABAKHANE_FILTER_OPTIONS.map((filter) => {
+                  const isActive = activeTabakhaneFilter === filter.id;
+                  return (
+                    <Pressable
+                      key={filter.id}
+                      style={[
+                        styles.chipFilter,
+                        isActive && { backgroundColor: colors.primary, borderColor: colors.primary },
+                      ]}
+                      onPress={() => setActiveTabakhaneFilter(filter.id)}
+                    >
+                      <Icon name={filter.icon} size={14} color={isActive ? '#fff' : colors.textSecondary} />
+                      <Text style={[styles.chipFilterText, isActive && { color: '#fff' }]}>{filter.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )
             : null}
         </View>
 
@@ -712,8 +737,8 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     pageHeader: {
       paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 4,
+      paddingTop: 16,
+      paddingBottom: 8,
     },
     pageTitleContainer: {
       flexDirection: 'row',
@@ -752,6 +777,22 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     filterCardText: {
       fontSize: 11,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    chipFilter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#E2E8F0',
+      backgroundColor: isDark ? colors.card : '#fff',
+    },
+    chipFilterText: {
+      fontSize: 12,
       fontWeight: '600',
       color: colors.textSecondary,
     },
