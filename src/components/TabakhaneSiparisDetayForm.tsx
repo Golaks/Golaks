@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,21 @@ import {
   Pressable,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { authService } from '../services/auth.service';
+import stockService from '../services/stock.service';
 import BottomSheet, { BottomSheetToastRef } from './BottomSheet';
 import SelectInput from './SelectInput';
 import TanimSelectInput from './TanimSelectInput';
-import BarcodeScanInput from './BarcodeScanInput';
+import BarcodeScanner from './BarcodeScanner';
 
 interface DetayFormRow {
   id: string;
+  stokId: string;
   stokAdi: string;
   menseiId: string;
   cinsiId: string;
@@ -43,6 +48,7 @@ interface DetayFormRow {
 
 const EMPTY_ROW: DetayFormRow = {
   id: '',
+  stokId: '',
   stokAdi: '',
   menseiId: '',
   cinsiId: '',
@@ -96,10 +102,59 @@ export default function TabakhaneSiparisDetayForm({
   deriTipi,
 }: TabakhaneSiparisDetayFormProps) {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const toastRef = useRef<BottomSheetToastRef | null>(null);
+  const [stoklar, setStoklar] = useState<{ id: string; label: string; stokKodu: string }[]>([]);
+  const [stokLoading, setStokLoading] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scanRowId, setScanRowId] = useState<string | null>(null);
   const [rows, setRows] = useState<DetayFormRow[]>([{ ...EMPTY_ROW, id: '1' }]);
   const [expandedRow, setExpandedRow] = useState<string | null>('1');
   const [expandedSection, setExpandedSection] = useState<Record<string, string[]>>({ '1': ['stok', 'ozellik', 'tuy', 'fiyat'] });
+
+  const loadStoklar = useCallback(async () => {
+    setStokLoading(true);
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      if (!dataName) return;
+      // Deri tipine göre stok alt modüllerini belirle
+      const altModuller = ['tabakhane-crust-stok', 'tabakhane-boyali-stok', 'tabakhane-finisaj-stok'];
+
+      // Tüm alt modüllerden stokları çek
+      const responses = await Promise.all(
+        altModuller.map(altModul =>
+          stockService.getList(token, dataName, {
+            stokModul: 'tabakhane',
+            stokAltModul: altModul,
+          })
+        )
+      );
+
+      // Birleştir
+      const allItems: any[] = [];
+      responses.forEach((response) => {
+        if (response.success && response.data) {
+          (response.data.data || []).forEach((s: any) => {
+            allItems.push({
+              id: s.id,
+              label: `${s.stockCode} - ${s.stockName}`,
+              stokKodu: s.stockCode,
+            });
+          });
+        }
+      });
+      setStoklar(allItems);
+    } catch (_) {}
+    finally {
+      setStokLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (visible) loadStoklar();
+  }, [visible]);
 
   const styles = createStyles(colors, isDark);
 
@@ -157,8 +212,8 @@ export default function TabakhaneSiparisDetayForm({
   const handleSave = () => {
     // Validasyon
     for (const row of rows) {
-      if (!row.stokAdi.trim()) {
-        toastRef.current?.show({ type: 'error', text: 'Stok adı zorunludur' });
+      if (!row.stokId) {
+        toastRef.current?.show({ type: 'error', text: 'Stok seçimi zorunludur' });
         setExpandedRow(row.id);
         return;
       }
@@ -226,14 +281,37 @@ export default function TabakhaneSiparisDetayForm({
             {isSectionExpanded(row.id, 'stok') && (
               <View style={styles.sectionContent}>
                 <View style={styles.formField}>
-                  <BarcodeScanInput
-                    label="Stok *"
-                    value={row.stokAdi}
-                    onChangeText={(v) => updateRow(row.id, 'stokAdi', v)}
-                    placeholder="Stok adı veya barkod..."
-                    scannerTitle="Barkod Tara"
-                    containerStyle={{ marginBottom: 0 }}
-                  />
+                  {stokLoading ? (
+                    <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>Stoklar yükleniyor...</Text>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                      <View style={{ flex: 1 }}>
+                        <SelectInput
+                          label="Stok *"
+                          icon="cube-outline"
+                          placeholder="Stok seçiniz..."
+                          value={row.stokId}
+                          items={stoklar}
+                          onSelect={(v) => {
+                            const selected = stoklar.find(s => s.id === v);
+                            updateRow(row.id, 'stokId', v);
+                            updateRow(row.id, 'stokAdi', selected?.label || '');
+                          }}
+                          searchPlaceholder="Stok kodu veya adı ara..."
+                          containerStyle={{ marginBottom: 0 }}
+                        />
+                      </View>
+                      <Pressable
+                        style={[styles.scanBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => { setScanRowId(row.id); setScannerVisible(true); }}
+                      >
+                        <Icon name="camera-outline" size={22} color="#fff" />
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
               </View>
             )}
@@ -612,6 +690,24 @@ export default function TabakhaneSiparisDetayForm({
         <Icon name="add-circle-outline" size={18} color={colors.primary} />
         <Text style={[styles.addRowBtnBottomText, { color: colors.primary }]}>Satır Ekle</Text>
       </Pressable>
+
+      {/* Barkod Scanner */}
+      <BarcodeScanner
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onBarcodeScanned={(barcode) => {
+          setScannerVisible(false);
+          if (!scanRowId) return;
+          const found = stoklar.find(s => s.stokKodu === barcode || s.id === barcode);
+          if (found) {
+            updateRow(scanRowId, 'stokId', found.id);
+            updateRow(scanRowId, 'stokAdi', found.label);
+          } else {
+            toastRef.current?.show({ type: 'error', text: 'Stok bulunamadı: ' + barcode });
+          }
+        }}
+        title="Barkod Tara"
+      />
     </BottomSheet>
   );
 }
@@ -686,6 +782,10 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingHorizontal: 12, height: 48,
     },
     formInputText: { flex: 1, fontSize: 14, paddingVertical: 0 },
+    scanBtn: {
+      width: 48, height: 48, borderRadius: 12,
+      alignItems: 'center', justifyContent: 'center',
+    },
 
     // Tutar Card
     tutarCard: {

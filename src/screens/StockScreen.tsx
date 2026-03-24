@@ -43,16 +43,16 @@ const HAMMADDE_FILTER_OPTIONS: { id: HammaddeFilter; label: string; icon: string
   { id: 'sarf', label: 'Sarf', icon: 'flask-outline' },
 ];
 
-type TabakhaneFilter = 'hamderi' | 'altkat' | 'crustkat' | 'boyalikat' | 'finisajkat' | 'kimyasal' | 'yedekmalzeme';
+type TabakhaneFilter = 'tabakhane-hamderi-stok' | 'tabakhane-altkat-stok' | 'tabakhane-crust-stok' | 'tabakhane-boyali-stok' | 'tabakhane-finisaj-stok' | 'tabakhane-kimyasal-stok' | 'tabakhane-yedek-stok';
 
 const TABAKHANE_FILTER_OPTIONS: { id: TabakhaneFilter; label: string; icon: string }[] = [
-  { id: 'hamderi', label: 'Hamderi', icon: 'layers-outline' },
-  { id: 'altkat', label: 'Alt Kat', icon: 'arrow-down-outline' },
-  { id: 'crustkat', label: 'Crust Kat', icon: 'square-outline' },
-  { id: 'boyalikat', label: 'Boyalı Kat', icon: 'color-palette-outline' },
-  { id: 'finisajkat', label: 'Finisaj Kat', icon: 'sparkles-outline' },
-  { id: 'kimyasal', label: 'Kimyasal', icon: 'beaker-outline' },
-  { id: 'yedekmalzeme', label: 'Yedek Malzeme', icon: 'build-outline' },
+  { id: 'tabakhane-hamderi-stok', label: 'Hamderi', icon: 'layers-outline' },
+  { id: 'tabakhane-altkat-stok', label: 'Alt Kat', icon: 'arrow-down-outline' },
+  { id: 'tabakhane-crust-stok', label: 'Crust Kat', icon: 'square-outline' },
+  { id: 'tabakhane-boyali-stok', label: 'Boyalı Kat', icon: 'color-palette-outline' },
+  { id: 'tabakhane-finisaj-stok', label: 'Finisaj Kat', icon: 'sparkles-outline' },
+  { id: 'tabakhane-kimyasal-stok', label: 'Kimyasal', icon: 'beaker-outline' },
+  { id: 'tabakhane-yedek-stok', label: 'Yedek Malzeme', icon: 'build-outline' },
 ];
 
 const MODUL_TITLES: Record<StockModul, string> = {
@@ -85,7 +85,7 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
   const isHammadde = stokTipi === 'hammadde';
   const isGroupedMode = stokModul === 'magaza' && !isHammadde;
   const [activeHammaddeFilter, setActiveHammaddeFilter] = useState<HammaddeFilter>('deri');
-  const [activeTabakhaneFilter, setActiveTabakhaneFilter] = useState<TabakhaneFilter>('hamderi');
+  const [activeTabakhaneFilter, setActiveTabakhaneFilter] = useState<TabakhaneFilter>('tabakhane-hamderi-stok');
   const isTabakhane = stokModul === 'tabakhane';
 
   const styles = createStyles(colors, isDark);
