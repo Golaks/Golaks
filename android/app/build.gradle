@@ -83,8 +83,8 @@ android {
         applicationId "com.golaks.golaksmobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 12
-        versionName "3.3.7"
+        versionCode 14
+        versionName "3.3.9"
     }
     signingConfigs {
         debug {

@@ -5,15 +5,47 @@ Golaks Versiyon Notları
 ==================================================================
 
 Yeni Özellikler
+- Tabakhane modülü: Raporlar > Stoklar menüsü eklendi (7 kategori: Hamderi, Alt Kat, Crust, Boyalı, Finisaj, Kimyasal, Yedek Malzeme)
+- Tabakhane modülü: İşlemler > Siparişler menüsü eklendi (sipariş listeleme, oluşturma, düzenleme)
+- Tabakhane sipariş master formu: Deri Tipi (Kürk/Zig/Vidala), sipariş kodu, cari, tarihler, avans, indirim, tüm alanlar
+- Tabakhane sipariş detay formu: Accordion bölümlerle stok seçimi, özellikler, tüy & süed, fiyat & miktar
+- Sipariş detay formunda barkod tarama ile stok seçimi (crust, boyalı, finisaj stokları)
+- Sipariş avans ve indirim muhasebe fişi otomatik oluşturma (FisService)
+- FisService: Parametrik döviz çevrimi ile çift ayaklı fiş oluşturma (borc/alacak, dövizli, cari - 3 farklı kur)
+- İşlem Log sistemi: Düzenleme ve silme işlemlerinin kayıt altına alınması (LogService)
+- İşlem Log: Eski/yeni tüm değerler, değişen alanlar (fark) ve geri dönüş SQL'i JSON'da tutulur
+- Profil > Sistem Ayarları > Şube Ayarları sayfası eklendi
+- Şube Ayarları: Hesap Kodları (Sipariş Avansları 340, Sipariş İndirim 611, Varsayılan Kasa 100, Varsayılan Banka 102)
+- Şube Ayarları: Muhasebe Fişi Kapalı Gönder ve Reçete Normal Hesaplama switch'leri
+- Şube ayarları şubeye göre yüklenir ve sube_genel_ayar JSON'a kaydedilir
 - Türkçe güncelleme uyarı modalı eklendi (iOS ve Android)
 - Backend versiyon kontrol endpoint'i eklendi (GET /health/version-check)
 
 İyileştirmeler
+- Tüm ekranlarda pageHeader üst boşlukları eşitlendi (paddingTop: 16)
+- Tüm header'larda + ve arama buton sırası standartlaştırıldı (önce +, sonra arama)
+- Stat card fontları küçültüldü (label: 10, value: 16)
+- Stat card seçili durumda kendi renginde çerçeve gösteriyor (mavi/yeşil/sarı/gri/kırmızı)
+- Tabakhane stok filtresi yatay scroll chip tasarımına geçirildi
+- Deri tipi badge'leri farklı renklerde (Kürk: mor, Zig: sarı, Vidala: pembe)
+- Sipariş listesinde kalan tutar hesaplanıyor (toplam - indirim - avans)
+- Sipariş kartlarında expanded detayda: Siparişi Alan, Sipariş Grubu/Tipi, Teslim Şekli, Paketleme, İndirim/Avans Fişleri
+- TanimSelectInput'a tabakhane özel tanım kodları eklendi (Menşei, Deri Cinsi, Deri Renk, Kalite, Finisaj, Tüy/Süed renk ve efektler, Birim)
+- OrderCreateData interface'ine deriGrubu, siparisGrubuId, siparisTipiId, siparisiAlan eklendi
+- Backend OrdersController: siparis_master'a deri_grubu, siparisi_alan, siparis_grubu_id, siparis_tipi_id SELECT/INSERT/UPDATE eklendi
+- Backend AccountController: sube-ayarlar ve sube-ayarlar-save endpoint'leri eklendi
+- Backend AccountController: getCariList ve getNextHesapKodu'ya custom prefix desteği eklendi
 - sp-react-native-in-app-updates kaldırıldı, kendi Türkçe güncelleme sistemi eklendi
 - "Güncelle" butonu App Store / Play Store'a yönlendiriyor
 
 Hata Düzeltmeleri
 - iOS'ta güncelleme uyarısı İngilizce geliyordu, Türkçe özel modal ile değiştirildi
+- Profil > Sistem Ayarları > Genel Ayarlar menüsü kaldırıldı
+- Fiş detay döviz alanlarına boş string yerine NULL gönderiliyor (FK constraint hatası düzeltildi)
+- FisService firma_id doğru şirket DB'sindeki firmalar.id ile yazılıyor (mobil_firmalar.id değil)
+- FisService fiş no üretimi düzeltildi (createFisMaster gerçek fisNo'yu dönüyor)
+- OrdersController getContext: kullanici_yetkiler'den varsayilan_sube alınıyor (subeId 0 sorunu düzeltildi)
+- Şube ayarları kolon adı düzeltildi (sube_genel_ayarlar → sube_genel_ayar)
 
 
 [YAYINLANDI] Android v3.3.7 (Build 12) / iOS v1.1.4 (Build 17)

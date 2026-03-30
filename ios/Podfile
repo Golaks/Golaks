@@ -42,5 +42,14 @@ target 'Golaks' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Fix fmt consteval issue with Apple Clang (Xcode 16+)
+    fmt_base_h = File.join(installer.sandbox.pod_dir('fmt'), 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base_h)
+      content = File.read(fmt_base_h)
+      content.gsub!('#elif defined(__cpp_consteval)', '#elif defined(__cpp_consteval) && !defined(__apple_build_version__)')
+      content.gsub!('FMT_CLANG_VERSION >= 1101', 'FMT_CLANG_VERSION >= 1101 && !defined(__apple_build_version__)')
+      File.write(fmt_base_h, content)
+    end
   end
 end
