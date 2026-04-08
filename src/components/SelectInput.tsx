@@ -190,7 +190,7 @@ export default function SelectInput({
         </View>
       )}
       <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
-        <Pressable style={[styles.inputWrapper, compact && styles.inputWrapperCompact, error && { borderColor: colors.danger }]} onPress={handleOpen}>
+        <Pressable style={[styles.inputWrapper, compact && styles.inputWrapperCompact, error && { borderColor: colors.danger, borderWidth: 1 }]} onPress={handleOpen}>
           {icon && (
             <Icon name={icon} size={20} color={colors.textSecondary} style={styles.icon} />
           )}

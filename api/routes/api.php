@@ -99,6 +99,9 @@ class Router {
 
         // Sales Routes (Global - tüm modüller için)
         $this->post('/sales/list', 'SalesController', 'getList');
+        $this->post('/sales/next-seri-no', 'SalesController', 'getNextSeriNo');
+        $this->post('/sales/create', 'SalesController', 'create');
+        $this->post('/sales/fatura-tipi-list', 'SalesController', 'getFaturaTipiList');
 
         // Orders Routes (Global - tüm modüller için)
         $this->post('/orders/list', 'OrdersController', 'getList');

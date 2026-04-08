@@ -70,7 +70,7 @@ export default function DateInput({
           >
             {formattedDate || placeholder}
           </Text>
-          {formattedDate && clearable ? (
+          {formattedDate && clearable && (
             <Pressable onPress={handleClear} style={styles.clearButton}>
               <Icon
                 name="close-circle"
@@ -78,12 +78,6 @@ export default function DateInput({
                 color={colors.textSecondary}
               />
             </Pressable>
-          ) : (
-            <Icon
-              name="chevron-forward"
-              size={18}
-              color={colors.textSecondary}
-            />
           )}
         </View>
       </Pressable>

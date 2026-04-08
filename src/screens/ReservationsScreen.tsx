@@ -1365,7 +1365,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     pageHeader: {
       paddingHorizontal: 16,
-      paddingTop: 12,
+      paddingTop: 16,
       paddingBottom: 8,
     },
     pageTitleContainer: {

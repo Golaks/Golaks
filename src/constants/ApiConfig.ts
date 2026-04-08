@@ -84,6 +84,9 @@ export const API_ENDPOINTS = {
 
   // Sales endpoints (global - tüm modüller)
   SALES_LIST: `${BASE_API_URL}/sales/list`,
+  SALES_NEXT_SERI_NO: `${BASE_API_URL}/sales/next-seri-no`,
+  SALES_CREATE: `${BASE_API_URL}/sales/create`,
+  FATURA_TIPI_LIST: `${BASE_API_URL}/sales/fatura-tipi-list`,
 
   // Orders endpoints (global - tüm modüller)
   ORDERS_LIST: `${BASE_API_URL}/orders/list`,

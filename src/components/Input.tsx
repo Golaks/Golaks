@@ -164,7 +164,7 @@ const createStyles = (colors: any, hasError: boolean) =>
       borderColor: hasError ? colors.danger : colors.inputBorder,
       borderRadius: 12,
       paddingHorizontal: 14,
-      height: 52,
+      height: 48,
     },
     icon: {
       marginRight: 10,

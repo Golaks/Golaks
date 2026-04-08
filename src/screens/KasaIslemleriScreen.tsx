@@ -981,6 +981,8 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   pageTitle: {
     fontSize: 16,
     fontWeight: '700',
+    color: colors.text,
+    opacity: 0.6,
   },
   listContent: {
     flexGrow: 1,

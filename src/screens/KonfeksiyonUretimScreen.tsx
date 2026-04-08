@@ -393,7 +393,7 @@ const createStyles = (colors: any, isDark: boolean) =>
       width: 36, height: 36, borderRadius: 10,
       alignItems: 'center', justifyContent: 'center',
     },
-    pageTitle: { fontSize: 16, fontWeight: '700', opacity: 0.6 },
+    pageTitle: { fontSize: 16, fontWeight: '700', color: colors.text, opacity: 0.6 },
     countText: { fontSize: 13, fontWeight: '500' },
 
     card: {

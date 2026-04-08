@@ -544,7 +544,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   pageTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   subeSelectorContainer: { minWidth: 140, maxWidth: 200 },
   pageTitleIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  pageTitle: { fontSize: 16, fontWeight: '700', opacity: 0.6 },
+  pageTitle: { fontSize: 16, fontWeight: '700', color: colors.text, opacity: 0.6 },
   content: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 100 },
 

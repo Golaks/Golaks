@@ -21,6 +21,7 @@ interface ShopScreenProps {
   onCompanyModelPerformance?: () => void;
   onReservations?: () => void;
   onAgencyPerformance?: () => void;
+  onSalesTransactions?: () => void;
   initialTab?: ShopTab;
   onActiveTabChange?: (tab: ShopTab) => void;
 }
@@ -32,7 +33,7 @@ const SHOP_TABS: TabOption<ShopTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance, initialTab, onActiveTabChange }: ShopScreenProps) {
+export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOperations, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onReservations, onAgencyPerformance, initialTab, onActiveTabChange, onSalesTransactions, }: ShopScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -135,6 +136,13 @@ export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOpera
           {shopTab === 'transactions' && (
             <>
               <MenuCard
+                name="Satışlar"
+                icon="cart-outline"
+                color="#10B981"
+                description="Satış işlemleri ve yönetimi"
+                onPress={() => onSalesTransactions?.()}
+              />
+              <MenuCard
                 name="Rezervasyonlar"
                 icon="calendar-outline"
                 color="#F59E0B"
@@ -144,7 +152,7 @@ export default function ShopScreen({ onBack, onTabChange, onLogout, onModelOpera
               <MenuCard
                 name="Model İşlemleri"
                 icon="layers-outline"
-                color="#F59E0B"
+                color="#8B5CF6"
                 description="Model kartları ve işlemleri"
                 onPress={() => onModelOperations?.()}
               />

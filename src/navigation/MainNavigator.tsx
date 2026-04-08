@@ -25,6 +25,7 @@ import PersonnelPerformanceScreen from '../screens/PersonnelPerformanceScreen';
 import CompanyModelPerformanceScreen from '../screens/CompanyModelPerformanceScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import ReservationsScreen from '../screens/ReservationsScreen';
+import SatisIslemleriScreen from '../screens/SatisIslemleriScreen';
 import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
 import CariHesaplarScreen from '../screens/CariHesaplarScreen';
 import BankaKomisyonScreen from '../screens/BankaKomisyonScreen';
@@ -191,10 +192,13 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
             onCompanyModelPerformance={() => setActiveScreen('shopCompanyModelPerformance')}
             onReservations={() => setActiveScreen('shopReservations')}
             onAgencyPerformance={() => setActiveScreen('shopAgencyPerformance')}
+            onSalesTransactions={() => setActiveScreen('satisIslemleri')}
             initialTab={shopTab}
             onActiveTabChange={setShopTab}
           />
         );
+      case 'satisIslemleri':
+        return <SatisIslemleriScreen onGoBack={() => { setShopTab('transactions'); setActiveScreen('shop'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'shopReservations':
         return <ReservationsScreen onGoBack={() => setActiveScreen('shop')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'modelOperations':

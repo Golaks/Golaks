@@ -30,6 +30,7 @@ import DovizSelect from '../components/DovizSelect';
 import DatePickerModal from '../components/DatePickerModal';
 import TanimSelectInput from '../components/TanimSelectInput';
 import BottomSheet, { BottomSheetToastRef } from '../components/BottomSheet';
+import CariEkleModal from '../components/CariEkleModal';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import TabakhaneSiparisDetayForm from '../components/TabakhaneSiparisDetayForm';
@@ -117,11 +118,6 @@ export default function TabakhaneSiparisScreen({
 
   // Cari ekleme state
   const [showCariForm, setShowCariForm] = useState(false);
-  const [cariFormSaving, setCariFormSaving] = useState(false);
-  const [cariFormUnvan, setCariFormUnvan] = useState('');
-  const [cariFormKisaUnvan, setCariFormKisaUnvan] = useState('');
-  const [cariFormHesapKodu, setCariFormHesapKodu] = useState('');
-  const [cariFormDoviz, setCariFormDoviz] = useState('TL');
   const [cariFormSubeId, setCariFormSubeId] = useState(0);
   const cariFormFieldErrors = useFieldErrors();
 
@@ -327,76 +323,16 @@ export default function TabakhaneSiparisScreen({
   };
 
   const handleOpenCariForm = () => {
-    setCariFormUnvan('');
-    setCariFormKisaUnvan('');
-    setCariFormHesapKodu('');
-    setCariFormDoviz('TL');
-    cariFormFieldErrors.clearAll();
     setFormModalVisible(false);
-    setTimeout(() => {
-      setShowCariForm(true);
-    }, 350);
-    (async () => {
-      try {
-        const token = await authService.getToken();
-        if (!token) return;
-        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-        const subeRes = await fetch(
-          `${require('../config/env').BASE_URL}/user/subeler`,
-          { method: 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
-        );
-        const subeData = await subeRes.json();
-        let subeId = 1;
-        if (subeData.success && subeData.data) {
-          subeId = subeData.data.varsayilanSube || subeData.data.subeler?.[0]?.id || 1;
-        }
-        setCariFormSubeId(subeId);
-        const response = await accountService.getNextHesapKodu(token, dataName, 'customers', subeId);
-        if (response.success && response.data.hesapKodu) {
-          setCariFormHesapKodu(response.data.hesapKodu);
-        }
-      } catch (_) {}
-    })();
+    setTimeout(() => setShowCariForm(true), 350);
   };
 
-  const handleCloseCariForm = () => {
+  const handleCariSaved = async (cari: { id: string; label: string }) => {
     setShowCariForm(false);
+    setFormCariId(cari.id);
+    setFormCariler((prev: any[]) => [...prev, { id: parseInt(cari.id, 10), unvan: cari.label }]);
+    formFieldErrors.clearFieldError('cari');
     setTimeout(() => setFormModalVisible(true), 350);
-  };
-
-  const handleSaveCari = async () => {
-    if (!cariFormFieldErrors.validateRequired({
-      unvan: cariFormUnvan.trim(),
-      hesapKodu: cariFormHesapKodu.trim(),
-    })) return;
-
-    setCariFormSaving(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) throw new Error('Token bulunamadı');
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      const response = await accountService.createCari(token, dataName, {
-        hesapKodu: cariFormHesapKodu.trim(),
-        unvan: cariFormUnvan.trim(),
-        kisaUnvan: cariFormKisaUnvan.trim(),
-        doviz: cariFormDoviz,
-        subeId: cariFormSubeId,
-      });
-      if (response.success && response.data) {
-        const newCari = response.data as any;
-        setFormCariler((prev: any[]) => [...prev, { id: newCari.id, unvan: newCari.unvan }]);
-        setFormCariId(newCari.id.toString());
-        formFieldErrors.clearFieldError('cari');
-        setShowCariForm(false);
-        setTimeout(() => setFormModalVisible(true), 350);
-      } else {
-        cariFormFieldErrors.setFieldError('unvan');
-      }
-    } catch (_) {
-      cariFormFieldErrors.setFieldError('unvan');
-    } finally {
-      setCariFormSaving(false);
-    }
   };
 
   const showToast = (type: 'success' | 'error' | 'info', text: string) => {
@@ -1259,84 +1195,11 @@ export default function TabakhaneSiparisScreen({
         />
       </View>
     </SafeAreaProvider>
-    {/* Cari Ekleme Modal */}
-    <Modal visible={showCariForm} animationType="fade" transparent onRequestClose={handleCloseCariForm}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 }} onPress={handleCloseCariForm}>
-        <Pressable style={{ backgroundColor: colors.card, borderRadius: 14, padding: 20 }} onPress={(e) => e.stopPropagation()}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Icon name="person-add-outline" size={20} color={colors.primary} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Yeni Cari Hesap</Text>
-            </View>
-            <Pressable onPress={handleCloseCariForm} hitSlop={8}>
-              <Icon name="close" size={22} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-          <Input
-            label="Hesap Kodu *"
-            value={cariFormHesapKodu}
-            onChangeText={(v) => { setCariFormHesapKodu(v); cariFormFieldErrors.clearFieldError('hesapKodu'); }}
-            placeholder="Otomatik oluşturulacak..."
-            autoCapitalize="none"
-            editable={false}
-            error={cariFormFieldErrors.errors.hesapKodu ? ' ' : ''}
-            shake={cariFormFieldErrors.shakes.hesapKodu}
-          />
-          <Input
-            label="Ünvan *"
-            value={cariFormUnvan}
-            onChangeText={(v) => { setCariFormUnvan(v); cariFormFieldErrors.clearFieldError('unvan'); }}
-            placeholder="Firma veya kişi adı"
-            error={cariFormFieldErrors.errors.unvan ? ' ' : ''}
-            shake={cariFormFieldErrors.shakes.unvan}
-          />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ width: '48%' }}>
-              <Input
-                label="Kısa Ünvan"
-                value={cariFormKisaUnvan}
-                onChangeText={setCariFormKisaUnvan}
-                placeholder="Kısaltılmış ad"
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </View>
-            <View style={{ width: '48%' }}>
-              <SelectInput
-                label="Döviz"
-                value={cariFormDoviz}
-                onSelect={setCariFormDoviz}
-                items={[
-                  { id: 'TL', label: 'TL' },
-                  { id: 'USD', label: 'USD' },
-                  { id: 'EUR', label: 'EUR' },
-                  { id: 'GBP', label: 'GBP' },
-                ]}
-                placeholder="Seçin"
-                noClear
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <Button
-              text="İptal"
-              variant="secondary"
-              onPress={handleCloseCariForm}
-              icon="close-outline"
-              style={{ flex: 1 }}
-            />
-            <Button
-              text="Kaydet"
-              variant="primary"
-              onPress={handleSaveCari}
-              icon="checkmark-outline"
-              loading={cariFormSaving}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <CariEkleModal
+      visible={showCariForm}
+      onClose={() => { setShowCariForm(false); setTimeout(() => setFormModalVisible(true), 350); }}
+      onSaved={handleCariSaved}
+    />
     </>
   );
 }
@@ -1441,7 +1304,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     formSection: { paddingTop: 16, paddingBottom: 20 },
     formRow: { marginBottom: 12, flexDirection: 'row' },
     formField: { flex: 1 },
-    formLabel: { fontSize: 13, fontWeight: '600', marginBottom: 6 },
+    formLabel: { fontSize: 14, fontWeight: '600', marginBottom: 4, color: colors.inputLabel },
     formInput: {
       flexDirection: 'row', alignItems: 'center',
       borderWidth: 1.5, borderRadius: 12,

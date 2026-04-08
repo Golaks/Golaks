@@ -211,7 +211,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 10,
+    height: 40,
     gap: 6,
   },
   compactDateText: {
