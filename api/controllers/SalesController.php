@@ -14,110 +14,37 @@ class SalesController {
             Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
         }
 
-        $auth = Auth::requireAuth();
-        $userId = $auth['user_id'];
-
         $requestBody = file_get_contents('php://input');
         $data = json_decode($requestBody, true) ?? [];
 
-        $dataName = $data['dataName'] ?? '';
         $modul = $data['modul'] ?? '';
         $startDate = $data['startDate'] ?? '';
         $endDate = $data['endDate'] ?? '';
         $search = $data['search'] ?? '';
 
-        if (empty($dataName)) {
-            Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
-        }
-
         try {
-            $db = Database::getInstance();
-
-            $currentUser = $db->fetchOne(
-                "SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?",
-                [$userId]
-            );
-
-            if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
-                Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
-            }
-
-            $firmaId = $currentUser['mobil_firmalar_id'];
-
-            $firma = $db->fetchOne(
-                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
-                [$firmaId]
-            );
-
-            if (!$firma || empty($firma['firma_ayarlar'])) {
-                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
-            }
-
-            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
-            $veritabani = $firmaAyarlar['veritabani'] ?? [];
-            $dbServer = $veritabani['sunucu'] ?? '';
-            $dbPort = (int)($veritabani['port'] ?? 3306);
-            $dbUser = $veritabani['kullanici'] ?? '';
-            $dbPass = $veritabani['sifre'] ?? '';
-            $dbName = $veritabani['veriAdi'] ?? '';
-
-            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
-                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
-            }
-
-            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
-            $pdo = new PDO($dsn, $dbUser, $dbPass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
-
-            // Sube bilgisi - request'ten veya firma ayarlarından
-            $subeAyarlar = $firmaAyarlar['sube'] ?? [];
-            $subeId = (int)($data['subeId'] ?? $subeAyarlar['subeId'] ?? 0);
-
-            // subeId 0 ise varsayılan şubeyi bul
-            if ($subeId <= 0) {
-                $defSubeStmt = $pdo->prepare("SELECT id FROM subeler ORDER BY id ASC LIMIT 1");
-                $defSubeStmt->execute();
-                $defSubeRow = $defSubeStmt->fetch();
-                $subeId = $defSubeRow ? (int)$defSubeRow['id'] : 0;
-            }
-
-            // Firma DB'deki gerçek firma_id (subeler tablosundan)
-            $dbFirmaStmt = $pdo->prepare("SELECT firma_id FROM subeler WHERE id = ?");
-            $dbFirmaStmt->execute([$subeId]);
-            $dbFirmaRow = $dbFirmaStmt->fetch();
-            $dbFirmaId = $dbFirmaRow ? (int)$dbFirmaRow['firma_id'] : $firmaId;
+            $ctx = $this->getContext();
+            $pdo = $ctx['pdo'];
 
             // Query parametreleri
             $params = [];
-            $conditions = ["fim.aktif = 1"];
+            $conditions = ["fim.aktif >= -1"];
 
+            // Firma filtresi
             $conditions[] = "fim.firma_id = :firmaId";
-            $params[':firmaId'] = $dbFirmaId;
-
-            if ($subeId > 0) {
-                $conditions[] = "fim.sube_id = :subeId";
-                $params[':subeId'] = $subeId;
-            }
+            $params[':firmaId'] = $ctx['firmaId'];
 
             // Modül filtresi
             if (!empty($modul)) {
-                $modulMap = [
-                    'muhasebe' => ['muhasebe'],
-                    'magaza' => ['magaza-stoklar', 'magaza-satis'],
-                    'konfeksiyon' => ['konfeksiyon-stok'],
-                ];
-                $modulKodlari = $modulMap[$modul] ?? [$modul];
-                $placeholders = implode(',', array_map(fn($i) => ":modul{$i}", range(0, count($modulKodlari) - 1)));
-                $conditions[] = "fim.modul_kodu IN ({$placeholders})";
-                foreach ($modulKodlari as $i => $mk) {
-                    $params[":modul{$i}"] = $mk;
-                }
+                $conditions[] = "fim.modul_kodu = :modulKodu";
+                $params[':modulKodu'] = $modul;
             }
 
-            // Sadece satış faturaları (gc = -1 çıkış = satış)
-            $conditions[] = "fit.gc = -1";
+            // Satış faturaları - gc filtresi opsiyonel
+            if (!empty($data['gc'])) {
+                $conditions[] = "fit.gc = :gc";
+                $params[':gc'] = (int)$data['gc'];
+            }
 
             // Tarih filtresi
             if (!empty($startDate)) {
@@ -150,12 +77,21 @@ class SalesController {
                     fim.toplam_indirim,
                     fim.toplam_kdv,
                     fim.odeme_durum,
+                    fim.aktif,
+                    fim.cariler_id,
+                    fim.tipi_id,
+                    fim.art_id,
                     fim.modul_kodu,
                     fim.aciklama,
                     fit.gc,
                     COALESCE(fit.aciklama, '') AS tipi_aciklama,
                     COALESCE(c.unvan, 'Tanımsız') AS cari_adi,
-                    COALESCE(s.sube_adi, 'Tanımsız') AS sube_adi
+                    COALESCE(s.sube_adi, 'Tanımsız') AS sube_adi,
+                    fim.master_indirim_tipi,
+                    fim.master_indirim_deger,
+                    fim.master_indirim_tutar,
+                    (SELECT COUNT(*) FROM stok_detay sd WHERE sd.fatura_master_id = fim.id AND sd.aktif = 1) AS detay_sayisi,
+                    (SELECT COALESCE(SUM(IF(sd2.hesaplama_tipi = 1, sd2.miktar2, sd2.miktar) * sd2.gc), 0) FROM stok_detay sd2 WHERE sd2.fatura_master_id = fim.id AND sd2.aktif = 1) AS toplam_urun_miktar
                 FROM fatura_irsaliye_master fim
                 LEFT JOIN fatura_irsaliye_tipi fit ON fit.id = fim.tipi_id
                 LEFT JOIN cariler c ON c.id = fim.cariler_id
@@ -180,6 +116,7 @@ class SalesController {
                     'seriNo' => $row['seri_no'] ?: '',
                     'tarih' => $row['tarih'],
                     'vadeTarih' => $row['vade'],
+                    'carilerId' => (int)$row['cariler_id'],
                     'cariAdi' => $row['cari_adi'],
                     'subeAdi' => $row['sube_adi'],
                     'tipiAciklama' => $row['tipi_aciklama'],
@@ -192,6 +129,14 @@ class SalesController {
                     'odemeDurum' => (int)$row['odeme_durum'],
                     'modulKodu' => $row['modul_kodu'] ?: '',
                     'aciklama' => $row['aciklama'] ?: '',
+                    'tipiId' => (int)$row['tipi_id'],
+                    'artId' => $row['art_id'] ? json_decode($row['art_id'], true) : null,
+                    'masterIndirimTipi' => (int)$row['master_indirim_tipi'],
+                    'masterIndirimDeger' => $row['master_indirim_deger'] !== null ? (float)$row['master_indirim_deger'] : null,
+                    'masterIndirimTutar' => (float)$row['master_indirim_tutar'],
+                    'detaySayisi' => (int)$row['detay_sayisi'],
+                    'toplamUrunMiktar' => abs((float)$row['toplam_urun_miktar']),
+                    'aktif' => (int)$row['aktif'],
                 ];
 
                 // Döviz bazlı özet
@@ -236,45 +181,9 @@ class SalesController {
     /**
      * Ortak: Auth + firma DB bağlantısı
      */
-    private function getContext() {
-        $auth = Auth::requireAuth();
-        $userId = $auth['user_id'];
-
-        $db = Database::getInstance();
-        $currentUser = $db->fetchOne("SELECT mobil_firmalar_id FROM mobil_kullanici WHERE id = ?", [$userId]);
-        if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
-            Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
-        }
-
-        $firmaId = $currentUser['mobil_firmalar_id'];
-        $firma = $db->fetchOne("SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?", [$firmaId]);
-        if (!$firma || empty($firma['firma_ayarlar'])) {
-            Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
-        }
-
-        $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
-        $veritabani = $firmaAyarlar['veritabani'] ?? [];
-        $dsn = "mysql:host={$veritabani['sunucu']};port=" . ((int)($veritabani['port'] ?? 3306)) . ";dbname={$veritabani['veriAdi']};charset=utf8mb4";
-        $pdo = new PDO($dsn, $veritabani['kullanici'], $veritabani['sifre'], [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-
-        $subeAyarlar = $firmaAyarlar['sube'] ?? [];
-        $subeId = (int)($subeAyarlar['subeId'] ?? 0);
-
-        // Firma DB'deki gerçek firma_id (subeler tablosundan)
-        $dbFirmaStmt = $pdo->prepare("SELECT firma_id FROM subeler WHERE id = ?");
-        $dbFirmaStmt->execute([$subeId]);
-        $dbFirmaRow = $dbFirmaStmt->fetch();
-        $dbFirmaId = $dbFirmaRow ? (int)$dbFirmaRow['firma_id'] : $firmaId;
-
-        return [
-            'pdo' => $pdo,
-            'firmaId' => $dbFirmaId,
-            'subeId' => $subeId,
-            'userId' => $userId,
-        ];
+    private function getContext(): array {
+        require_once __DIR__ . '/../includes/ContextHelper.php';
+        return ContextHelper::get();
     }
 
     /**
@@ -301,20 +210,9 @@ class SalesController {
             $subeRow = $subeStmt->fetch();
             $varsayilanDoviz = ($subeRow && !empty($subeRow['varsayilan_doviz'])) ? $subeRow['varsayilan_doviz'] : 'TL';
 
-            // Debug: firma_id kontrolü
-            $debugStmt = $ctx['pdo']->prepare("SELECT id, seri_no FROM fatura_irsaliye_master WHERE seri_no LIKE 'FAT-2026-%' ORDER BY id DESC LIMIT 1");
-            $debugStmt->execute();
-            $debugRow = $debugStmt->fetch();
-
             Response::success([
                 'seriNo' => $seriNo,
                 'varsayilanDoviz' => $varsayilanDoviz,
-                'debug' => [
-                    'firmaId' => $ctx['firmaId'],
-                    'subeId' => $ctx['subeId'],
-                    'lastFatura' => $debugRow ? $debugRow['seri_no'] : 'YOK',
-                    'lastFaturaFirmaId' => $debugRow ? $debugRow['id'] : 0,
-                ],
             ]);
 
         } catch (PDOException $e) {
@@ -334,14 +232,12 @@ class SalesController {
         }
 
         try {
-            $rawBody = file_get_contents('php://input');
-            $data = json_decode($rawBody, true) ?? [];
-
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
             $ctx = $this->getContext();
 
             // Validasyon
             if (empty($data['carilerId'])) {
-                Response::error('Müşteri seçimi zorunludur. Data: ' . $rawBody, 'VALIDATION_ERROR', 400);
+                Response::error('Müşteri seçimi zorunludur', 'VALIDATION_ERROR', 400);
             }
 
             require_once __DIR__ . '/../includes/FaturaService.php';
@@ -361,7 +257,7 @@ class SalesController {
                 $tipiStmt = $ctx['pdo']->prepare("SELECT id FROM fatura_irsaliye_tipi WHERE gc = -1 LIMIT 1");
                 $tipiStmt->execute();
                 $tipiRow = $tipiStmt->fetch();
-                $tipiId = $tipiRow ? (int)$tipiRow['id'] : 51;
+                $tipiId = $tipiRow ? (int)$tipiRow['id'] : 18;
             }
 
             $faturaService = new FaturaService($ctx['pdo'], $ctx['firmaId'], $subeId, $ctx['userId']);
@@ -375,8 +271,7 @@ class SalesController {
                 'vade' => $data['vade'] ?? $data['tarih'] ?? date('Y-m-d H:i:s'),
                 'doviz' => $data['doviz'] ?? 'TL',
                 'aciklama' => $data['aciklama'] ?? '',
-                'acenteId' => (int)($data['acenteId'] ?? 0),
-                'rehberId' => (int)($data['rehberId'] ?? 0),
+                'artId' => isset($data['artId']) ? $data['artId'] : null,
                 'masterIndirimTipi' => (int)($data['masterIndirimTipi'] ?? -1),
                 'masterIndirimDeger' => isset($data['masterIndirimDeger']) ? (float)$data['masterIndirimDeger'] : null,
             ]);
@@ -440,6 +335,69 @@ class SalesController {
             Response::error('Veritabanı hatası: ' . $e->getMessage(), 'DB_ERROR', 500);
         } catch (Exception $e) {
             Response::error($e->getMessage(), 'GENERAL_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /sales/update
+     * Satış faturası günceller
+     */
+    public function update() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        try {
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $ctx = $this->getContext();
+
+            $faturaId = (int)($data['id'] ?? 0);
+            if ($faturaId <= 0) {
+                Response::error('Fatura ID gereklidir', 'VALIDATION_ERROR', 400);
+            }
+
+            require_once __DIR__ . '/../includes/FaturaService.php';
+            require_once __DIR__ . '/../includes/LogService.php';
+
+            $faturaService = new FaturaService($ctx['pdo'], $ctx['firmaId'], $ctx['subeId'], $ctx['userId']);
+            $logService = new LogService($ctx['pdo'], $ctx['firmaId'], $ctx['subeId'], $ctx['userId']);
+
+            // Eski veriyi al
+            $eskiFatura = $faturaService->get($faturaId);
+            if (!$eskiFatura) {
+                Response::error('Fatura bulunamadı', 'NOT_FOUND', 404);
+            }
+
+            // Güncelle
+            $updateData = [];
+            if (isset($data['carilerId'])) $updateData['carilerId'] = (int)$data['carilerId'];
+            if (isset($data['tipiId'])) $updateData['tipiId'] = (int)$data['tipiId'];
+            if (isset($data['seriNo'])) $updateData['seriNo'] = $data['seriNo'];
+            if (isset($data['tarih'])) $updateData['tarih'] = $data['tarih'];
+            if (isset($data['vade'])) $updateData['vade'] = $data['vade'];
+            if (isset($data['doviz'])) $updateData['doviz'] = $data['doviz'];
+            if (isset($data['aciklama'])) $updateData['aciklama'] = $data['aciklama'];
+            if (isset($data['artId'])) $updateData['artId'] = $data['artId'];
+            if (isset($data['masterIndirimTipi'])) $updateData['masterIndirimTipi'] = (int)$data['masterIndirimTipi'];
+            if (isset($data['masterIndirimDeger'])) $updateData['masterIndirimDeger'] = (float)$data['masterIndirimDeger'];
+
+            $faturaService->update($faturaId, $updateData);
+
+            // Yeni veriyi al
+            $yeniFatura = $faturaService->get($faturaId);
+
+            // Log yaz
+            $logService->duzenle('fatura_irsaliye_master', $faturaId, $eskiFatura, $yeniFatura, 'Satış faturası güncellendi');
+
+            Response::success([
+                'message' => 'Fatura güncellendi',
+                'id' => $faturaId,
+            ]);
+
+        } catch (PDOException $e) {
+            Response::error('DB: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            Response::error('ERR: ' . $e->getMessage(), 'GENERAL_ERROR', 500);
         }
     }
 }

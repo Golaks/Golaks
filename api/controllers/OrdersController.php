@@ -9,66 +9,9 @@ class OrdersController {
     /**
      * Ortak: Auth + firma DB bağlantısı
      */
-    private function getContext() {
-        $auth = Auth::requireAuth();
-        $userId = $auth['user_id'];
-
-        $db = Database::getInstance();
-
-        $currentUser = $db->fetchOne(
-            "SELECT mobil_firmalar_id, kullanici_yetkiler, ad_soyad FROM mobil_kullanici WHERE id = ?",
-            [$userId]
-        );
-
-        if (!$currentUser || !$currentUser['mobil_firmalar_id']) {
-            Response::error('Kullanıcı firma bilgisi bulunamadı', 'USER_FIRMA_NOT_FOUND', 404);
-        }
-
-        $firmaId = $currentUser['mobil_firmalar_id'];
-
-        $firma = $db->fetchOne(
-            "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
-            [$firmaId]
-        );
-
-        if (!$firma || empty($firma['firma_ayarlar'])) {
-            Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
-        }
-
-        $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
-        $veritabani = $firmaAyarlar['veritabani'] ?? [];
-        $dbServer = $veritabani['sunucu'] ?? '';
-        $dbPort = (int)($veritabani['port'] ?? 3306);
-        $dbUser = $veritabani['kullanici'] ?? '';
-        $dbPass = $veritabani['sifre'] ?? '';
-        $dbName = $veritabani['veriAdi'] ?? '';
-
-        if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
-            Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
-        }
-
-        $subeAyarlar = $firmaAyarlar['sube'] ?? [];
-        $subeId = (int)($subeAyarlar['subeId'] ?? 0);
-
-        // Firma ayarlarından gelmezse kullanıcı yetkilerinden varsayılan şubeyi al
-        if (!$subeId) {
-            $yetkiler = $currentUser['kullanici_yetkiler'] ? json_decode($currentUser['kullanici_yetkiler'], true) : [];
-            $subeId = (int)($yetkiler['varsayilan_sube'] ?? 0);
-        }
-
-        $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
-        $pdo = new PDO($dsn, $dbUser, $dbPass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]);
-
-        return [
-            'userId' => $userId,
-            'firmaId' => $firmaId,
-            'subeId' => $subeId,
-            'userName' => $currentUser['ad_soyad'] ?? '',
-            'pdo' => $pdo,
-        ];
+    private function getContext(): array {
+        require_once __DIR__ . '/../includes/ContextHelper.php';
+        return ContextHelper::get();
     }
 
     /**

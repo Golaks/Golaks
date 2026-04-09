@@ -36,14 +36,22 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
   // Master
   const [seriNo, setSeriNo] = useState('');
   const [tarih, setTarih] = useState(new Date());
-  const [tipiId, setTipiId] = useState('');
+  const [tipiId, setTipiId] = useState('18');
   const [doviz, setDoviz] = useState('TL');
   const [cariId, setCariId] = useState('');
+  const [acenteId, setAcenteId] = useState('');
+  const [rehberId, setRehberId] = useState('');
+  const [tezgahtarIds, setTezgahtarIds] = useState<string[]>([]);
+  const [rezervasyonId, setRezervasyonId] = useState('');
   const [aciklama, setAciklama] = useState('');
 
   // Lookups
   const [cariler, setCariler] = useState<{ id: string; label: string }[]>([]);
   const [dovizTipleri, setDovizTipleri] = useState<any[]>([]);
+  const [acenteList, setAcenteList] = useState<{ id: string; label: string }[]>([]);
+  const [rehberList, setRehberList] = useState<{ id: string; label: string }[]>([]);
+  const [personelList, setPersonelList] = useState<{ id: string; label: string }[]>([]);
+  const [rezervasyonList, setRezervasyonList] = useState<{ id: string; label: string }[]>([]);
   const [showCariForm, setShowCariForm] = useState(false);
   const fieldErrors = useFieldErrors();
 
@@ -52,7 +60,33 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
 
   useEffect(() => {
     if (visible) {
-      fetchLookups();
+      // Önce lookups yükle, sonra editingItem'ı set et
+      fetchLookups().then(() => {
+        if (editingItem) {
+          setTipiId(String(editingItem.tipiId || '18'));
+          setSeriNo(editingItem.seriNo || '');
+          setDoviz(editingItem.doviz || 'TL');
+          setTarih(editingItem.tarih ? new Date(editingItem.tarih) : new Date());
+          setCariId(editingItem.carilerId ? String(editingItem.carilerId) : '');
+          const art = editingItem.artId || {};
+          setAcenteId(art.acente?.id ? String(art.acente.id) : '');
+          setRehberId(art.rehber?.id ? String(art.rehber.id) : '');
+          setTezgahtarIds((art.tezgahtar || []).map((t: any) => String(t.id)));
+          setRezervasyonId(art.rezervasyon?.id ? String(art.rezervasyon.id) : '');
+          setAciklama(editingItem.aciklama || '');
+        } else {
+          setTipiId('18');
+          setSeriNo('');
+          setDoviz('TL');
+          setTarih(new Date());
+          setCariId('');
+          setAcenteId('');
+          setRehberId('');
+          setTezgahtarIds([]);
+          setRezervasyonId('');
+          setAciklama('');
+        }
+      });
     }
   }, [visible]);
 
@@ -77,6 +111,42 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
           label: `${c.hesapKodu || ''}${c.unvan ? ' - ' + c.unvan : ''}`.trim(),
         })) || []);
       }
+
+      // Acente ve Rehber listesi (320 prefix)
+      const acenteRes = await accountService.getCariList(token, dataName, 'customers', '', undefined, '320');
+      if (acenteRes.success && acenteRes.data) {
+        const list = acenteRes.data.data?.map((c: any) => ({
+          id: String(c.id),
+          label: `${c.hesapKodu || ''}${c.unvan ? ' - ' + c.unvan : ''}`.trim(),
+        })) || [];
+        setAcenteList(list);
+        setRehberList(list);
+      }
+
+      // Personel listesi
+      const personelRes = await accountService.getCariList(token, dataName, 'personnel');
+      if (personelRes.success && personelRes.data) {
+        setPersonelList(personelRes.data.data?.map((c: any) => ({
+          id: String(c.id),
+          label: `${c.hesapKodu || ''}${c.unvan ? ' - ' + c.unvan : ''}`.trim(),
+        })) || []);
+      }
+
+      // Rezervasyonlar
+      try {
+        const rezRes = await fetch(API_ENDPOINTS.RESERVATIONS_LIST, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ dataName }),
+        });
+        const rezData = await rezRes.json();
+        if (rezData.success && rezData.data?.items) {
+          setRezervasyonList(rezData.data.items.map((r: any) => ({
+            id: String(r.id),
+            label: `${r.rezervasyonKodu || ''} - ${r.musteriAdi || ''}`.trim(),
+          })));
+        }
+      } catch {}
 
       // Seri no
       if (!isEdit) {
@@ -119,20 +189,31 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
       if (!token) throw new Error('Token bulunamadı');
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
 
-      const res = await fetch(API_ENDPOINTS.SALES_CREATE, {
+      const body: any = {
+        dataName,
+        tipiId: parseInt(tipiId, 10),
+        carilerId: parseInt(cariId, 10),
+        seriNo,
+        tarih: formatDateISO(tarih),
+        vade: formatDateISO(tarih),
+        doviz,
+        aciklama,
+        artId: {
+          acente: acenteId ? { id: parseInt(acenteId, 10), adi: acenteList.find(c => c.id === acenteId)?.label || '' } : null,
+          rehber: rehberId ? { id: parseInt(rehberId, 10), adi: rehberList.find(c => c.id === rehberId)?.label || '' } : null,
+          tezgahtar: tezgahtarIds.map(id => ({ id: parseInt(id, 10), adi: personelList.find(p => p.id === id)?.label || '' })),
+          rezervasyon: rezervasyonId ? { id: parseInt(rezervasyonId, 10), adi: rezervasyonList.find(r => r.id === rezervasyonId)?.label || '' } : null,
+        },
+        modulKodu: 'magaza-satis',
+      };
+
+      const endpoint = isEdit ? API_ENDPOINTS.SALES_UPDATE : API_ENDPOINTS.SALES_CREATE;
+      if (isEdit) body.id = editingItem.id;
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          dataName,
-          tipiId: parseInt(tipiId, 10),
-          carilerId: parseInt(cariId, 10),
-          seriNo,
-          tarih: formatDateISO(tarih),
-          vade: formatDateISO(tarih),
-          doviz,
-          aciklama,
-          modulKodu: 'magaza-satis',
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
 
@@ -140,7 +221,7 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         onSave?.(data.data);
         onClose();
       } else {
-        toastRef.current?.show({ type: 'error', text: data.message || 'Kayıt başarısız' });
+        toastRef.current?.show({ type: 'error', text: data.error?.message || data.message || 'Kayıt başarısız' });
       }
     } catch (err: any) {
       toastRef.current?.show({ type: 'error', text: err.message || 'Bir hata oluştu' });
@@ -153,7 +234,7 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title={isEdit ? `Satış Düzenle - ${seriNo}` : 'Yeni Satış'}
+      title={isEdit ? 'Satış Düzenle' : 'Yeni Satış'}
       icon={isEdit ? 'create-outline' : 'cart-outline'}
       toastRef={toastRef}
       footer={
@@ -242,6 +323,79 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         <Pressable style={[styles.addCariBtn, { backgroundColor: colors.primary }]} onPress={() => setShowCariForm(true)}>
           <Icon name="add" size={22} color="#fff" />
         </Pressable>
+      </View>
+
+      {/* Acente & Rehber */}
+      <View style={styles.formRowDouble}>
+        <View style={{ flex: 1 }}>
+          <SelectInput
+            label="Acente"
+            placeholder="Seçiniz..."
+            value={acenteId}
+            items={acenteList}
+            onSelect={setAcenteId}
+            searchPlaceholder="Acente ara..."
+            containerStyle={{ marginBottom: 0 }}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <SelectInput
+            label="Rehber"
+            placeholder="Seçiniz..."
+            value={rehberId}
+            items={rehberList}
+            onSelect={setRehberId}
+            searchPlaceholder="Rehber ara..."
+            containerStyle={{ marginBottom: 0 }}
+          />
+        </View>
+      </View>
+
+      {/* Tezgahtar - Çoklu Seçim */}
+      <View style={{ marginBottom: 10 }}>
+        <SelectInput
+          label="Tezgahtar"
+          placeholder="Personel seçiniz..."
+          value=""
+          items={personelList.filter(p => !tezgahtarIds.includes(p.id))}
+          onSelect={(id) => {
+            if (id && !tezgahtarIds.includes(id)) {
+              setTezgahtarIds(prev => [...prev, id]);
+            }
+          }}
+          searchPlaceholder="Personel ara..."
+          containerStyle={{ marginBottom: 6 }}
+        />
+        {tezgahtarIds.length > 0 && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {tezgahtarIds.map(id => {
+              const p = personelList.find(x => x.id === id);
+              return (
+                <Pressable
+                  key={id}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary + '15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                  onPress={() => setTezgahtarIds(prev => prev.filter(x => x !== id))}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>{p?.label || id}</Text>
+                  <Icon name="close-circle" size={14} color={colors.primary} />
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* Rezervasyon */}
+      <View style={{ marginBottom: 10 }}>
+        <SelectInput
+          label="Rezervasyon"
+          placeholder="Rezervasyon seçiniz..."
+          value={rezervasyonId}
+          items={rezervasyonList}
+          onSelect={setRezervasyonId}
+          searchPlaceholder="Rezervasyon ara..."
+          containerStyle={{ marginBottom: 0 }}
+        />
       </View>
 
       {/* Açıklama */}

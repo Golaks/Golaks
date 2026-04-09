@@ -87,9 +87,8 @@ class FaturaService {
         $sevkAdresId = (int)($data['sevkAdresId'] ?? 0);
         $aciklama = $data['aciklama'] ?? '';
         $faturaKur = (float)($data['faturaKur'] ?? 0);
-        $acenteId = (int)($data['acenteId'] ?? 0);
-        $rehberId = (int)($data['rehberId'] ?? 0);
-        $irsaliyeOnay = (int)($data['irsaliyeOnay'] ?? 0);
+        $artId = isset($data['artId']) ? json_encode($data['artId'], JSON_UNESCAPED_UNICODE) : null;
+        $irsaliyeOnay = (int)($data['irsaliyeOnay'] ?? 1);
         $masterIndirimTipi = (int)($data['masterIndirimTipi'] ?? -1);
         $masterIndirimDeger = isset($data['masterIndirimDeger']) ? (float)$data['masterIndirimDeger'] : null;
         $masterIndirimTutar = (float)($data['masterIndirimTutar'] ?? 0);
@@ -99,7 +98,7 @@ class FaturaService {
             seri_no, tarih, vade, doviz,
             fatura_adres_id, sevk_adres_id,
             aciklama, fatura_kur,
-            acente_id, rehber_id, irsaliye_onay,
+            art_id, irsaliye_onay,
             master_indirim_tipi, master_indirim_deger, master_indirim_tutar,
             kayit_kullanici_id, kayit_ip, aktif
         ) VALUES (
@@ -107,7 +106,7 @@ class FaturaService {
             :seriNo, :tarih, :vade, :doviz,
             :faturaAdresId, :sevkAdresId,
             :aciklama, :faturaKur,
-            :acenteId, :rehberId, :irsaliyeOnay,
+            :artId, :irsaliyeOnay,
             :masterIndirimTipi, :masterIndirimDeger, :masterIndirimTutar,
             :kullaniciId, :ip, 1
         )";
@@ -127,8 +126,7 @@ class FaturaService {
             ':sevkAdresId' => $sevkAdresId,
             ':aciklama' => $aciklama,
             ':faturaKur' => $faturaKur,
-            ':acenteId' => $acenteId,
-            ':rehberId' => $rehberId,
+            ':artId' => $artId,
             ':irsaliyeOnay' => $irsaliyeOnay,
             ':masterIndirimTipi' => $masterIndirimTipi,
             ':masterIndirimDeger' => $masterIndirimDeger,
@@ -175,12 +173,16 @@ class FaturaService {
             'masterIndirimTutar' => 'master_indirim_tutar',
             'irsaliyeOnay' => 'irsaliye_onay',
             'fisMasterId' => 'fis_master_id',
-            'acenteId' => 'acente_id',
-            'rehberId' => 'rehber_id',
         ];
 
         $updates = [];
         $params = [':id' => $faturaId, ':firmaId' => $this->firmaId];
+
+        // artId JSON ayrı handle edilir
+        if (array_key_exists('artId', $data)) {
+            $updates[] = "art_id = :artId";
+            $params[':artId'] = is_array($data['artId']) ? json_encode($data['artId'], JSON_UNESCAPED_UNICODE) : $data['artId'];
+        }
 
         foreach ($allowedFields as $inputKey => $dbColumn) {
             if (array_key_exists($inputKey, $data)) {
@@ -250,7 +252,7 @@ class FaturaService {
             SELECT fm.*,
                    COALESCE(c.unvan, '') AS cari_adi,
                    COALESCE(c.hesap_kodu, '') AS cari_hesap_kodu,
-                   COALESCE(ft.tipi, '') AS fatura_tipi_adi
+                   COALESCE(ft.aciklama, '') AS fatura_tipi_adi
             FROM fatura_irsaliye_master fm
             LEFT JOIN cariler c ON c.id = fm.cariler_id
             LEFT JOIN fatura_irsaliye_tipi ft ON ft.id = fm.tipi_id
@@ -317,7 +319,7 @@ class FaturaService {
             SELECT fm.*,
                    COALESCE(c.unvan, '') AS cari_adi,
                    COALESCE(c.hesap_kodu, '') AS cari_hesap_kodu,
-                   COALESCE(ft.tipi, '') AS fatura_tipi_adi,
+                   COALESCE(ft.aciklama, '') AS fatura_tipi_adi,
                    (SELECT COUNT(*) FROM fatura_irsaliye_detay fd WHERE fd.fatura_irsaliye_master_id = fm.id AND fd.aktif = 1) AS detay_sayisi
             FROM fatura_irsaliye_master fm
             LEFT JOIN cariler c ON c.id = fm.cariler_id
@@ -411,8 +413,7 @@ class FaturaService {
             'masterIndirimDeger' => $row['master_indirim_deger'] !== null ? (float)$row['master_indirim_deger'] : null,
             'masterIndirimTutar' => (float)$row['master_indirim_tutar'],
             'irsaliyeOnay' => (int)$row['irsaliye_onay'],
-            'acenteId' => (int)($row['acente_id'] ?? 0),
-            'rehberId' => (int)($row['rehber_id'] ?? 0),
+            'artId' => isset($row['art_id']) && $row['art_id'] ? json_decode($row['art_id'], true) : null,
             'detaySayisi' => (int)($row['detay_sayisi'] ?? 0),
             'aktif' => (int)$row['aktif'],
             'kayitTarihi' => $row['kayit_tarihi'],

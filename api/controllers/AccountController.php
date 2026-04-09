@@ -2061,7 +2061,7 @@ class AccountController {
         try {
             $pdo = $this->getFirmaPdo($auth['user_id'], $dataName);
 
-            $stmt = $pdo->prepare("SELECT sube_genel_ayar FROM subeler WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT sube_genel_ayar, varsayilan_doviz FROM subeler WHERE id = ?");
             $stmt->execute([$subeId]);
             $row = $stmt->fetch();
 
@@ -2071,6 +2071,7 @@ class AccountController {
             }
 
             $ayarlar = $row['sube_genel_ayar'] ? json_decode($row['sube_genel_ayar'], true) : [];
+            $ayarlar['varsayilanDoviz'] = $row['varsayilan_doviz'] ?? 'TL';
 
             Response::success($ayarlar);
 
@@ -2116,6 +2117,12 @@ class AccountController {
 
             $stmt = $pdo->prepare("UPDATE subeler SET sube_genel_ayar = ? WHERE id = ?");
             $stmt->execute([json_encode($yeniAyarlar, JSON_UNESCAPED_UNICODE), $subeId]);
+
+            // Varsayılan döviz ayrı kolonda
+            if (isset($data['varsayilanDoviz'])) {
+                $dovizStmt = $pdo->prepare("UPDATE subeler SET varsayilan_doviz = ? WHERE id = ?");
+                $dovizStmt->execute([$data['varsayilanDoviz'], $subeId]);
+            }
 
             Response::success(['message' => 'Ayarlar kaydedildi']);
 

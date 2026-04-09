@@ -10,6 +10,8 @@ import BackButton from '../components/BackButton';
 import SelectInput from '../components/SelectInput';
 import { authService } from '../services/auth.service';
 import accountService from '../services/account.service';
+import ordersService from '../services/orders.service';
+import CariEkleModal from '../components/CariEkleModal';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { useAlert } from '../contexts/AlertContext';
@@ -41,6 +43,8 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
   const [indirimHesapId, setIndirimHesapId] = useState('');
   const [varsayilanKasaId, setVarsayilanKasaId] = useState('');
   const [varsayilanBankaId, setVarsayilanBankaId] = useState('');
+  const [varsayilanDoviz, setVarsayilanDoviz] = useState('TL');
+  const [dovizTipleri, setDovizTipleri] = useState<{ id: string; label: string }[]>([]);
   const [muhasebeFisiKapali, setMuhasebeFisiKapali] = useState(true);
   const [receteNormalHesaplama, setReceteNormalHesaplama] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,12 +52,6 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
 
   // Cari ekleme modal
   const [showCariForm, setShowCariForm] = useState(false);
-  const [cariFormSaving, setCariFormSaving] = useState(false);
-  const [cariFormUnvan, setCariFormUnvan] = useState('');
-  const [cariFormKisaUnvan, setCariFormKisaUnvan] = useState('');
-  const [cariFormHesapKodu, setCariFormHesapKodu] = useState('');
-  const [cariFormDoviz, setCariFormDoviz] = useState('TL');
-  const cariFormFieldErrors = useFieldErrors();
 
   const loadSubeler = React.useCallback(async () => {
     try {
@@ -102,6 +100,13 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
         setIndirimHesapId(ayar.hesapKodlari?.siparisIndirim ?? '');
         setVarsayilanKasaId(ayar.hesapKodlari?.varsayilanKasa ?? '');
         setVarsayilanBankaId(ayar.hesapKodlari?.varsayilanBanka ?? '');
+        setVarsayilanDoviz(ayar.varsayilanDoviz ?? 'TL');
+
+        // Döviz tiplerini yükle
+        const lookupsRes = await ordersService.getLookups(token, dataName);
+        if (lookupsRes.success && lookupsRes.data?.dovizTipleri) {
+          setDovizTipleri(lookupsRes.data.dovizTipleri.map((d: any) => ({ id: d.dovizTipi, label: d.dovizTipi })));
+        }
       }
     } catch (_) {}
     finally {
@@ -132,7 +137,7 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ dataName, subeId: parseInt(selectedSubeId), ayarlar }),
+          body: JSON.stringify({ dataName, subeId: parseInt(selectedSubeId), ayarlar, varsayilanDoviz }),
         }
       );
       const data = await response.json();
@@ -193,77 +198,16 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
 
   const handleOpenCariForm = (field: 'avans' | 'indirim' | 'kasa' | 'banka') => {
     setCariFormField(field);
-    setCariFormUnvan('');
-    setCariFormKisaUnvan('');
-    setCariFormHesapKodu('');
-    setCariFormDoviz('TL');
-    cariFormFieldErrors.clearAll();
     setShowCariForm(true);
-    (async () => {
-      try {
-        const token = await authService.getToken();
-        if (!token) return;
-        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-        const subeId = selectedSubeId ? parseInt(selectedSubeId) : 1;
-        const config = HESAP_KODU_PREFIX[field];
-        const response = await accountService.getNextHesapKodu(token, dataName, config.hesapTipi, subeId, config.prefix);
-        if (response.success && response.data.hesapKodu) {
-          setCariFormHesapKodu(response.data.hesapKodu);
-        } else {
-          setCariFormHesapKodu(`${config.prefix}.01.001`);
-        }
-      } catch (_) {
-        setCariFormHesapKodu(`${HESAP_KODU_PREFIX[field].prefix}.01.001`);
-      }
-    })();
   };
 
-  const handleCloseCariForm = () => {
+  const handleCariSaved = (cari: { id: string; label: string }) => {
+    if (cariFormField === 'avans') { setAvansCariler(prev => [...prev, cari]); setAvansHesapId(cari.id); }
+    else if (cariFormField === 'indirim') { setIndirimCariler(prev => [...prev, cari]); setIndirimHesapId(cari.id); }
+    else if (cariFormField === 'kasa') { setKasaCariler(prev => [...prev, cari]); setVarsayilanKasaId(cari.id); }
+    else if (cariFormField === 'banka') { setBankaCariler(prev => [...prev, cari]); setVarsayilanBankaId(cari.id); }
     setShowCariForm(false);
-  };
-
-  const handleSaveCari = async () => {
-    if (!cariFormFieldErrors.validateRequired({
-      unvan: cariFormUnvan.trim(),
-      hesapKodu: cariFormHesapKodu.trim(),
-    })) return;
-
-    setCariFormSaving(true);
-    try {
-      const token = await authService.getToken();
-      if (!token) throw new Error('Token bulunamadı');
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      const subeId = selectedSubeId ? parseInt(selectedSubeId) : 1;
-      const response = await accountService.createCari(token, dataName, {
-        hesapKodu: cariFormHesapKodu.trim(),
-        unvan: cariFormUnvan.trim(),
-        kisaUnvan: cariFormKisaUnvan.trim(),
-        doviz: cariFormDoviz,
-        subeId,
-      });
-      if (response.success && response.data) {
-        const newCari = response.data as any;
-        const newId = String(newCari.id);
-        const newItem = { id: newId, label: `${cariFormHesapKodu}${cariFormUnvan ? ' - ' + cariFormUnvan : ''}`.trim() };
-        if (cariFormField === 'avans') setAvansCariler(prev => [...prev, newItem]);
-        else if (cariFormField === 'indirim') setIndirimCariler(prev => [...prev, newItem]);
-        else if (cariFormField === 'kasa') setKasaCariler(prev => [...prev, newItem]);
-        else if (cariFormField === 'banka') setBankaCariler(prev => [...prev, newItem]);
-        // İlgili alana otomatik seç
-        if (cariFormField === 'avans') setAvansHesapId(newId);
-        else if (cariFormField === 'indirim') setIndirimHesapId(newId);
-        else if (cariFormField === 'kasa') setVarsayilanKasaId(newId);
-        else if (cariFormField === 'banka') setVarsayilanBankaId(newId);
-        setShowCariForm(false);
-        showSuccess('Hesap oluşturuldu');
-      } else {
-        cariFormFieldErrors.setFieldError('unvan');
-      }
-    } catch (_) {
-      cariFormFieldErrors.setFieldError('unvan');
-    } finally {
-      setCariFormSaving(false);
-    }
+    showSuccess('Hesap oluşturuldu');
   };
 
   const handleTabPress = (tab: TabName) => {
@@ -314,6 +258,31 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Varsayılan Döviz */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, { backgroundColor: '#10B98115' }]}>
+                <Icon name="cash-outline" size={16} color="#10B981" />
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Varsayılan Döviz</Text>
+            </View>
+            <View style={styles.sectionBody}>
+              <SelectInput
+                value={varsayilanDoviz}
+                onSelect={setVarsayilanDoviz}
+                items={dovizTipleri.length > 0 ? dovizTipleri : [
+                  { id: 'TL', label: 'TL' },
+                  { id: 'USD', label: 'USD' },
+                  { id: 'EUR', label: 'EUR' },
+                  { id: 'GBP', label: 'GBP' },
+                ]}
+                placeholder="Döviz seçiniz..."
+                noClear
+                containerStyle={{ marginBottom: 0 }}
+              />
+            </View>
+          </View>
+
           {/* Hesap Kodları */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
@@ -455,84 +424,13 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
         />
       </View>
     </SafeAreaProvider>
-    {/* Cari Ekleme Modal */}
-    <Modal visible={showCariForm} animationType="fade" transparent onRequestClose={handleCloseCariForm}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24 }} onPress={handleCloseCariForm}>
-        <Pressable style={{ backgroundColor: colors.card, borderRadius: 14, padding: 20 }} onPress={(e) => e.stopPropagation()}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Icon name="person-add-outline" size={20} color={colors.primary} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Yeni Cari Hesap</Text>
-            </View>
-            <Pressable onPress={handleCloseCariForm} hitSlop={8}>
-              <Icon name="close" size={22} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-          <Input
-            label="Hesap Kodu *"
-            value={cariFormHesapKodu}
-            onChangeText={(v) => { setCariFormHesapKodu(v); cariFormFieldErrors.clearFieldError('hesapKodu'); }}
-            placeholder="Otomatik oluşturulacak..."
-            autoCapitalize="none"
-            editable={false}
-            error={cariFormFieldErrors.errors.hesapKodu ? ' ' : ''}
-            shake={cariFormFieldErrors.shakes.hesapKodu}
-          />
-          <Input
-            label="Ünvan *"
-            value={cariFormUnvan}
-            onChangeText={(v) => { setCariFormUnvan(v); cariFormFieldErrors.clearFieldError('unvan'); }}
-            placeholder="Firma veya kişi adı"
-            error={cariFormFieldErrors.errors.unvan ? ' ' : ''}
-            shake={cariFormFieldErrors.shakes.unvan}
-          />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ width: '48%' }}>
-              <Input
-                label="Kısa Ünvan"
-                value={cariFormKisaUnvan}
-                onChangeText={setCariFormKisaUnvan}
-                placeholder="Kısaltılmış ad"
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </View>
-            <View style={{ width: '48%' }}>
-              <SelectInput
-                label="Döviz"
-                value={cariFormDoviz}
-                onSelect={setCariFormDoviz}
-                items={[
-                  { id: 'TL', label: 'TL' },
-                  { id: 'USD', label: 'USD' },
-                  { id: 'EUR', label: 'EUR' },
-                  { id: 'GBP', label: 'GBP' },
-                ]}
-                placeholder="Seçin"
-                noClear
-                containerStyle={{ marginBottom: 0 }}
-              />
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <Button
-              text="İptal"
-              variant="secondary"
-              onPress={handleCloseCariForm}
-              icon="close-outline"
-              style={{ flex: 1 }}
-            />
-            <Button
-              text="Kaydet"
-              variant="primary"
-              onPress={handleSaveCari}
-              icon="checkmark-outline"
-              loading={cariFormSaving}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <CariEkleModal
+      visible={showCariForm}
+      onClose={() => setShowCariForm(false)}
+      onSaved={handleCariSaved}
+      hesapKoduPrefix={HESAP_KODU_PREFIX[cariFormField]?.prefix || '120'}
+      filterType={HESAP_KODU_PREFIX[cariFormField]?.hesapTipi || 'customers'}
+    />
     </>
   );
 }

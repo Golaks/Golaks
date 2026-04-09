@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -71,7 +71,10 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
   const [isLoading, setIsLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [formVisible, setFormVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [data, setData] = useState<any[]>([]);
+  const [durumFilter, setDurumFilter] = useState<number | null>(1);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
 
   // Date filter
   const defaultPreset: DatePreset = 'thisMonth';
@@ -94,7 +97,7 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
       const response = await salesService.getList(token, dataName, {
-        modul: 'magaza',
+        modul: 'magaza-satis',
         startDate: formatDateISO(startDate),
         endDate: formatDateISO(endDate),
       });
@@ -114,6 +117,33 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
     showSuccess('Satış kaydedildi');
     fetchData();
   };
+
+  // Arama filtresi
+  const searchFilteredData = data.filter((item: any) => {
+    if (!searchText) return true;
+    const q = searchText.toLowerCase();
+    return (
+      (item.cariAdi || '').toLowerCase().includes(q) ||
+      (item.seriNo || '').toLowerCase().includes(q) ||
+      (item.artId?.acente?.adi || '').toLowerCase().includes(q) ||
+      (item.artId?.rehber?.adi || '').toLowerCase().includes(q)
+    );
+  });
+
+  // Stats
+  const stats = {
+    total: searchFilteredData.length,
+    acik: searchFilteredData.filter((i: any) => i.aktif === 1 || i.aktif === undefined).length,
+    kapali: searchFilteredData.filter((i: any) => i.aktif === 0).length,
+    silinen: searchFilteredData.filter((i: any) => i.aktif === -1).length,
+  };
+
+  // Durum filtresi
+  const filteredData = searchFilteredData.filter((item: any) => {
+    if (durumFilter === null) return true;
+    if (durumFilter === 1) return item.aktif === 1 || item.aktif === undefined;
+    return item.aktif === durumFilter;
+  });
 
   const styles = createStyles(colors, isDark);
 
@@ -158,7 +188,7 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
           onLogout={handleLogout}
           rightButton={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <AddButton onPress={() => setFormVisible(true)} />
+              <AddButton onPress={() => { setEditingItem(null); setFormVisible(true); }} />
               <SearchButton onPress={() => setFilterVisible(!filterVisible)} />
             </View>
           }
@@ -205,7 +235,29 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
             </View>
           )}
 
-          {data.length === 0 && !isLoading ? (
+          {/* Stat Kartları */}
+          {data.length > 0 && (
+            <View style={styles.statsRow}>
+              <Pressable style={[styles.statCard, { borderLeftColor: '#3B82F6' }, durumFilter === null && { borderColor: '#3B82F6', borderWidth: 1.5 }]} onPress={() => setDurumFilter(null)}>
+                <Text style={styles.statLabel}>Toplam</Text>
+                <Text style={[styles.statValue, { color: '#3B82F6' }]}>{stats.total}</Text>
+              </Pressable>
+              <Pressable style={[styles.statCard, { borderLeftColor: '#10B981' }, durumFilter === 1 && { borderColor: '#10B981', borderWidth: 1.5 }]} onPress={() => setDurumFilter(1)}>
+                <Text style={styles.statLabel}>Açık</Text>
+                <Text style={[styles.statValue, { color: '#10B981' }]}>{stats.acik}</Text>
+              </Pressable>
+              <Pressable style={[styles.statCard, { borderLeftColor: '#6B7280' }, durumFilter === 0 && { borderColor: '#6B7280', borderWidth: 1.5 }]} onPress={() => setDurumFilter(0)}>
+                <Text style={styles.statLabel}>Kapalı</Text>
+                <Text style={[styles.statValue, { color: '#6B7280' }]}>{stats.kapali}</Text>
+              </Pressable>
+              <Pressable style={[styles.statCard, { borderLeftColor: '#EF4444' }, durumFilter === -1 && { borderColor: '#EF4444', borderWidth: 1.5 }]} onPress={() => setDurumFilter(-1)}>
+                <Text style={styles.statLabel}>Silinen</Text>
+                <Text style={[styles.statValue, { color: '#EF4444' }]}>{stats.silinen}</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {filteredData.length === 0 && !isLoading ? (
             <View style={styles.emptyContainer}>
               <EmptyState
                 icon="cart-outline"
@@ -214,17 +266,106 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
               />
             </View>
           ) : (
-            data.map((item: any) => (
-              <View key={item.id} style={[styles.card, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#E2E8F0' }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>{item.cariAdi}</Text>
-                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>{item.seriNo} · {item.tarih?.split(' ')[0]}</Text>
+            filteredData.map((item: any) => {
+              const formatAmt = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const formatTarih = (t: string) => { if (!t) return '-'; const d = t.split(' ')[0]?.split('-'); return d?.length === 3 ? `${d[2]}.${d[1]}.${d[0]}` : t; };
+              const durumBadge = item.aktif === 1
+                ? { label: 'Açık', color: '#10B981', bg: isDark ? '#10B98115' : '#ECFDF5', icon: 'checkmark-circle' }
+                : item.aktif === 0
+                ? { label: 'Kapalı', color: '#6B7280', bg: isDark ? '#6B728015' : '#F3F4F6', icon: 'lock-closed' }
+                : { label: 'Silinen', color: '#EF4444', bg: isDark ? '#EF444415' : '#FEF2F2', icon: 'trash' };
+
+              const isExpanded = expandedCardId === item.id;
+
+              return (
+                <Pressable key={item.id} style={[styles.card, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isExpanded ? colors.primary + '40' : (isDark ? colors.border : '#E2E8F0') }]} onPress={() => setExpandedCardId(isExpanded ? null : item.id)}>
+                  {/* Üst: Cari & Tutar */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }} numberOfLines={1}>{item.cariAdi}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>{item.seriNo}</Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary, opacity: 0.5 }}>·</Text>
+                        <Text style={{ fontSize: 12, color: colors.textSecondary }}>{formatTarih(item.tarih)}</Text>
+                      </View>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: '#10B981' }}>{formatAmt(item.toplamTutar || 0)} <Text style={{ fontSize: 12, color: colors.textSecondary }}>{item.doviz}</Text></Text>
+                      {item.toplamIndirim > 0 && (
+                        <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 2 }}>İnd. {formatAmt(item.toplamIndirim)} {item.doviz}</Text>
+                      )}
+                    </View>
                   </View>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#10B981' }}>{parseFloat(item.toplamTutar || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} {item.doviz}</Text>
-                </View>
-              </View>
-            ))
+
+                  {/* Badge'ler & Ürün Ekle */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
+                    <View style={[styles.badge, { backgroundColor: durumBadge.bg }]}>
+                      <Icon name={durumBadge.icon} size={12} color={durumBadge.color} />
+                      <Text style={[styles.badgeText, { color: durumBadge.color }]}>{durumBadge.label}</Text>
+                    </View>
+                    {item.detaySayisi > 0 && (
+                      <View style={[styles.badge, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                        <Icon name="layers-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{item.detaySayisi} kalem</Text>
+                      </View>
+                    )}
+                    {item.toplamUrunMiktar > 0 && (
+                      <View style={[styles.badge, { backgroundColor: isDark ? colors.background : '#F8FAFC' }]}>
+                        <Icon name="cube-outline" size={12} color={colors.textSecondary} />
+                        <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{item.toplamUrunMiktar} ad.</Text>
+                      </View>
+                    )}
+                    {item.tipiAciklama ? (
+                      <View style={[styles.badge, { backgroundColor: isDark ? '#3B82F610' : '#EFF6FF' }]}>
+                        <Icon name="document-text-outline" size={12} color="#3B82F6" />
+                        <Text style={[styles.badgeText, { color: '#3B82F6' }]} numberOfLines={1}>{item.tipiAciklama.replace(/^\(\d+\)\s*/, '').replace(/\s*Faturası?$/, '')}</Text>
+                      </View>
+                    ) : null}
+                    <View style={{ flex: 1 }} />
+                    <Pressable
+                      style={[styles.iconBtn, { backgroundColor: '#F59E0B' }]}
+                      onPress={(e) => { e.stopPropagation(); setEditingItem(item); setFormVisible(true); }}
+                    >
+                      <Icon name="create-outline" size={14} color="#fff" />
+                    </Pressable>
+                    <Pressable
+                      style={[styles.iconBtn, { backgroundColor: colors.primary, flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
+                      onPress={(e) => { e.stopPropagation(); /* TODO: Ürün ekleme */ }}
+                    >
+                      <Icon name="add" size={14} color="#fff" />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Ürün Ekle</Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Alt Detaylar - Expandable */}
+                  {isExpanded && (
+                    <>
+                      <View style={[styles.cardInfoGrid, { borderTopColor: isDark ? colors.border : '#F1F5F9' }]}>
+                        <View style={styles.cardInfoItem}>
+                          <Text style={[styles.cardInfoLabel, { color: colors.textSecondary }]}>Acente</Text>
+                          <Text style={[styles.cardInfoValue, { color: colors.text }]} numberOfLines={1}>{(item.artId?.acente?.adi || '-').replace(/^[\d.]+\s*-\s*/, '')}</Text>
+                        </View>
+                        <View style={styles.cardInfoItem}>
+                          <Text style={[styles.cardInfoLabel, { color: colors.textSecondary }]}>Rehber</Text>
+                          <Text style={[styles.cardInfoValue, { color: colors.text }]} numberOfLines={1}>{(item.artId?.rehber?.adi || '-').replace(/^[\d.]+\s*-\s*/, '')}</Text>
+                        </View>
+                      </View>
+                      <View style={[styles.cardInfoGrid, { borderTopWidth: 0, marginTop: 6, paddingTop: 0 }]}>
+                        <View style={[styles.cardInfoItem, { flex: 1 }]}>
+                          <Text style={[styles.cardInfoLabel, { color: colors.textSecondary }]}>Tezgahtar</Text>
+                          <Text style={[styles.cardInfoValue, { color: colors.text }]} numberOfLines={2}>
+                            {item.artId?.tezgahtar?.length > 0
+                              ? item.artId.tezgahtar.map((t: any) => (t.adi || '').replace(/^[\d.]+\s*-\s*/, '')).join(', ')
+                              : '-'}
+                          </Text>
+                        </View>
+                      </View>
+
+                    </>
+                  )}
+                </Pressable>
+              );
+            })
           )}
         </ScrollView>
         )}
@@ -232,8 +373,9 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
         {/* Satış Formu */}
         <SatisForm
           visible={formVisible}
-          onClose={() => setFormVisible(false)}
+          onClose={() => { setFormVisible(false); setEditingItem(null); }}
           onSave={handleSaved}
+          editingItem={editingItem}
         />
 
         <TabBar
@@ -264,8 +406,37 @@ const createStyles = (colors: any, isDark: boolean) =>
       borderWidth: 1, borderColor: isDark ? colors.border : '#E2E8F0',
     },
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+    statsRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+    statCard: {
+      flex: 1,
+      backgroundColor: isDark ? colors.card : '#fff',
+      borderRadius: 10, padding: 10,
+      borderLeftWidth: 3, borderWidth: 1,
+      borderColor: isDark ? colors.border : '#F1F5F9',
+    },
+    statLabel: { fontSize: 10, color: colors.textSecondary, marginBottom: 3 },
+    statValue: { fontSize: 16, fontWeight: '700' },
     card: {
       borderRadius: 12, padding: 14, marginBottom: 8,
       borderWidth: 1,
+    },
+    badge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+    },
+    badgeText: { fontSize: 11, fontWeight: '600' },
+    cardInfoGrid: {
+      flexDirection: 'row', gap: 8, marginTop: 10, paddingTop: 10,
+      borderTopWidth: 1,
+    },
+    cardInfoItem: {
+      flex: 1, backgroundColor: isDark ? colors.background : '#F8FAFC',
+      borderRadius: 8, padding: 8,
+    },
+    cardInfoLabel: { fontSize: 11, fontWeight: '500', marginBottom: 2 },
+    cardInfoValue: { fontSize: 13, fontWeight: '600' },
+    iconBtn: {
+      width: 28, height: 28, borderRadius: 7,
+      alignItems: 'center', justifyContent: 'center',
     },
   });
