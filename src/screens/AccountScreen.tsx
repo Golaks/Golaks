@@ -26,6 +26,7 @@ interface AccountScreenProps {
   onBankaKomisyon?: () => void;
   onCariHesaplar?: () => void;
   onKasaIslemleri?: () => void;
+  onFisIslemleri?: () => void;
   initialTab?: AccountTab;
   onActiveTabChange?: (tab: AccountTab) => void;
 }
@@ -37,7 +38,7 @@ const ACCOUNT_TABS: TabOption<AccountTab>[] = [
   { id: 'transactions', label: 'İşlemler', icon: 'swap-horizontal' },
 ];
 
-export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, onCariHesaplar, onKasaIslemleri, initialTab, onActiveTabChange }: AccountScreenProps) {
+export default function AccountScreen({ onBack, onTabChange, onLogout, onAccountSummary, onCashBank, onCariDetay, onCheckBill, onStock, onSales, onPersonnelPerformance, onCompanyModelPerformance, onBankaKomisyon, onCariHesaplar, onKasaIslemleri, onFisIslemleri, initialTab, onActiveTabChange }: AccountScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, notificationCount } = useAuth();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
@@ -185,17 +186,6 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 }}
               />
               <MenuCard
-                name="Stoklar"
-                icon="cube-outline"
-                color="#EF4444"
-                description="Stok durumu ve hareketleri"
-                onPress={() => {
-                  if (onStock) {
-                    onStock();
-                  }
-                }}
-              />
-              <MenuCard
                 name="Satışlar"
                 icon="cart-outline"
                 color="#10B981"
@@ -213,6 +203,13 @@ export default function AccountScreen({ onBack, onTabChange, onLogout, onAccount
                 color="#8B5CF6"
                 description="Cari hesap işlemleri"
                 onPress={() => onCariHesaplar?.()}
+              />
+              <MenuCard
+                name="Fiş İşlemleri"
+                icon="document-text-outline"
+                color="#F59E0B"
+                description="Muhasebe fiş işlemleri"
+                onPress={() => onFisIslemleri?.()}
               />
               <MenuCard
                 name="Kasa İşlemleri"

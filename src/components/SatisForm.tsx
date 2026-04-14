@@ -43,6 +43,8 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
   const [rehberId, setRehberId] = useState('');
   const [tezgahtarIds, setTezgahtarIds] = useState<string[]>([]);
   const [rezervasyonId, setRezervasyonId] = useState('');
+  const [masterIndirimTipi, setMasterIndirimTipi] = useState(-1);
+  const [masterIndirimDeger, setMasterIndirimDeger] = useState('');
   const [aciklama, setAciklama] = useState('');
 
   // Lookups
@@ -60,33 +62,20 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
 
   useEffect(() => {
     if (visible) {
-      // Önce lookups yükle, sonra editingItem'ı set et
-      fetchLookups().then(() => {
-        if (editingItem) {
-          setTipiId(String(editingItem.tipiId || '18'));
-          setSeriNo(editingItem.seriNo || '');
-          setDoviz(editingItem.doviz || 'TL');
-          setTarih(editingItem.tarih ? new Date(editingItem.tarih) : new Date());
-          setCariId(editingItem.carilerId ? String(editingItem.carilerId) : '');
-          const art = editingItem.artId || {};
-          setAcenteId(art.acente?.id ? String(art.acente.id) : '');
-          setRehberId(art.rehber?.id ? String(art.rehber.id) : '');
-          setTezgahtarIds((art.tezgahtar || []).map((t: any) => String(t.id)));
-          setRezervasyonId(art.rezervasyon?.id ? String(art.rezervasyon.id) : '');
-          setAciklama(editingItem.aciklama || '');
-        } else {
-          setTipiId('18');
-          setSeriNo('');
-          setDoviz('TL');
-          setTarih(new Date());
-          setCariId('');
-          setAcenteId('');
-          setRehberId('');
-          setTezgahtarIds([]);
-          setRezervasyonId('');
-          setAciklama('');
-        }
-      });
+      // Yeni mod: formu sıfırla
+      if (!editingItem) {
+        setTipiId('18');
+        setTarih(new Date());
+        setCariId('');
+        setAcenteId('');
+        setRehberId('');
+        setTezgahtarIds([]);
+        setRezervasyonId('');
+        setMasterIndirimTipi(-1);
+        setMasterIndirimDeger('');
+        setAciklama('');
+      }
+      fetchLookups();
     }
   }, [visible]);
 
@@ -166,6 +155,23 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         } catch {}
       }
     } catch {}
+
+    // Edit modda alanları doldur (lookups yüklendikten sonra)
+    if (editingItem) {
+      setTipiId(String(editingItem.tipiId || '18'));
+      setSeriNo(editingItem.seriNo || '');
+      setDoviz(editingItem.doviz || 'TL');
+      setTarih(editingItem.tarih ? new Date(editingItem.tarih) : new Date());
+      setCariId(editingItem.carilerId ? String(editingItem.carilerId) : '');
+      const art = editingItem.artId || {};
+      setAcenteId(art.acente?.id ? String(art.acente.id) : '');
+      setRehberId(art.rehber?.id ? String(art.rehber.id) : '');
+      setTezgahtarIds((art.tezgahtar || []).map((t: any) => String(t.id)));
+      setRezervasyonId(art.rezervasyon?.id ? String(art.rezervasyon.id) : '');
+      setMasterIndirimTipi(editingItem.masterIndirimTipi ?? -1);
+      setMasterIndirimDeger(editingItem.masterIndirimDeger != null ? String(editingItem.masterIndirimDeger) : '');
+      setAciklama(editingItem.aciklama || '');
+    }
   };
 
   const [isSaving, setIsSaving] = useState(false);
@@ -204,6 +210,8 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
           tezgahtar: tezgahtarIds.map(id => ({ id: parseInt(id, 10), adi: personelList.find(p => p.id === id)?.label || '' })),
           rezervasyon: rezervasyonId ? { id: parseInt(rezervasyonId, 10), adi: rezervasyonList.find(r => r.id === rezervasyonId)?.label || '' } : null,
         },
+        masterIndirimTipi: masterIndirimTipi,
+        masterIndirimDeger: masterIndirimDeger ? parseFloat(masterIndirimDeger) : null,
         modulKodu: 'magaza-satis',
       };
 
@@ -398,8 +406,50 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         />
       </View>
 
+      {/* Master İndirim */}
+      <View style={{ marginBottom: 10 }}>
+        <Text style={[styles.formLabel, { color: colors.inputLabel }]}>İndirim</Text>
+        <View style={styles.formRowDouble}>
+          <View style={[styles.formSegment, { flex: 1 }]}>
+            <Pressable
+              style={[styles.formSegmentBtn, masterIndirimTipi === -1 && { backgroundColor: '#EF4444' }]}
+              onPress={() => { setMasterIndirimTipi(-1); setMasterIndirimDeger(''); }}
+            >
+              <Text style={[styles.formSegmentText, masterIndirimTipi === -1 && { color: '#fff' }]}>✕</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.formSegmentBtn, masterIndirimTipi === 0 && { backgroundColor: '#F59E0B' }]}
+              onPress={() => setMasterIndirimTipi(0)}
+            >
+              <Text style={[styles.formSegmentText, masterIndirimTipi === 0 && { color: '#fff' }]}>%</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.formSegmentBtn, masterIndirimTipi === 1 && { backgroundColor: '#F59E0B' }]}
+              onPress={() => setMasterIndirimTipi(1)}
+            >
+              <Text style={[styles.formSegmentText, masterIndirimTipi === 1 && { color: '#fff' }]}>$</Text>
+            </Pressable>
+          </View>
+          {masterIndirimTipi !== -1 && (
+            <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, flex: 1 }]}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginRight: 8 }}>
+                {masterIndirimTipi === 0 ? '%' : doviz}
+              </Text>
+              <TextInput
+                style={[styles.formInputText, { color: colors.text, textAlign: 'right' }]}
+                value={masterIndirimDeger}
+                onChangeText={setMasterIndirimDeger}
+                placeholder="0,00"
+                placeholderTextColor={colors.placeholder}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          )}
+        </View>
+      </View>
+
       {/* Açıklama */}
-      <View>
+      <View style={{ marginTop: -2 }}>
         <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Açıklama</Text>
         <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, height: 64, alignItems: 'flex-start', paddingTop: 10 }]}>
           <TextInput
@@ -446,4 +496,13 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     footerBtnCancel: { borderWidth: 1 },
     footerBtnText: { fontSize: 14, fontWeight: '600' },
+    formSegment: {
+      flexDirection: 'row', borderRadius: 10, overflow: 'hidden',
+      backgroundColor: isDark ? colors.background : '#F1F5F9',
+      height: 48,
+    },
+    formSegmentBtn: {
+      flex: 1, alignItems: 'center', justifyContent: 'center',
+    },
+    formSegmentText: { fontSize: 16, fontWeight: '600', color: colors.textSecondary },
   });

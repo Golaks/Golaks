@@ -77,9 +77,13 @@ export const API_ENDPOINTS = {
   ACCOUNT_BANKA_KOMISYON_ORAN_UPDATE: `${BASE_API_URL}/account/banka-komisyon-oran-update`,
   ACCOUNT_KASA_LIST: `${BASE_API_URL}/account/kasa-list`,
   ACCOUNT_KASA_CREATE: `${BASE_API_URL}/account/kasa-create`,
+  ACCOUNT_KASA_UPDATE: `${BASE_API_URL}/account/kasa-update`,
+  ACCOUNT_KASA_DELETE: `${BASE_API_URL}/account/kasa-delete`,
   ACCOUNT_KASA_CARI_LIST: `${BASE_API_URL}/account/kasa-cari-list`,
   ACCOUNT_KASA_BAKIYE: `${BASE_API_URL}/account/kasa-bakiye`,
   ACCOUNT_KASA_HAREKET: `${BASE_API_URL}/account/kasa-hareket`,
+  ACCOUNT_KASA_HAREKET_DELETE: `${BASE_API_URL}/account/kasa-hareket-delete`,
+  ACCOUNT_KASA_HAREKET_UPDATE: `${BASE_API_URL}/account/kasa-hareket-update`,
   ACCOUNT_KASA_UPLOAD_FIS: `${BASE_API_URL}/account/kasa-upload-fis`,
 
   // Sales endpoints (global - tüm modüller)
@@ -88,6 +92,11 @@ export const API_ENDPOINTS = {
   SALES_CREATE: `${BASE_API_URL}/sales/create`,
   SALES_UPDATE: `${BASE_API_URL}/sales/update`,
   FATURA_TIPI_LIST: `${BASE_API_URL}/sales/fatura-tipi-list`,
+  FIS_LIST: `${BASE_API_URL}/fis/list`,
+  FIS_CREATE: `${BASE_API_URL}/fis/create`,
+  FIS_UPDATE: `${BASE_API_URL}/fis/update`,
+  FIS_NEXT_NO: `${BASE_API_URL}/fis/next-no`,
+  FIS_ONAYLA: `${BASE_API_URL}/fis/onayla`,
 
   // Orders endpoints (global - tüm modüller)
   ORDERS_LIST: `${BASE_API_URL}/orders/list`,

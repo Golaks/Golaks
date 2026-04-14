@@ -92,9 +92,13 @@ class Router {
         $this->post('/account/banka-komisyon-oran-update', 'AccountController', 'updateBankaKomisyonOran');
         $this->post('/account/kasa-list', 'AccountController', 'getKasaList');
         $this->post('/account/kasa-create', 'AccountController', 'createKasa');
+        $this->post('/account/kasa-update', 'AccountController', 'updateKasa');
+        $this->post('/account/kasa-delete', 'AccountController', 'deleteKasa');
         $this->post('/account/kasa-cari-list', 'AccountController', 'getKasaCariList');
         $this->post('/account/kasa-bakiye', 'AccountController', 'getKasaBakiye');
         $this->post('/account/kasa-hareket', 'AccountController', 'createKasaHareket');
+        $this->post('/account/kasa-hareket-delete', 'AccountController', 'deleteKasaHareket');
+        $this->post('/account/kasa-hareket-update', 'AccountController', 'updateKasaHareket');
         $this->post('/account/kasa-upload-fis', 'AccountController', 'uploadFisDosya');
 
         // Sales Routes (Global - tüm modüller için)
@@ -103,6 +107,13 @@ class Router {
         $this->post('/sales/create', 'SalesController', 'create');
         $this->post('/sales/update', 'SalesController', 'update');
         $this->post('/sales/fatura-tipi-list', 'SalesController', 'getFaturaTipiList');
+
+        // Fis Routes
+        $this->post('/fis/list', 'FisController', 'getList');
+        $this->post('/fis/create', 'FisController', 'create');
+        $this->post('/fis/update', 'FisController', 'update');
+        $this->post('/fis/next-no', 'FisController', 'getNextNo');
+        $this->post('/fis/onayla', 'FisController', 'onayla');
 
         // Orders Routes (Global - tüm modüller için)
         $this->post('/orders/list', 'OrdersController', 'getList');

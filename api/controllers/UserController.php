@@ -675,60 +675,27 @@ class UserController {
                 [$userId]
             );
 
-            if (!$currentUser || $currentUser['kullanici_rol'] < 1) {
-                Response::error('Bu işlem için yetkiniz yok', 'UNAUTHORIZED', 403);
+            if (!$currentUser) {
+                Response::error('Kullanıcı bulunamadı', 'USER_NOT_FOUND', 404);
             }
 
-            $firmaId = $currentUser['mobil_firmalar_id'];
+            require_once __DIR__ . '/../includes/ContextHelper.php';
+            $ctx = ContextHelper::get();
+            $pdo = $ctx['pdo'];
 
-            $firma = $db->fetchOne(
-                "SELECT firma_ayarlar FROM mobil_firmalar WHERE id = ?",
-                [$firmaId]
-            );
-
-            if (!$firma || empty($firma['firma_ayarlar'])) {
-                Response::error('Firma ayarları bulunamadı', 'FIRMA_SETTINGS_NOT_FOUND', 404);
-            }
-
-            $firmaAyarlar = json_decode($firma['firma_ayarlar'], true) ?: [];
-            $veritabani = $firmaAyarlar['veritabani'] ?? [];
-            $dbServer = $veritabani['sunucu'] ?? '';
-            $dbPort = (int)($veritabani['port'] ?? 3306);
-            $dbUser = $veritabani['kullanici'] ?? '';
-            $dbPass = $veritabani['sifre'] ?? '';
-            $dbName = $veritabani['veriAdi'] ?? '';
-
-            if (empty($dbServer) || empty($dbUser) || empty($dbName)) {
-                Response::error('Firma veritabanı ayarları eksik', 'DB_CONFIG_MISSING', 400);
-            }
-
-            $dsn = "mysql:host={$dbServer};port={$dbPort};dbname={$dbName};charset=utf8mb4";
-            $pdo = new PDO($dsn, $dbUser, $dbPass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
-
-            // Kullanıcının varsayılan şubesini al
-            $userInfo = $db->fetchOne(
-                "SELECT kullanici_yetkiler FROM mobil_kullanici WHERE id = ?",
-                [$userId]
-            );
-            $yetkiler = [];
-            if (!empty($userInfo['kullanici_yetkiler'])) {
-                $yetkiler = json_decode($userInfo['kullanici_yetkiler'], true) ?? [];
-            }
-            $varsayilanSube = $yetkiler['varsayilan_sube'] ?? '';
-            $subeYetkileri = $yetkiler['sube_yetkileri'] ?? [];
+            $varsayilanSube = (string)$ctx['subeId'];
+            $subeYetkileri = $ctx['subeYetkileri'];
 
             // Şube listesini al
             $stmt = $pdo->prepare("SELECT id, sube_adi FROM subeler WHERE firma_id = ? AND aktif = 1 ORDER BY sube_adi");
-            $stmt->execute([$firmaId]);
+            $stmt->execute([$ctx['firmaId']]);
             $subeler = $stmt->fetchAll();
 
-            // Kullanıcının yetkili olduğu şubeleri filtrele
+            // Admin/SuperAdmin ise tüm şubeleri göster, değilse yetkili olanları
+            $kullaniciRol = (int)($currentUser['kullanici_rol'] ?? 0);
             $formattedSubeler = [];
             foreach ($subeler as $sube) {
-                if (empty($subeYetkileri) || in_array((string)$sube['id'], $subeYetkileri)) {
+                if ($kullaniciRol >= 1 || empty($subeYetkileri) || in_array((string)$sube['id'], $subeYetkileri)) {
                     $formattedSubeler[] = [
                         'id' => (string)$sube['id'],
                         'name' => $sube['sube_adi'],

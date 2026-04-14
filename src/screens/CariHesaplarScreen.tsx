@@ -22,6 +22,8 @@ import Button from '../components/Button';
 import accountService, { CariAccount, CariTransaction } from '../services/account.service';
 import { useFieldErrors } from '../hooks/useFieldErrors';
 import { authService } from '../services/auth.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
+import ordersService from '../services/orders.service';
 import { generateEkstrePDF } from '../utils/pdfEkstre';
 
 interface CariHesaplarScreenProps {
@@ -79,11 +81,14 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
 
   // Create form state
   const [showFormModal, setShowFormModal] = useState(false);
+  const [editingCari, setEditingCari] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formHesapKodu, setFormHesapKodu] = useState('');
   const [formUnvan, setFormUnvan] = useState('');
   const [formKisaUnvan, setFormKisaUnvan] = useState('');
   const [formDoviz, setFormDoviz] = useState('TL');
+  const [varsayilanDoviz, setVarsayilanDoviz] = useState('TL');
+  const [dovizTipleri, setDovizTipleri] = useState<{ id: string; label: string }[]>([]);
   const [formSubeId, setFormSubeId] = useState('');
 
   const styles = createStyles(colors, isDark);
@@ -117,6 +122,28 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
 
   useEffect(() => {
     loadSubeler();
+    // Varsayılan döviz
+    (async () => {
+      try {
+        const token = await authService.getToken();
+        if (!token) return;
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+        const res = await fetch(API_ENDPOINTS.SALES_NEXT_SERI_NO, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ dataName, prefix: 'FAT' }),
+        });
+        const data = await res.json();
+        if (data.success && data.data?.varsayilanDoviz) {
+          setVarsayilanDoviz(data.data.varsayilanDoviz);
+        }
+        // Döviz tipleri
+        const lookupsRes = await ordersService.getLookups(token, dataName);
+        if (lookupsRes.success && lookupsRes.data?.dovizTipleri) {
+          setDovizTipleri(lookupsRes.data.dovizTipleri.map((d: any) => ({ id: d.dovizTipi, label: d.dovizTipi })));
+        }
+      } catch {}
+    })();
   }, []);
 
   // Load cari list
@@ -241,7 +268,7 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
     setFormHesapKodu('');
     setFormUnvan('');
     setFormKisaUnvan('');
-    setFormDoviz('TL');
+    setFormDoviz(varsayilanDoviz);
     setFormSubeId('');
     cariFieldErrors.clearAll();
   };
@@ -260,10 +287,22 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
   };
 
   const handleOpenCreateModal = () => {
+    setEditingCari(null);
     resetForm();
     setFormSubeId(selectedSubeId);
     setShowFormModal(true);
     fetchNextHesapKodu(selectedFilter, selectedSubeId);
+  };
+
+  const handleOpenEditModal = (cari: any) => {
+    setEditingCari(cari);
+    setFormHesapKodu(cari.hesapKodu || cari.hesap_kodu || '');
+    setFormUnvan(cari.unvan || '');
+    setFormKisaUnvan(cari.kisaUnvan || cari.kisa_unvan || '');
+    setFormDoviz(cari.doviz || varsayilanDoviz);
+    setFormSubeId(cari.subeId ? String(cari.subeId) : (cari.sube_id ? String(cari.sube_id) : selectedSubeId));
+    cariFieldErrors.clearAll();
+    setShowFormModal(true);
   };
 
   const handleSaveCari = async () => {
@@ -278,19 +317,30 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
       const token = await authService.getToken();
       if (!token) throw new Error('Token bulunamadı');
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      await accountService.createCari(token, dataName, {
-        hesapKodu: formHesapKodu.trim(),
-        unvan: formUnvan.trim(),
-        kisaUnvan: formKisaUnvan.trim(),
-        doviz: formDoviz,
-        subeId: parseInt(formSubeId),
-      });
+
+      if (editingCari) {
+        await accountService.updateCari(token, dataName, editingCari.id, {
+          unvan: formUnvan.trim(),
+          kisaUnvan: formKisaUnvan.trim(),
+          doviz: formDoviz,
+        });
+        showSuccess('Cari hesap güncellendi');
+      } else {
+        await accountService.createCari(token, dataName, {
+          hesapKodu: formHesapKodu.trim(),
+          unvan: formUnvan.trim(),
+          kisaUnvan: formKisaUnvan.trim(),
+          doviz: formDoviz,
+          subeId: parseInt(formSubeId),
+        });
+        showSuccess('Cari hesap oluşturuldu');
+      }
       setShowFormModal(false);
+      setEditingCari(null);
       resetForm();
       loadCariList();
-      showSuccess('Cari hesap oluşturuldu');
     } catch (err: any) {
-      showError(err.message || 'Cari hesap oluşturulamadı');
+      showError(err.message || 'İşlem başarısız');
     } finally {
       setIsSaving(false);
     }
@@ -471,7 +521,7 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
                   </View>
                   <Text style={styles.pageTitle}>Cari Hesaplar</Text>
                 </View>
-                {subeler.length > 1 && (
+                {subeler.length > 0 && (
                   <View style={styles.subeSelectorContainer}>
                     <SelectInput
                       value={selectedSubeId}
@@ -538,10 +588,19 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
                         <Text style={styles.cariHesapKodu}>{item.hesapKodu}</Text>
                         <View style={styles.dotSeparator} />
                         <Text style={styles.cariSube}>{item.sube}</Text>
+                        {item.doviz && (
+                          <>
+                            <View style={styles.dotSeparator} />
+                            <Text style={styles.cariSube}>{item.doviz}</Text>
+                          </>
+                        )}
                       </View>
                     </View>
                     <View style={styles.cariActions}>
-                      <Pressable style={styles.actionBtn} onPress={() => handleEkstrePDF(item)} hitSlop={4}>
+                      <Pressable style={styles.actionBtn} onPress={(e) => { e.stopPropagation(); handleOpenEditModal(item); }} hitSlop={4}>
+                        <Icon name="create-outline" size={18} color="#F59E0B" />
+                      </Pressable>
+                      <Pressable style={styles.actionBtn} onPress={(e) => { e.stopPropagation(); handleEkstrePDF(item); }} hitSlop={4}>
                         <Icon name="document-text-outline" size={18} color={colors.primary} />
                       </Pressable>
                       <Icon name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -597,7 +656,7 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
         <BottomSheet
           visible={showFormModal}
           onClose={() => { setShowFormModal(false); resetForm(); }}
-          title="Yeni Cari Hesap"
+          title={editingCari ? 'Cari Hesap Düzenle' : 'Yeni Cari Hesap'}
           icon="person-add-outline"
           footer={
             <>
@@ -625,6 +684,7 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
             onChangeText={(v) => { setFormHesapKodu(v); cariFieldErrors.clearFieldError('hesapKodu'); }}
             placeholder="Otomatik oluşturulacak"
             autoCapitalize="none"
+            editable={!editingCari}
             error={cariFieldErrors.errors.hesapKodu ? ' ' : ''}
             shake={cariFieldErrors.shakes.hesapKodu}
           />
@@ -636,27 +696,14 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
             error={cariFieldErrors.errors.unvan ? ' ' : ''}
             shake={cariFieldErrors.shakes.unvan}
           />
-          <Input
-            label="Kısa Ünvan"
-            value={formKisaUnvan}
-            onChangeText={setFormKisaUnvan}
-            placeholder="Kısaltılmış ad"
-          />
           <View style={styles.formRow}>
             <View style={styles.formRowHalf}>
-              <SelectInput
-                label="Şube *"
-                value={formSubeId}
-                onSelect={(id) => {
-                  setFormSubeId(id);
-                  cariFieldErrors.clearFieldError('sube');
-                  if (id) fetchNextHesapKodu(selectedFilter, id);
-                }}
-                items={subeler}
-                placeholder="Şube seçin"
-                noClear
-                error={cariFieldErrors.errors.sube}
-                shake={cariFieldErrors.shakes.sube}
+              <Input
+                label="Kısa Ünvan"
+                value={formKisaUnvan}
+                onChangeText={setFormKisaUnvan}
+                placeholder="Kısaltılmış ad"
+                containerStyle={{ marginBottom: 0 }}
               />
             </View>
             <View style={styles.formRowHalf}>
@@ -664,12 +711,7 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
                 label="Döviz"
                 value={formDoviz}
                 onSelect={setFormDoviz}
-                items={[
-                  { id: 'TL', label: 'TL' },
-                  { id: 'USD', label: 'USD' },
-                  { id: 'EUR', label: 'EUR' },
-                  { id: 'GBP', label: 'GBP' },
-                ]}
+                items={dovizTipleri}
                 placeholder="Döviz seçin"
                 noClear
               />

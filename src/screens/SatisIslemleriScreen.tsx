@@ -13,6 +13,7 @@ import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter from '../components/DateFilter';
 import SatisForm from '../components/SatisForm';
+import SatisDetayForm from '../components/SatisDetayForm';
 import { useAlert } from '../contexts/AlertContext';
 import { authService } from '../services/auth.service';
 import salesService from '../services/sales.service';
@@ -75,6 +76,8 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
   const [data, setData] = useState<any[]>([]);
   const [durumFilter, setDurumFilter] = useState<number | null>(1);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  const [detayFormVisible, setDetayFormVisible] = useState(false);
+  const [detayFormItem, setDetayFormItem] = useState<any>(null);
 
   // Date filter
   const defaultPreset: DatePreset = 'thisMonth';
@@ -330,7 +333,7 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
                     </Pressable>
                     <Pressable
                       style={[styles.iconBtn, { backgroundColor: colors.primary, flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
-                      onPress={(e) => { e.stopPropagation(); /* TODO: Ürün ekleme */ }}
+                      onPress={(e) => { e.stopPropagation(); setDetayFormItem(item); setDetayFormVisible(true); }}
                     >
                       <Icon name="add" size={14} color="#fff" />
                       <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Ürün Ekle</Text>
@@ -369,6 +372,16 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
           )}
         </ScrollView>
         )}
+
+        {/* Satış Detay Formu */}
+        <SatisDetayForm
+          visible={detayFormVisible}
+          onClose={() => { setDetayFormVisible(false); setDetayFormItem(null); }}
+          onSave={() => { setDetayFormVisible(false); setDetayFormItem(null); showSuccess('Ürünler eklendi'); fetchData(); }}
+          faturaId={detayFormItem?.id}
+          seriNo={detayFormItem?.seriNo}
+          doviz={detayFormItem?.doviz}
+        />
 
         {/* Satış Formu */}
         <SatisForm

@@ -48,6 +48,7 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   const [showClearCacheModal, setShowClearCacheModal] = useState(false);
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [legalType, setLegalType] = useState<LegalType | null>(null);
+  const [subeAdi, setSubeAdi] = useState('');
   const [showAboutSheet, setShowAboutSheet] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(
     user?.avatar ? `${BASE_API_URL}/${user.avatar}` : undefined
@@ -229,6 +230,26 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
       setPhotoUrl(newPhotoUrl);
     }
   }, [user?.avatar]);
+
+  // Aktif şube adını çek
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await authService.getToken();
+        if (!token) return;
+        const res = await fetch(`${BASE_API_URL}/user/subeler`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const varsayilanId = user?.yetkiler?.varsayilan_sube || data.data.varsayilanSube;
+          const sube = data.data.subeler?.find((s: any) => String(s.id) === String(varsayilanId));
+          if (sube) setSubeAdi(sube.name || sube.subeAdi || '');
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Calculate cache sizes when modal opens
   useEffect(() => {
@@ -626,6 +647,12 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
             <Text style={styles.userName}>{user?.name || 'Kullanıcı'}</Text>
             <Text style={styles.userEmail}>{user?.email || 'email@golaks.com'}</Text>
             <Text style={styles.userCompany}>{user?.firma_unvani || 'Golaks'}</Text>
+            {subeAdi ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                <Icon name="business-outline" size={14} color={colors.textSecondary} />
+                <Text style={[styles.userEmail, { marginTop: 0 }]}>{subeAdi}</Text>
+              </View>
+            ) : null}
             <View
               style={[
                 styles.roleBadge,

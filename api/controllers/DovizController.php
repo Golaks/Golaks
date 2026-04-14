@@ -33,48 +33,22 @@ class DovizController {
             $pdo = $ctx['pdo'];
             $firmaId = $ctx['firmaId'];
 
-            // Önce firma_kurlari tablosundan kontrol et
+            // En güncel tarihi bul (istenen tarih veya öncesi)
+            $tarihStmt = $pdo->prepare("
+                SELECT MAX(tarih) AS son_tarih FROM doviz_kurlari
+                WHERE tarih <= :tarih AND kur_anahtar = :kurAnahtar
+            ");
+            $tarihStmt->execute([':tarih' => $tarih, ':kurAnahtar' => $kurAnahtar]);
+            $sonTarihRow = $tarihStmt->fetch();
+            $sonTarih = $sonTarihRow && $sonTarihRow['son_tarih'] ? $sonTarihRow['son_tarih'] : $tarih;
+
+            // O tarihteki tüm kurları çek
             $stmt = $pdo->prepare("
                 SELECT doviz_tipi, doviz_alis, doviz_satis, efektif_alis, efektif_satis, ozel_kur
-                FROM firma_kurlari
-                WHERE firma_id = :firmaId AND tarih = :tarih AND kur_anahtar = :kurAnahtar
-            ");
-            $stmt->execute([':firmaId' => $firmaId, ':tarih' => $tarih, ':kurAnahtar' => $kurAnahtar]);
-            $firmaKurlari = $stmt->fetchAll();
-
-            // Firma kurları varsa onları kullan
-            if (!empty($firmaKurlari)) {
-                $kurlar = [];
-                foreach ($firmaKurlari as $row) {
-                    $kurlar[$row['doviz_tipi']] = [
-                        'dovizTipi' => $row['doviz_tipi'],
-                        'dovizAlis' => (float)$row['doviz_alis'],
-                        'dovizSatis' => (float)$row['doviz_satis'],
-                        'efektifAlis' => (float)$row['efektif_alis'],
-                        'efektifSatis' => (float)$row['efektif_satis'],
-                        'ozelKur' => (float)$row['ozel_kur'],
-                    ];
-                }
-
-                Response::success([
-                    'tarih' => $tarih,
-                    'kurAnahtar' => $kurAnahtar,
-                    'kaynak' => 'firma',
-                    'kurlar' => $kurlar,
-                ]);
-                return;
-            }
-
-            // Firma kurları yoksa genel doviz_kurlari tablosundan çek
-            // Önce istenen tarihe bak, yoksa en son tarihi bul
-            $stmt = $pdo->prepare("
-                SELECT doviz_tipi, doviz_alis, doviz_satis, efektif_alis, efektif_satis, ozel_kur, tarih
                 FROM doviz_kurlari
-                WHERE tarih <= :tarih AND kur_anahtar = :kurAnahtar
-                ORDER BY tarih DESC
-                LIMIT 20
+                WHERE tarih = :tarih AND kur_anahtar = :kurAnahtar
             ");
-            $stmt->execute([':tarih' => $tarih, ':kurAnahtar' => $kurAnahtar]);
+            $stmt->execute([':tarih' => $sonTarih, ':kurAnahtar' => $kurAnahtar]);
             $rows = $stmt->fetchAll();
 
             if (empty($rows)) {
@@ -87,11 +61,8 @@ class DovizController {
                 return;
             }
 
-            // İlk satırın tarihi en güncel tarih
-            $enGuncelTarih = $rows[0]['tarih'];
             $kurlar = [];
             foreach ($rows as $row) {
-                if ($row['tarih'] !== $enGuncelTarih) break;
                 $kurlar[$row['doviz_tipi']] = [
                     'dovizTipi' => $row['doviz_tipi'],
                     'dovizAlis' => (float)$row['doviz_alis'],
@@ -103,9 +74,8 @@ class DovizController {
             }
 
             Response::success([
-                'tarih' => $enGuncelTarih,
+                'tarih' => $sonTarih,
                 'kurAnahtar' => $kurAnahtar,
-                'kaynak' => 'genel',
                 'kurlar' => $kurlar,
             ]);
 

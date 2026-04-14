@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/auth.service';
 import accountService from '../services/account.service';
 import ordersService from '../services/orders.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 import Input from './Input';
 import SelectInput from './SelectInput';
 import BottomSheet, { BottomSheetToastRef } from './BottomSheet';
@@ -51,6 +52,16 @@ export default function CariEkleModal({ visible, onClose, onSaved, hesapKoduPref
       const res = await ordersService.getLookups(token, dataName);
       if (res.success && res.data?.dovizTipleri) {
         setDovizTipleri(res.data.dovizTipleri.map((d: any) => ({ id: d.dovizTipi, label: d.dovizTipi })));
+      }
+      // Varsayılan döviz
+      const seriRes = await fetch(API_ENDPOINTS.SALES_NEXT_SERI_NO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ dataName, prefix: 'FAT' }),
+      });
+      const seriData = await seriRes.json();
+      if (seriData.success && seriData.data?.varsayilanDoviz) {
+        setDoviz(seriData.data.varsayilanDoviz);
       }
     } catch {}
   };
@@ -166,12 +177,7 @@ export default function CariEkleModal({ visible, onClose, onSaved, hesapKoduPref
             label="Döviz"
             value={doviz}
             onSelect={setDoviz}
-            items={dovizTipleri.length > 0 ? dovizTipleri : [
-              { id: 'TL', label: 'TL' },
-              { id: 'USD', label: 'USD' },
-              { id: 'EUR', label: 'EUR' },
-              { id: 'GBP', label: 'GBP' },
-            ]}
+            items={dovizTipleri}
             placeholder="Seçin"
             noClear
             containerStyle={{ marginBottom: 0 }}

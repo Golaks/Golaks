@@ -30,6 +30,7 @@ import AgencyPerformanceScreen from '../screens/AgencyPerformanceScreen';
 import CariHesaplarScreen from '../screens/CariHesaplarScreen';
 import BankaKomisyonScreen from '../screens/BankaKomisyonScreen';
 import KasaIslemleriScreen from '../screens/KasaIslemleriScreen';
+import FisIslemleriScreen from '../screens/FisIslemleriScreen';
 import FiyatHesaplamaScreen from '../screens/FiyatHesaplamaScreen';
 import KonfeksiyonUretimScreen from '../screens/KonfeksiyonUretimScreen';
 import SiparisIslemleriScreen from '../screens/SiparisIslemleriScreen';
@@ -131,6 +132,7 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
             onBankaKomisyon={() => setActiveScreen('bankaKomisyon')}
             onCariHesaplar={() => setActiveScreen('cariHesaplar')}
             onKasaIslemleri={() => setActiveScreen('kasaIslemleri')}
+            onFisIslemleri={() => setActiveScreen('fisIslemleri')}
             initialTab={accountTab}
             onActiveTabChange={setAccountTab}
           />
@@ -243,6 +245,8 @@ function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref
         return <CariHesaplarScreen onGoBack={() => { setAccountTab('transactions'); setActiveScreen('account'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'kasaIslemleri':
         return <KasaIslemleriScreen onGoBack={() => { setAccountTab('transactions'); setActiveScreen('account'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
+      case 'fisIslemleri':
+        return <FisIslemleriScreen onGoBack={() => { setAccountTab('transactions'); setActiveScreen('account'); }} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'bankaKomisyon':
         return <BankaKomisyonScreen onGoBack={() => setActiveScreen('account')} onTabChange={setActiveScreen} onLogout={onLogout} />;
       case 'fiyatHesaplama':

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, TextInput, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, TextInput, Image, Modal } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,10 +20,13 @@ import EmptyState from '../components/EmptyState';
 import { useFieldErrors } from '../hooks/useFieldErrors';
 import accountService from '../services/account.service';
 import { authService } from '../services/auth.service';
-import dovizService, { KurItem } from '../services/doviz.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
+import dovizService from '../services/doviz.service';
 import ordersService, { DovizTipi } from '../services/orders.service';
 import DovizSelect from '../components/DovizSelect';
 import ImagePickerModal from '../components/ImagePickerModal';
+import CariSelectWithAdd from '../components/CariSelectWithAdd';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 interface KasaIslemleriScreenProps {
@@ -112,13 +115,31 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
   const [hareketDovizliKur, setHareketDovizliKur] = useState('1');
   const [hareketMuhasebeTutar, setHareketMuhasebeTutar] = useState('');
   const [hareketMuhasebeDoviz, setHareketMuhasebeDoviz] = useState('TL');
+  const [varsayilanDoviz, setVarsayilanDoviz] = useState('TL');
   const [hareketMuhasebeKur, setHareketMuhasebeKur] = useState('1');
   const [hareketCariTutar, setHareketCariTutar] = useState('');
   const [hareketCariDoviz, setHareketCariDoviz] = useState('TL');
   const [hareketCariKur, setHareketCariKur] = useState('1');
   const [cariList, setCariList] = useState<{ id: string; label: string }[]>([]);
   const [cariListLoading, setCariListLoading] = useState(false);
-  const [kurlar, setKurlar] = useState<Record<string, KurItem>>({});
+  const kurlarRef = useRef<Record<string, any>>({});
+
+  const loadKurlar = async (tarih?: Date): Promise<Record<string, any>> => {
+    try {
+      const token = await authService.getToken();
+      if (!token) { console.log('KURLAR: token yok'); return {}; }
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const tarihStr = tarih ? `${tarih.getFullYear()}-${String(tarih.getMonth() + 1).padStart(2, '0')}-${String(tarih.getDate()).padStart(2, '0')}` : undefined;
+      console.log('KURLAR_FETCH:', tarihStr, dataName);
+      const response = await dovizService.getKurlar(token, dataName, tarihStr);
+      console.log('KURLAR_RESP:', response.success, Object.keys(response.data?.kurlar || {}).length);
+      if (response.success && response.data?.kurlar) {
+        kurlarRef.current = response.data.kurlar;
+        return response.data.kurlar;
+      }
+    } catch (e: any) { console.log('KURLAR_ERR:', e.message); }
+    return {};
+  };
   const [dovizTipleri, setDovizTipleri] = useState<DovizTipi[]>([]);
   const [hareketImageUri, setHareketImageUri] = useState<string | null>(null);
   const [imagePickerVisible, setImagePickerVisible] = useState(false);
@@ -129,6 +150,12 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
   const [formVisible, setFormVisible] = useState(false);
   const [formSaving, setFormSaving] = useState(false);
   const [formKasaHesapKodu, setFormKasaHesapKodu] = useState('');
+  const [editingKasa, setEditingKasa] = useState<any>(null);
+  const [deleteKasaItem, setDeleteKasaItem] = useState<any>(null);
+  const [deleteHareketItem, setDeleteHareketItem] = useState<any>(null);
+  const [kapatKasaItem, setKapatKasaItem] = useState<any>(null);
+  const [menuKasaId, setMenuKasaId] = useState<number | null>(null);
+  const [editingHareket, setEditingHareket] = useState<any>(null);
   const [formTarih, setFormTarih] = useState(new Date());
   const [formAciklama, setFormAciklama] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -177,7 +204,25 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     } catch (_) {}
   }, []);
 
-  useEffect(() => { loadSubeler(); }, []);
+  useEffect(() => {
+    loadSubeler();
+    (async () => {
+      try {
+        const token = await authService.getToken();
+        if (!token) return;
+        const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+        const res = await fetch(API_ENDPOINTS.SALES_NEXT_SERI_NO, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ dataName, prefix: 'FAT' }),
+        });
+        const data = await res.json();
+        if (data.success && data.data?.varsayilanDoviz) {
+          setVarsayilanDoviz(data.data.varsayilanDoviz);
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Load kasa list
   const loadKasaList = useCallback(async (subeId?: string) => {
@@ -206,27 +251,143 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     if (subelerLoaded && selectedSubeId) loadKasaList(selectedSubeId);
   }, [subelerLoaded, selectedSubeId, kasaDurumFilter]);
 
-  // Load kasa cari list for select
+  // Load kasa cari list for select (şubeye göre)
   const loadKasaCariList = useCallback(async () => {
-    if (kasaCariList.length > 0) return;
     try {
       setKasaCariLoading(true);
       const token = await authService.getToken();
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      const response = await accountService.getKasaCariList(token, dataName);
+      const subeId = selectedSubeId ? parseInt(selectedSubeId) : undefined;
+      const response = await accountService.getCariList(token, dataName, 'safes', '', subeId, '100');
       if (response.success) {
-        setKasaCariList(response.data.data);
+        setKasaCariList((response.data?.data || []).map((c: any) => ({ ...c, subeAdi: c.sube || '' })));
       }
     } catch (_) {}
     finally { setKasaCariLoading(false); }
-  }, [kasaCariList.length, user]);
+  }, [user, selectedSubeId]);
 
   const handleOpenForm = () => {
+    setEditingKasa(null);
     fieldErrors.clearAll();
     setFormKasaHesapKodu('');
     setFormTarih(new Date());
     setFormAciklama('');
+    setFormVisible(true);
+    loadKasaCariList();
+  };
+
+  const handleKapatKasa = async () => {
+    if (!kapatKasaItem) return;
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const res = await fetch(API_ENDPOINTS.ACCOUNT_KASA_UPDATE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ dataName, kasaId: kapatKasaItem.id, kasaDurum: 0 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccess('Kasa kapatıldı');
+        setDetailData({});
+        loadKasaList();
+      } else {
+        showError(data.error?.message || 'Kapatılamadı');
+      }
+    } catch (err: any) {
+      showError(err.message || 'Kapatılamadı');
+    } finally {
+      setKapatKasaItem(null);
+    }
+  };
+
+  const handleDeleteKasa = async () => {
+    if (!deleteKasaItem) return;
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const res = await fetch(API_ENDPOINTS.ACCOUNT_KASA_DELETE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ dataName, kasaId: deleteKasaItem.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccess('Kasa silindi');
+        setDetailData({});
+        loadKasaList();
+      } else {
+        showError(data.error?.message || data.message || 'Silinemedi');
+      }
+    } catch (err: any) {
+      showError(err.message || 'Silinemedi');
+    } finally {
+      setDeleteKasaItem(null);
+    }
+  };
+
+  const handleEditHareket = (kasaItem: any, hareket: any, tipi: 'giris' | 'cikis') => {
+    setEditingHareket(hareket);
+    hareketFieldErrors.clearAll();
+    setHareketKasaId(kasaItem.id);
+    setHareketKasaLabel(kasaItem.kasaUnvan || kasaItem.kasaHesapKodu);
+    setHareketTipi(tipi);
+    setHareketCariHesapKodu(hareket.hesapKodu || '');
+    setHareketAciklama(hareket.aciklama || '');
+    setHareketDovizliTutar(String(hareket.tutar || ''));
+    setHareketDovizliDoviz(hareket.doviz || 'TL');
+    setHareketDovizliKur(String(hareket.dovizKuru || '1'));
+    setHareketMuhasebeTutar(String(hareket.muhasebeTutar || ''));
+    setHareketMuhasebeDoviz(hareket.muhasebeDoviz || varsayilanDoviz);
+    setHareketMuhasebeKur(String(hareket.muhasebeKur || '1'));
+    setHareketCariTutar(String(hareket.cariTutar || ''));
+    setHareketCariDoviz(hareket.cariDoviz || varsayilanDoviz);
+    setHareketCariKur(String(hareket.cariKur || '1'));
+    setHareketImageUri(null);
+    setHareketFormVisible(true);
+
+    const kasa = kasaList.find((k: any) => k.id === kasaItem.id);
+    const fisTarihi = kasa?.fisTarihi ? new Date(kasa.fisTarihi) : new Date();
+    loadKurlar(fisTarihi).then(k => { kurlarRef.current = k; });
+    loadCariList();
+    loadDovizTipleri();
+  };
+
+  const handleDeleteHareket = async () => {
+    if (!deleteHareketItem) return;
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const res = await fetch(API_ENDPOINTS.ACCOUNT_KASA_HAREKET_DELETE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ dataName, detayId: deleteHareketItem.hareket.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showSuccess('Hareket silindi');
+        setDetailData({});
+        loadKasaList();
+      } else {
+        showError(data.error?.message || 'Silinemedi');
+      }
+    } catch (err: any) {
+      showError(err.message || 'Silinemedi');
+    } finally {
+      setDeleteHareketItem(null);
+    }
+  };
+
+  const handleOpenEditKasa = (item: any) => {
+    setEditingKasa(item);
+    fieldErrors.clearAll();
+    setFormKasaHesapKodu(item.kasaHesapKodu || '');
+    setFormTarih(item.fisTarihi ? new Date(item.fisTarihi) : new Date());
+    setFormAciklama(item.fisAciklama || '');
     setFormVisible(true);
     loadKasaCariList();
   };
@@ -248,19 +409,29 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
         String(formTarih.getMonth() + 1).padStart(2, '0') + '-' +
         String(formTarih.getDate()).padStart(2, '0') + ' 00:00:00';
 
-      const response = await accountService.createKasa(token, dataName, {
-        kasaHesapKodu: formKasaHesapKodu,
-        fisTarihi,
-        fisAciklama: formAciklama.trim(),
-        subeId: parseInt(selectedSubeId),
-      });
+      let response;
+      if (editingKasa) {
+        response = await accountService.updateKasa(token, dataName, editingKasa.id, {
+          kasaHesapKodu: formKasaHesapKodu,
+          fisTarihi,
+          fisAciklama: formAciklama.trim(),
+        });
+      } else {
+        response = await accountService.createKasa(token, dataName, {
+          kasaHesapKodu: formKasaHesapKodu,
+          fisTarihi,
+          fisAciklama: formAciklama.trim(),
+          subeId: parseInt(selectedSubeId),
+        });
+      }
 
       if (response.success) {
-        formToastRef.current?.show({ type: 'success', text: 'Kasa fişi oluşturuldu' });
+        formToastRef.current?.show({ type: 'success', text: editingKasa ? 'Kasa güncellendi' : 'Kasa fişi oluşturuldu' });
+        setDetailData({});
         loadKasaList();
-        setTimeout(() => setFormVisible(false), 1200);
+        setTimeout(() => { setFormVisible(false); setEditingKasa(null); }, 1200);
       } else {
-        formToastRef.current?.show({ type: 'error', text: response.message || 'Kasa oluşturulamadı' });
+        formToastRef.current?.show({ type: 'error', text: response.message || 'İşlem başarısız' });
       }
     } catch (err: any) {
       formToastRef.current?.show({ type: 'error', text: err.message || 'Kasa oluşturulamadı' });
@@ -268,20 +439,6 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
       setFormSaving(false);
     }
   };
-
-  // Kurları yükle
-  const loadKurlar = useCallback(async () => {
-    if (Object.keys(kurlar).length > 0) return;
-    try {
-      const token = await authService.getToken();
-      if (!token) return;
-      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      const response = await dovizService.getKurlar(token, dataName);
-      if (response.success && response.data?.kurlar) {
-        setKurlar(response.data.kurlar);
-      }
-    } catch (_) {}
-  }, [kurlar, user]);
 
   const loadDovizTipleri = useCallback(async () => {
     if (dovizTipleri.length > 0) return;
@@ -296,14 +453,38 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     } catch (_) {}
   }, [dovizTipleri.length, user]);
 
+  // Ref-based kur fonksiyonları (closure sorununu çözer)
+  const getKurFromRef = (doviz: string): string => {
+    if (!doviz || doviz === 'TL') return '1';
+    const kur = kurlarRef.current[doviz];
+    return kur ? String(kur.dovizAlis || 1) : '1';
+  };
+
+  const convertFromRef = (tutar: number, kaynak: string, hedef: string): string => {
+    if (kaynak === hedef) return tutar.toFixed(2);
+    const kaynakKur = kaynak === 'TL' ? 1 : (kurlarRef.current[kaynak]?.dovizAlis || 1);
+    const hedefKur = hedef === 'TL' ? 1 : (kurlarRef.current[hedef]?.dovizAlis || 1);
+    return (tutar * kaynakKur / hedefKur).toFixed(2);
+  };
+
+  const recalcFromDovizli = (tutar: string, dovizliDoviz?: string) => {
+    const numTutar = parseFloat(tutar.replace(',', '.')) || 0;
+    const dd = dovizliDoviz || hareketDovizliDoviz;
+    setHareketMuhasebeTutar(convertFromRef(numTutar, dd, hareketMuhasebeDoviz));
+    setHareketCariTutar(convertFromRef(numTutar, dd, hareketCariDoviz));
+  };
+
   const handleDovizliDovizChange = (doviz: string) => {
     setHareketDovizliDoviz(doviz);
-    setHareketDovizliKur(getKurForDoviz(doviz));
+    setHareketDovizliKur(getKurFromRef(doviz));
+    recalcFromDovizli(hareketDovizliTutar, doviz);
   };
 
   const handleCariDovizChange = (doviz: string) => {
     setHareketCariDoviz(doviz);
-    setHareketCariKur(getKurForDoviz(doviz));
+    setHareketCariKur(getKurFromRef(doviz));
+    const numTutar = parseFloat(hareketDovizliTutar.replace(',', '.')) || 0;
+    setHareketCariTutar(convertFromRef(numTutar, hareketDovizliDoviz, doviz));
   };
 
   const handleCamera = async () => {
@@ -320,12 +501,6 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     } catch (_) {}
   };
 
-  const getKurForDoviz = (doviz: string): string => {
-    if (doviz === 'TL') return '1';
-    const kur = kurlar[doviz];
-    if (!kur) return '1';
-    return String(kur.dovizAlis || 1);
-  };
 
   // Cari listesi yükle (100% hariç)
   const loadCariList = useCallback(async () => {
@@ -339,14 +514,14 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
       if (response.success) {
         const items = (response.data?.data || [])
           .filter((c: any) => !c.hesapKodu?.startsWith('100'))
-          .map((c: any) => ({ id: c.hesapKodu, label: `${c.unvan} (${c.hesapKodu})` }));
+          .map((c: any) => ({ id: c.hesapKodu, label: `${c.unvan} (${c.hesapKodu}) [${c.doviz || 'TL'}]`, doviz: c.doviz || '' }));
         setCariList(items);
       }
     } catch (_) {}
     finally { setCariListLoading(false); }
   }, [cariList.length, user]);
 
-  const handleOpenHareketForm = (kasaId: number, kasaLabel: string, tipi: 'giris' | 'cikis') => {
+  const handleOpenHareketForm = async (kasaId: number, kasaLabel: string, tipi: 'giris' | 'cikis') => {
     hareketFieldErrors.clearAll();
     setHareketKasaId(kasaId);
     setHareketKasaLabel(kasaLabel);
@@ -354,18 +529,30 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     setHareketCariHesapKodu('');
     setHareketAciklama('');
     setHareketDovizliTutar('');
-    setHareketDovizliDoviz('TL');
-    setHareketDovizliKur('1');
     setHareketMuhasebeTutar('');
-    setHareketMuhasebeDoviz('TL');
-    setHareketMuhasebeKur('1');
     setHareketCariTutar('');
-    setHareketCariDoviz('TL');
-    setHareketCariKur('1');
+
+    // Kasanın fiş tarihindeki kurları çek
+    const kasa = kasaList.find((k: any) => k.id === kasaId);
+    const fisTarihi = kasa?.fisTarihi ? new Date(kasa.fisTarihi) : new Date();
+    const yeniKurlar = await loadKurlar(fisTarihi);
+    kurlarRef.current = yeniKurlar;
+    console.log('KURLAR_LOADED:', Object.keys(yeniKurlar).length, 'USD:', yeniKurlar['USD']?.dovizAlis);
+
+    // Kasanın dövizini set et (yeniKurlar'dan kur al)
+    const kasaDoviz = kasa?.kasaDoviz || 'TL';
+    const kurFromNew = (d: string) => d === 'TL' ? '1' : String(yeniKurlar[d]?.dovizAlis || 1);
+    setHareketDovizliDoviz(kasaDoviz);
+    setHareketDovizliKur(kurFromNew(kasaDoviz));
+
+    setHareketMuhasebeDoviz(varsayilanDoviz);
+    setHareketMuhasebeKur(kurFromNew(varsayilanDoviz));
+
+    setHareketCariDoviz(varsayilanDoviz);
+    setHareketCariKur(kurFromNew(varsayilanDoviz));
     setHareketImageUri(null);
     setHareketFormVisible(true);
     loadCariList();
-    loadKurlar();
     loadDovizTipleri();
   };
 
@@ -382,6 +569,43 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
       const token = await authService.getToken();
       if (!token) throw new Error('Token bulunamadı');
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+
+      if (editingHareket) {
+        // Düzenleme - random ile eşleyerek güncelle
+        const kasaItem = kasaList.find((k: any) => k.id === hareketKasaId);
+        const updateRes = await fetch(API_ENDPOINTS.ACCOUNT_KASA_HAREKET_UPDATE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            dataName,
+            detayId: editingHareket.id,
+            hesapKodu: hareketCariHesapKodu,
+            kasaHesapKodu: kasaItem?.kasaHesapKodu || '',
+            aciklama: hareketAciklama.trim(),
+            tutar: dovizliTutar,
+            doviz: hareketDovizliDoviz,
+            dovizKuru: parseFloat(hareketDovizliKur.replace(',', '.')) || 1,
+            muhasebeTutar: parseFloat((hareketMuhasebeTutar || '0').replace(',', '.')) || dovizliTutar,
+            muhasebeDoviz: hareketMuhasebeDoviz,
+            muhasebeKuru: parseFloat(hareketMuhasebeKur.replace(',', '.')) || 1,
+            cariTutar: parseFloat((hareketCariTutar || '0').replace(',', '.')) || dovizliTutar,
+            cariDoviz: hareketCariDoviz,
+            cariKuru: parseFloat(hareketCariKur.replace(',', '.')) || 1,
+            tip: hareketTipi,
+          }),
+        });
+        const updateData = await updateRes.json();
+        if (updateData.success) {
+          hareketToastRef.current?.show({ type: 'success', text: 'Hareket güncellendi' });
+          setDetailData({});
+          loadKasaList();
+          setTimeout(() => { setHareketFormVisible(false); setEditingHareket(null); }, 1200);
+        } else {
+          hareketToastRef.current?.show({ type: 'error', text: updateData.error?.message || 'Güncelleme başarısız' });
+        }
+        setHareketFormSaving(false);
+        return;
+      }
 
       const response = await accountService.createKasaHareket(token, dataName, {
         fisMasterId: hareketKasaId!,
@@ -470,9 +694,9 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
       d.getFullYear();
   };
 
-  const kasaSelectItems = kasaCariList.map(k => ({
-    id: k.hesapKodu,
-    label: k.unvan + (k.subeAdi ? ` (${k.subeAdi})` : ''),
+  const kasaSelectItems = kasaCariList.map((k: any) => ({
+    id: k.hesapKodu || k.hesap_kodu || '',
+    label: `${k.unvan || k.hesap_kodu || k.hesapKodu || ''}`,
   }));
 
   const renderKasaItem = ({ item }: { item: KasaFis }) => {
@@ -496,20 +720,10 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
                 <Text style={[styles.cardSubtitle, { color: colors.textTertiary }]}>{item.kasaHesapKodu}</Text>
               </View>
             </View>
-            {item.kasaDurum === 1 ? (
-              <Pressable
-                style={[styles.hareketMiniBtn, { backgroundColor: colors.primary + '15' }]}
-                onPress={() => handleOpenHareketForm(item.id, item.kasaUnvan || item.kasaHesapKodu, 'giris')}
-              >
-                <Icon name="swap-vertical-outline" size={14} color={colors.primary} />
-                <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>Hareket</Text>
-              </Pressable>
-            ) : (
-              <View style={[styles.cardBadge, { backgroundColor: statusColor + '15' }]}>
-                <View style={[styles.cardBadgeDot, { backgroundColor: statusColor }]} />
-                <Text style={[styles.cardBadgeText, { color: statusColor }]}>Kapalı</Text>
-              </View>
-            )}
+            <View style={[styles.cardBadge, { backgroundColor: statusColor + '15' }]}>
+              <View style={[styles.cardBadgeDot, { backgroundColor: statusColor }]} />
+              <Text style={[styles.cardBadgeText, { color: statusColor }]}>{item.kasaDurum === 1 ? 'Açık' : 'Kapalı'}</Text>
+            </View>
           </View>
 
           {/* Alt satır: Fiş no, tarih, şube */}
@@ -530,11 +744,27 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
             ) : null}
           </View>
 
-          {/* Açıklama + Accordion butonu */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={[styles.cardDescription, { color: colors.textTertiary, flex: 1 }]} numberOfLines={1}>
-              {item.fisAciklama || '-'}
-            </Text>
+          {/* Butonlar */}
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            {item.kasaDurum === 1 && (
+              <>
+                <Pressable
+                  style={[styles.hareketMiniBtn, { backgroundColor: colors.primary + '15' }]}
+                  onPress={() => handleOpenHareketForm(item.id, item.kasaUnvan || item.kasaHesapKodu, 'giris')}
+                >
+                  <Icon name="swap-vertical-outline" size={14} color={colors.primary} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>Hareket</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.hareketMiniBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F1F5F9' }]}
+                  onPress={() => setMenuKasaId(item.id)}
+                >
+                  <Icon name="settings-outline" size={14} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}>İşlemler</Text>
+                </Pressable>
+              </>
+            )}
+            <View style={{ flex: 1 }} />
             <Pressable
               onPress={() => toggleExpand(item.id)}
               style={[styles.expandBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F1F5F9' }]}
@@ -608,11 +838,26 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
                         ) : null}
                         <Text style={{ fontSize: 10, color: colors.textTertiary }}>{h.hesapKodu}</Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
+                      <View style={{ alignItems: 'flex-end', gap: 4 }}>
                         <Text style={[styles.hareketTutar, { color: hareketTab === 'girisler' ? '#10B981' : '#EF4444' }]}>
-                          {formatMoney(h.tutar)}
+                          {formatMoney(h.tutar)} <Text style={{ fontSize: 10, color: colors.textTertiary }}>{h.doviz}</Text>
                         </Text>
-                        <Text style={{ fontSize: 10, color: colors.textTertiary }}>{h.doviz}</Text>
+                        {item.kasaDurum === 1 && (
+                          <View style={{ flexDirection: 'row', gap: 4 }}>
+                            <Pressable
+                              style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: '#F59E0B15', alignItems: 'center', justifyContent: 'center' }}
+                              onPress={() => handleEditHareket(item, h, hareketTab === 'girisler' ? 'giris' : 'cikis')}
+                            >
+                              <Icon name="create-outline" size={12} color="#F59E0B" />
+                            </Pressable>
+                            <Pressable
+                              style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: '#EF444415', alignItems: 'center', justifyContent: 'center' }}
+                              onPress={() => setDeleteHareketItem({ kasaItem: item, hareket: h })}
+                            >
+                              <Icon name="trash-outline" size={12} color="#EF4444" />
+                            </Pressable>
+                          </View>
+                        )}
                       </View>
                     </View>
                   ))}
@@ -645,7 +890,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
           showMenu={true}
         />
 
-        {isLoading && !refreshing ? (
+        {isLoading && !refreshing && kasaList.length === 0 ? (
           <LoadingSpinner />
         ) : (
           <FlatList
@@ -662,17 +907,15 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
                     </View>
                     <Text style={[styles.pageTitle, { color: colors.text }]}>Kasa İşlemleri</Text>
                   </View>
-                  {subeler.length > 1 && (
-                    <View style={{ minWidth: 140, maxWidth: 200 }}>
-                      <SelectInput
-                        value={selectedSubeId}
-                        onSelect={setSelectedSubeId}
-                        items={subeler}
-                        placeholder="Şube"
-                        compact
-                      />
-                    </View>
-                  )}
+                  <View style={{ minWidth: 140, maxWidth: 200 }}>
+                    <SelectInput
+                      value={selectedSubeId}
+                      onSelect={setSelectedSubeId}
+                      items={subeler}
+                      placeholder="Şube"
+                      compact
+                    />
+                  </View>
                 </View>
                 {/* Durum Filtresi */}
                 <View style={{ marginTop: 12, marginBottom: -6 }}>
@@ -697,6 +940,84 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
           />
         )}
 
+        {/* İşlemler Menü Modal */}
+        <Modal visible={!!menuKasaId} transparent animationType="fade" onRequestClose={() => setMenuKasaId(null)}>
+          <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }} onPress={() => setMenuKasaId(null)}>
+            <Pressable style={[styles.menuModal, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>İşlemler</Text>
+                <Pressable onPress={() => setMenuKasaId(null)} hitSlop={8}>
+                  <Icon name="close" size={22} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <Pressable style={styles.menuItem} onPress={() => { const item = kasaList.find((k: any) => k.id === menuKasaId); setMenuKasaId(null); if (item) handleOpenEditKasa(item); }}>
+                <View style={[styles.menuIconWrap, { backgroundColor: '#F59E0B15' }]}>
+                  <Icon name="create-outline" size={18} color="#F59E0B" />
+                </View>
+                <Text style={[styles.menuText, { color: colors.text }]}>Düzenle</Text>
+                <Icon name="chevron-forward" size={16} color={colors.textTertiary} />
+              </Pressable>
+              <Pressable style={styles.menuItem} onPress={() => { const item = kasaList.find((k: any) => k.id === menuKasaId); setMenuKasaId(null); if (item) setKapatKasaItem(item); }}>
+                <View style={[styles.menuIconWrap, { backgroundColor: '#6B728015' }]}>
+                  <Icon name="lock-closed-outline" size={18} color="#6B7280" />
+                </View>
+                <Text style={[styles.menuText, { color: colors.text }]}>Kasayı Kapat</Text>
+                <Icon name="chevron-forward" size={16} color={colors.textTertiary} />
+              </Pressable>
+              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+              <Pressable style={styles.menuItem} onPress={() => { const item = kasaList.find((k: any) => k.id === menuKasaId); setMenuKasaId(null); if (item) setDeleteKasaItem(item); }}>
+                <View style={[styles.menuIconWrap, { backgroundColor: '#EF444415' }]}>
+                  <Icon name="trash-outline" size={18} color="#EF4444" />
+                </View>
+                <Text style={[styles.menuText, { color: '#EF4444' }]}>Sil</Text>
+                <Icon name="chevron-forward" size={16} color="#EF444460" />
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        <ConfirmDialog
+          visible={!!kapatKasaItem}
+          title="Kasayı Kapat"
+          message={`"${kapatKasaItem?.kasaUnvan || kapatKasaItem?.kasaHesapKodu || ''}" kasasını kapatmak istediğinize emin misiniz?\n\nKapatılan kasaya yeni hareket eklenemez.`}
+          icon="lock-closed"
+          iconColor="#3B82F6"
+          confirmText="Kapat"
+          cancelText="İptal"
+          confirmIcon="lock-closed-outline"
+          cancelIcon="close-outline"
+          onConfirm={handleKapatKasa}
+          onCancel={() => setKapatKasaItem(null)}
+        />
+
+        <ConfirmDialog
+          visible={!!deleteHareketItem}
+          title="Hareketi Sil"
+          message={`"${deleteHareketItem?.hareket?.unvan || deleteHareketItem?.hareket?.hesapKodu || ''}" hareketi silmek istediğinize emin misiniz?`}
+          icon="trash"
+          iconColor="#EF4444"
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmIcon="trash-outline"
+          cancelIcon="close-outline"
+          onConfirm={handleDeleteHareket}
+          onCancel={() => setDeleteHareketItem(null)}
+        />
+
+        <ConfirmDialog
+          visible={!!deleteKasaItem}
+          title="Kasayı Sil"
+          message={`"${deleteKasaItem?.kasaUnvan || deleteKasaItem?.kasaHesapKodu || ''}" kasasını silmek istediğinize emin misiniz?${deleteKasaItem?.girisler?.length > 0 || deleteKasaItem?.cikislar?.length > 0 ? '\n\nDikkat: Bu kasaya ait tüm hareket kayıtları da silinecektir!' : ''}`}
+          icon="trash"
+          iconColor="#EF4444"
+          confirmText="Sil"
+          cancelText="İptal"
+          confirmIcon="trash-outline"
+          cancelIcon="close-outline"
+          onConfirm={handleDeleteKasa}
+          onCancel={() => setDeleteKasaItem(null)}
+        />
+
         <TabBar
           activeTab={activeTab}
           onTabPress={handleTabPress}
@@ -707,7 +1028,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
         <BottomSheet
           visible={formVisible}
           onClose={() => setFormVisible(false)}
-          title="Yeni Kasa"
+          title={editingKasa ? 'Kasa Düzenle' : 'Yeni Kasa'}
           icon="cash-outline"
           iconColor="#10B981"
           toastRef={formToastRef}
@@ -732,57 +1053,35 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
           }
         >
           <View style={{ gap: 12 }}>
-            <SelectInput
+            <CariSelectWithAdd
               label="Kasa *"
-              icon="cash-outline"
               placeholder={kasaCariLoading ? 'Yükleniyor...' : 'Kasa seçin...'}
               value={formKasaHesapKodu}
               items={kasaSelectItems}
               onSelect={(val) => { setFormKasaHesapKodu(val); fieldErrors.clearFieldError('kasa'); }}
+              onCariAdded={(cari) => setKasaCariList(prev => [...prev, { hesapKodu: cari.id, unvan: cari.label } as any])}
               error={fieldErrors.errors.kasa}
               shake={fieldErrors.shakes.kasa}
-              containerStyle={{ marginBottom: 0 }}
+              hesapKoduPrefix="100"
+              filterType="safes"
             />
 
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.inputLabel, marginBottom: 4 }}>Tarih</Text>
-                <Pressable
-                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBackground, borderWidth: 1.5, borderColor: colors.inputBorder, borderRadius: 12, paddingHorizontal: 14, height: 48 }}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Icon name="calendar-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-                  <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>{formatDate(formTarih.toISOString())}</Text>
-                </Pressable>
-              </View>
-              {subeler.length > 1 && (
-                <View style={{ flex: 1 }}>
-                  <SelectInput
-                    label="Şube"
-                    icon="business-outline"
-                    placeholder="Şube seçin..."
-                    value={selectedSubeId}
-                    items={subeler}
-                    onSelect={setSelectedSubeId}
-                    containerStyle={{ marginBottom: 0 }}
-                  />
-                </View>
-              )}
+            <View>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.inputLabel, marginBottom: 4 }}>Tarih</Text>
+              <Pressable
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.inputBackground, borderWidth: 1.5, borderColor: colors.inputBorder, borderRadius: 12, paddingHorizontal: 14, height: 48 }}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Icon name="calendar-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+                <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>{formatDate(formTarih.toISOString())}</Text>
+              </Pressable>
             </View>
 
-            <Input
-              label="Açıklama"
-              icon="document-text-outline"
-              value={formAciklama}
-              onChangeText={setFormAciklama}
-              placeholder="Açıklama..."
-              containerStyle={{ marginBottom: 0 }}
-            />
           </View>
           <DatePickerModal
             visible={showDatePicker}
             date={formTarih}
-            onConfirm={(d) => { setFormTarih(d); setShowDatePicker(false); }}
+            onConfirm={(d) => { setFormTarih(d); setShowDatePicker(false); loadKurlar(d); }}
             onClose={() => setShowDatePicker(false)}
             title="Tarih Seçin"
           />
@@ -792,7 +1091,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
         <BottomSheet
           visible={hareketFormVisible}
           onClose={() => setHareketFormVisible(false)}
-          title={`Kasa ${hareketTipi === 'giris' ? 'Giriş' : 'Çıkış'}`}
+          title={editingHareket ? 'Hareket Düzenle' : `Kasa ${hareketTipi === 'giris' ? 'Giriş' : 'Çıkış'}`}
           icon={hareketTipi === 'giris' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
           iconColor={hareketTipi === 'giris' ? '#10B981' : '#EF4444'}
           toastRef={hareketToastRef}
@@ -842,16 +1141,27 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
             </View>
 
             {/* Cari Hesap */}
-            <SelectInput
+            <CariSelectWithAdd
               label="Cari Hesap *"
-              icon="person-outline"
               placeholder={cariListLoading ? 'Yükleniyor...' : 'Cari hesap seçin...'}
               value={hareketCariHesapKodu}
               items={cariList}
-              onSelect={(val) => { setHareketCariHesapKodu(val); hareketFieldErrors.clearFieldError('cari'); }}
+              onSelect={(val) => {
+                setHareketCariHesapKodu(val);
+                hareketFieldErrors.clearFieldError('cari');
+                const selectedCariItem = cariList.find((c: any) => c.id === val) as any;
+                if (selectedCariItem?.doviz) {
+                  const cDoviz = selectedCariItem.doviz as string;
+                  const cKur = getKurFromRef(cDoviz);
+                  setHareketCariDoviz(cDoviz);
+                  setHareketCariKur(cKur);
+                  setHareketDovizliDoviz(cDoviz);
+                  setHareketDovizliKur(cKur);
+                }
+              }}
+              onCariAdded={(cari) => setCariList(prev => [...prev, { id: cari.id, label: cari.label, doviz: '' } as any])}
               error={hareketFieldErrors.errors.cari}
               shake={hareketFieldErrors.shakes.cari}
-              containerStyle={{ marginBottom: 0 }}
             />
 
             {/* Tutar Tablosu - Dövizli / Muhasebe / Cari */}
@@ -868,11 +1178,11 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
               <View style={styles.tutarRow}>
                 <Text style={[styles.tutarRowLabel, { color: colors.text }]}>Dövizli</Text>
                 <View style={[styles.tutarInput, { borderColor: hareketFieldErrors.errors.dovizliTutar ? '#EF4444' : colors.inputBorder, backgroundColor: colors.inputBackground }]}>
-                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketDovizliTutar} onChangeText={(t) => { setHareketDovizliTutar(t.replace(/[^0-9.,]/g, '')); hareketFieldErrors.clearFieldError('dovizliTutar'); }} placeholder="0,00" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
+                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketDovizliTutar} onChangeText={(t) => { const v = t.replace(/[^0-9.,]/g, ''); setHareketDovizliTutar(v); hareketFieldErrors.clearFieldError('dovizliTutar'); recalcFromDovizli(v); }} placeholder="0,00" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
                 </View>
                 <DovizSelect value={hareketDovizliDoviz} dovizTipleri={dovizTipleri} onSelect={handleDovizliDovizChange} compact shortLabel containerStyle={{ flex: 1, marginBottom: 0 }} />
                 <View style={[styles.tutarInput, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
-                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketDovizliKur} onChangeText={(t) => setHareketDovizliKur(t.replace(/[^0-9.,]/g, ''))} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
+                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketDovizliKur} onChangeText={(t) => { setHareketDovizliKur(t.replace(/[^0-9.,]/g, '')); recalcFromDovizli(hareketDovizliTutar); }} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
                 </View>
               </View>
 
@@ -884,7 +1194,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
                 </View>
                 <DovizSelect value={hareketMuhasebeDoviz} dovizTipleri={[{ dovizTipi: hareketMuhasebeDoviz, dovizAdi: hareketMuhasebeDoviz } as DovizTipi]} onSelect={() => {}} compact shortLabel containerStyle={{ flex: 1, marginBottom: 0 }} />
                 <View style={[styles.tutarInput, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
-                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketMuhasebeKur} onChangeText={(t) => setHareketMuhasebeKur(t.replace(/[^0-9.,]/g, ''))} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
+                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketMuhasebeKur} onChangeText={(t) => { setHareketMuhasebeKur(t.replace(/[^0-9.,]/g, '')); }} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
                 </View>
               </View>
 
@@ -896,7 +1206,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
                 </View>
                 <DovizSelect value={hareketCariDoviz} dovizTipleri={dovizTipleri} onSelect={handleCariDovizChange} compact shortLabel containerStyle={{ flex: 1, marginBottom: 0 }} />
                 <View style={[styles.tutarInput, { borderColor: colors.inputBorder, backgroundColor: colors.inputBackground }]}>
-                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketCariKur} onChangeText={(t) => setHareketCariKur(t.replace(/[^0-9.,]/g, ''))} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
+                  <TextInput style={[styles.tutarInputText, { color: colors.text, textAlign: 'right' }]} value={hareketCariKur} onChangeText={(t) => { setHareketCariKur(t.replace(/[^0-9.,]/g, '')); }} placeholder="1" placeholderTextColor={colors.textTertiary} keyboardType="decimal-pad" />
                 </View>
               </View>
             </View>
@@ -1237,5 +1547,57 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+  },
+  menuModal: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+    paddingBottom: 32,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  menuIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    left: 32,
+    top: 0,
+    minWidth: 140,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 4,
+    zIndex: 100,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  dropdownText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
