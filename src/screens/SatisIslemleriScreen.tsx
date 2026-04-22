@@ -14,9 +14,11 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter from '../components/DateFilter';
 import SatisForm from '../components/SatisForm';
 import SatisDetayForm from '../components/SatisDetayForm';
+import OdemeForm from '../components/OdemeForm';
 import { useAlert } from '../contexts/AlertContext';
 import { authService } from '../services/auth.service';
 import salesService from '../services/sales.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
 
 type DatePreset = 'today' | 'thisWeek' | 'thisMonth' | 'lastMonth' | 'last3Months' | 'thisYear' | 'custom';
 
@@ -66,7 +68,7 @@ interface SatisIslemleriScreenProps {
 export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }: SatisIslemleriScreenProps) {
   const { colors, isDark } = useTheme();
   const { logout, user, notificationCount } = useAuth();
-  const { showSuccess, showError } = useAlert();
+  const { showSuccess, showError, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
   const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +80,8 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [detayFormVisible, setDetayFormVisible] = useState(false);
   const [detayFormItem, setDetayFormItem] = useState<any>(null);
+  const [odemeFormVisible, setOdemeFormVisible] = useState(false);
+  const [odemeItem, setOdemeItem] = useState<any>(null);
 
   // Date filter
   const defaultPreset: DatePreset = 'thisMonth';
@@ -119,6 +123,38 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
   const handleSaved = () => {
     showSuccess('Satış kaydedildi');
     fetchData();
+  };
+
+  const handleOnayla = (item: any) => {
+    showConfirm({
+      title: 'Fatura Onayla',
+      message: `${item.seriNo} numaralı faturayı onaylamak istiyor musunuz? Onaylanan fatura kapanır ve düzenlenemez.`,
+      confirmText: 'Onayla',
+      cancelText: 'İptal',
+      icon: 'checkmark-circle-outline',
+      iconColor: '#10B981',
+      onConfirm: async () => {
+        try {
+          const token = await authService.getToken();
+          if (!token) return;
+          const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+          const res = await fetch(API_ENDPOINTS.SALES_ONAYLA, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ dataName, id: item.id }),
+          });
+          const json = await res.json();
+          if (json.success) {
+            showSuccess('Fatura onaylandı');
+            fetchData();
+          } else {
+            showError(json.error?.message || 'Onaylama başarısız');
+          }
+        } catch (err: any) {
+          showError(err.message || 'Onaylama başarısız');
+        }
+      },
+    });
   };
 
   // Arama filtresi
@@ -300,7 +336,7 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
                     </View>
                   </View>
 
-                  {/* Badge'ler & Ürün Ekle */}
+                  {/* Badge'ler */}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
                     <View style={[styles.badge, { backgroundColor: durumBadge.bg }]}>
                       <Icon name={durumBadge.icon} size={12} color={durumBadge.color} />
@@ -324,21 +360,41 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
                         <Text style={[styles.badgeText, { color: '#3B82F6' }]} numberOfLines={1}>{item.tipiAciklama.replace(/^\(\d+\)\s*/, '').replace(/\s*Faturası?$/, '')}</Text>
                       </View>
                     ) : null}
-                    <View style={{ flex: 1 }} />
-                    <Pressable
-                      style={[styles.iconBtn, { backgroundColor: '#F59E0B' }]}
-                      onPress={(e) => { e.stopPropagation(); setEditingItem(item); setFormVisible(true); }}
-                    >
-                      <Icon name="create-outline" size={14} color="#fff" />
-                    </Pressable>
-                    <Pressable
-                      style={[styles.iconBtn, { backgroundColor: colors.primary, flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
-                      onPress={(e) => { e.stopPropagation(); setDetayFormItem(item); setDetayFormVisible(true); }}
-                    >
-                      <Icon name="add" size={14} color="#fff" />
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Ürün Ekle</Text>
-                    </Pressable>
                   </View>
+
+                  {/* Aksiyon Butonları */}
+                  {item.aktif === 1 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
+                      <Pressable
+                        style={[styles.iconBtn, { backgroundColor: '#F59E0B', flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
+                        onPress={(e) => { e.stopPropagation(); setEditingItem(item); setFormVisible(true); }}
+                      >
+                        <Icon name="create-outline" size={14} color="#fff" />
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Düzenle</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.iconBtn, { backgroundColor: colors.primary, flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
+                        onPress={(e) => { e.stopPropagation(); setDetayFormItem(item); setDetayFormVisible(true); }}
+                      >
+                        <Icon name="add" size={14} color="#fff" />
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Ürün Ekle</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.iconBtn, { backgroundColor: '#8B5CF6', flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
+                        onPress={(e) => { e.stopPropagation(); setOdemeItem(item); setOdemeFormVisible(true); }}
+                      >
+                        <Icon name="cash-outline" size={14} color="#fff" />
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Ödeme</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.iconBtn, { backgroundColor: '#10B981', flexDirection: 'row', gap: 4, width: 'auto', paddingHorizontal: 8 }]}
+                        onPress={(e) => { e.stopPropagation(); handleOnayla(item); }}
+                      >
+                        <Icon name="checkmark-circle-outline" size={14} color="#fff" />
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: '#fff' }}>Onayla</Text>
+                      </Pressable>
+                    </View>
+                  )}
 
                   {/* Alt Detaylar - Expandable */}
                   {isExpanded && (
@@ -381,6 +437,7 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
           faturaId={detayFormItem?.id}
           seriNo={detayFormItem?.seriNo}
           doviz={detayFormItem?.doviz}
+          defaultTezgahtarIds={(detayFormItem?.artId?.tezgahtar || []).map((t: any) => String(t.id))}
         />
 
         {/* Satış Formu */}
@@ -389,6 +446,14 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
           onClose={() => { setFormVisible(false); setEditingItem(null); }}
           onSave={handleSaved}
           editingItem={editingItem}
+        />
+
+        {/* Ödeme Formu */}
+        <OdemeForm
+          visible={odemeFormVisible}
+          onClose={() => { setOdemeFormVisible(false); setOdemeItem(null); }}
+          onSave={() => { setOdemeFormVisible(false); setOdemeItem(null); showSuccess('Ödeme alındı (tasarım)'); }}
+          faturaItem={odemeItem}
         />
 
         <TabBar

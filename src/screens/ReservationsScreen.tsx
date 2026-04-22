@@ -317,7 +317,12 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   };
 
   const handleSave = async () => {
-    if (!fieldErrors.validateRequired({ tarih: formTarih })) return;
+    if (!fieldErrors.validateRequired({
+      tarih: formTarih,
+      beklenenSaat: formBeklenenSaat,
+      beklenenPax: formBeklenenPax,
+      milliyet: formSelectedMilliyet,
+    })) return;
 
     setIsCreating(true);
     try {
@@ -878,12 +883,12 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
     >
       {/* Tarih */}
       <View style={styles.formFieldContainer}>
-        <Text style={styles.formLabel}>Tarih *</Text>
+        <Text style={styles.formLabel}>Tarih</Text>
         <Pressable
           style={[styles.datePickerBtn, fieldErrors.errors.tarih && { borderColor: colors.danger }]}
           onPress={() => { setShowFormDatePicker(true); fieldErrors.clearFieldError('tarih'); }}
         >
-          <Icon name="calendar-outline" size={20} color={fieldErrors.errors.tarih ? colors.danger : colors.primary} />
+          <Icon name="calendar-outline" size={20} color={fieldErrors.errors.tarih ? colors.danger : colors.textSecondary} />
           <Text style={styles.datePickerText}>{formatDateStr(formTarihDate)}</Text>
           <Icon name="chevron-forward" size={16} color={colors.textSecondary} />
         </Pressable>
@@ -905,7 +910,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         <View style={styles.formHalf}>
           <Input
             label="Beklenen Saat"
-            icon="time-outline"
             value={formBeklenenSaat}
             onChangeText={(text) => {
               const digits = text.replace(/\D/g, '').slice(0, 4);
@@ -914,16 +918,18 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
               } else {
                 setFormBeklenenSaat(`${digits.slice(0, 2)}:${digits.slice(2)}`);
               }
+              if (text) fieldErrors.clearFieldError('beklenenSaat');
             }}
             placeholder="HH:MM"
             keyboardType="numeric"
             maxLength={5}
+            error={fieldErrors.errors.beklenenSaat ? ' ' : undefined}
+            shake={fieldErrors.shakes.beklenenSaat}
           />
         </View>
         <View style={styles.formHalf}>
           <Input
             label="İnfocu"
-            icon="person-circle-outline"
             value={formInfocu}
             onChangeText={setFormInfocu}
             placeholder="Personel adı"
@@ -936,18 +942,18 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
         <View style={styles.formHalf}>
           <Input
             label="Yetişkin Pax"
-            icon="person-outline"
             value={formBeklenenPax}
-            onChangeText={setFormBeklenenPax}
+            onChangeText={(v) => { setFormBeklenenPax(v); if (v) fieldErrors.clearFieldError('beklenenPax'); }}
             placeholder="0"
             keyboardType="numeric"
             textAlign="right"
+            error={fieldErrors.errors.beklenenPax ? ' ' : undefined}
+            shake={fieldErrors.shakes.beklenenPax}
           />
         </View>
         <View style={styles.formHalf}>
           <Input
             label="Çocuk Pax"
-            icon="happy-outline"
             value={formBeklenenCocukPax}
             onChangeText={setFormBeklenenCocukPax}
             placeholder="0"
@@ -965,14 +971,16 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
             label="Milliyet"
             placeholder="Seçiniz"
             value={formSelectedMilliyet}
-            onSelect={setFormSelectedMilliyet}
+            onSelect={(v) => { setFormSelectedMilliyet(v); if (v) fieldErrors.clearFieldError('milliyet'); }}
             useDbId
+            hideIcon
+            error={fieldErrors.errors.milliyet}
+            shake={fieldErrors.shakes.milliyet}
           />
         </View>
         <View style={styles.formHalf}>
           <SelectInput
             label="Şube"
-            icon="storefront-outline"
             placeholder="Şube seçiniz"
             value={formSelectedSube}
             items={subeItems}
@@ -985,7 +993,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       {/* Acente Seçimi */}
       <SelectInput
         label="Acente"
-        icon="business-outline"
         placeholder="Acente seçiniz..."
         value={formSelectedAcente}
         items={acenteItems}
@@ -996,7 +1003,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       {/* Rehber Seçimi */}
       <SelectInput
         label="Rehber"
-        icon="person-outline"
         placeholder="Rehber seçiniz..."
         value={formSelectedRehber}
         items={acenteItems}
@@ -1007,7 +1013,6 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
       {/* Not */}
       <Input
         label="Not"
-        icon="document-text-outline"
         value={formGirisNotu}
         onChangeText={setFormGirisNotu}
         placeholder="Rezervasyon notu..."
@@ -1499,25 +1504,29 @@ const createStyles = (colors: any, isDark: boolean) =>
     // ─── Durum Filter ───
     durumFilterScroll: {
       marginBottom: 14,
+      flexGrow: 0,
+      flexShrink: 0,
     },
     durumFilterContent: {
       gap: 8,
+      alignItems: 'center',
+      paddingVertical: 2,
     },
     durumFilterChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 7,
-      borderRadius: 20,
+      paddingHorizontal: 14,
+      height: 34,
+      borderRadius: 999,
       backgroundColor: isDark ? colors.card : '#fff',
       borderWidth: 1,
       borderColor: isDark ? colors.border : '#E2E8F0',
       gap: 6,
     },
     durumDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
     },
     durumFilterText: {
       fontSize: 13,
@@ -1526,11 +1535,12 @@ const createStyles = (colors: any, isDark: boolean) =>
     },
     durumCountBadge: {
       backgroundColor: isDark ? colors.background : '#F1F5F9',
-      paddingHorizontal: 6,
-      paddingVertical: 1,
-      borderRadius: 8,
+      paddingHorizontal: 7,
+      height: 18,
+      borderRadius: 9,
       minWidth: 22,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     durumCountText: {
       fontSize: 11,

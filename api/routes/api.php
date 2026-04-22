@@ -107,6 +107,7 @@ class Router {
         $this->post('/sales/create', 'SalesController', 'create');
         $this->post('/sales/update', 'SalesController', 'update');
         $this->post('/sales/fatura-tipi-list', 'SalesController', 'getFaturaTipiList');
+        $this->post('/sales/onayla', 'SalesController', 'onayla');
 
         // Fis Routes
         $this->post('/fis/list', 'FisController', 'getList');

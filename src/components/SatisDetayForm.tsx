@@ -1,16 +1,24 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   TextInput,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import BottomSheet, { BottomSheetToastRef } from './BottomSheet';
-import BarcodeScanInput from './BarcodeScanInput';
+import BarcodeScanner from './BarcodeScanner';
+import { VaryantData } from './VaryantSelectInput';
 import SelectInput from './SelectInput';
+import { authService } from '../services/auth.service';
+import { API_ENDPOINTS } from '../constants/ApiConfig';
+import accountService from '../services/account.service';
 
 interface SatisDetayRow {
   id: string;
@@ -22,6 +30,7 @@ interface SatisDetayRow {
   indirimTipi: number;
   indirimDeger: string;
   aciklama: string;
+  tezgahtarIds: string[];
 }
 
 const EMPTY_ROW: SatisDetayRow = {
@@ -34,38 +43,137 @@ const EMPTY_ROW: SatisDetayRow = {
   indirimTipi: -1,
   indirimDeger: '',
   aciklama: '',
+  tezgahtarIds: [],
 };
 
 interface SatisDetayFormProps {
   visible: boolean;
   onClose: () => void;
-  onSave?: (rows: SatisDetayRow[]) => void;
+  onSave?: (data: { rows: SatisDetayRow[] }) => void;
   saving?: boolean;
   faturaId?: string;
   seriNo?: string;
   doviz?: string;
+  defaultTezgahtarIds?: string[];
 }
 
-export default function SatisDetayForm({ visible, onClose, onSave, saving = false, faturaId, seriNo, doviz = 'TL' }: SatisDetayFormProps) {
+export default function SatisDetayForm({ visible, onClose, onSave, saving = false, faturaId, seriNo, doviz = 'TL', defaultTezgahtarIds = [] }: SatisDetayFormProps) {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const toastRef = useRef<BottomSheetToastRef | null>(null);
   const [rows, setRows] = useState<SatisDetayRow[]>([]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
+  // Per-row tezgahtar seçimi için personel listesi
+  const [personelList, setPersonelList] = useState<{ id: string; label: string }[]>([]);
+  const [tezgahtarPickerRowId, setTezgahtarPickerRowId] = useState<string | null>(null);
+
+  // Tek input arama + barkod
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState<VaryantData[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const styles = createStyles(colors, isDark);
 
-  const handleBarcodeScanned = (barcode: string) => {
-    if (!barcode.trim()) return;
-    // Aynı barkod varsa miktarını artır
-    const existing = rows.find(r => r.stokKodu === barcode);
+  const fetchVaryantlar = async (query: string): Promise<VaryantData[]> => {
+    try {
+      const token = await authService.getToken();
+      if (!token) return [];
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      if (!dataName) return [];
+      setSearchLoading(true);
+      const res = await fetch(API_ENDPOINTS.STOCK_VARYANT_SEARCH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dataName, search: query }),
+      });
+      const data = await res.json();
+      setSearchLoading(false);
+      if (res.ok && data.data) {
+        return Array.isArray(data.data) ? data.data : (data.data.varyantlar || []);
+      }
+      return [];
+    } catch {
+      setSearchLoading(false);
+      return [];
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!text.trim()) { setSearchResults([]); return; }
+    searchDebounceRef.current = setTimeout(async () => {
+      const items = await fetchVaryantlar(text);
+      setSearchResults(items);
+    }, 300);
+  };
+
+  useEffect(() => {
+    if (!visible) {
+      setSearchText('');
+      setSearchResults([]);
+      setScannerVisible(false);
+    } else if (personelList.length === 0) {
+      (async () => {
+        try {
+          const token = await authService.getToken();
+          if (!token) return;
+          const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+          const res = await accountService.getCariList(token, dataName, 'personnel');
+          if (res.success && res.data) {
+            setPersonelList(res.data.data?.map((c: any) => ({
+              id: String(c.id),
+              label: `${c.hesapKodu || ''}${c.unvan ? ' - ' + c.unvan : ''}`.trim(),
+            })) || []);
+          }
+        } catch {}
+      })();
+    }
+  }, [visible]);
+
+  const addVaryantRow = (varyant: VaryantData) => {
+    const existing = rows.find(r => r.stokMasterId === String(varyant.id));
     if (existing) {
       const newMiktar = (parseFloat(existing.miktar) || 0) + 1;
       setRows(prev => prev.map(r => r.id === existing.id ? { ...r, miktar: String(newMiktar) } : r));
       setExpandedRow(existing.id);
-      toastRef.current?.show({ type: 'success', text: `${barcode} miktarı: ${newMiktar}` });
+      toastRef.current?.show({ type: 'success', text: `${varyant.varyantAdi} miktarı: ${newMiktar}` });
     } else {
       const newId = Date.now().toString();
-      const newRow = { ...EMPTY_ROW, id: newId, stokKodu: barcode, stokAdi: barcode, miktar: '1' };
+      const newRow: SatisDetayRow = {
+        ...EMPTY_ROW,
+        id: newId,
+        stokMasterId: String(varyant.id),
+        stokKodu: varyant.barkod || varyant.stokKodu || '',
+        stokAdi: varyant.varyantAdi || varyant.stokAdi || '',
+        miktar: '1',
+        fiyat: varyant.satisFiyat ? String(varyant.satisFiyat) : '',
+        tezgahtarIds: [...defaultTezgahtarIds],
+      };
+      setRows(prev => [...prev, newRow]);
+      setExpandedRow(newId);
+      toastRef.current?.show({ type: 'success', text: `${newRow.stokAdi} eklendi` });
+    }
+    setSearchText('');
+    setSearchResults([]);
+  };
+
+  const handleBarcodeFromCamera = async (barcode: string) => {
+    setScannerVisible(false);
+    if (!barcode.trim()) return;
+    const items = await fetchVaryantlar(barcode);
+    if (items.length === 1) {
+      addVaryantRow(items[0]);
+    } else if (items.length > 1) {
+      setSearchText(barcode);
+      setSearchResults(items);
+      toastRef.current?.show({ type: 'info', text: `${items.length} eşleşme bulundu` });
+    } else {
+      const newId = Date.now().toString();
+      const newRow = { ...EMPTY_ROW, id: newId, stokKodu: barcode, stokAdi: barcode, miktar: '1', tezgahtarIds: [...defaultTezgahtarIds] };
       setRows(prev => [...prev, newRow]);
       setExpandedRow(newId);
       toastRef.current?.show({ type: 'success', text: `${barcode} eklendi` });
@@ -74,7 +182,7 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
 
   const addRow = () => {
     const newId = Date.now().toString();
-    setRows(prev => [...prev, { ...EMPTY_ROW, id: newId }]);
+    setRows(prev => [...prev, { ...EMPTY_ROW, id: newId, tezgahtarIds: [...defaultTezgahtarIds] }]);
     setExpandedRow(newId);
   };
 
@@ -116,7 +224,7 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
         return;
       }
     }
-    onSave?.(rows);
+    onSave?.({ rows });
   };
 
   const renderRow = (row: SatisDetayRow, index: number) => {
@@ -143,11 +251,9 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {rows.length > 1 && (
-              <Pressable onPress={() => removeRow(row.id)} hitSlop={8}>
-                <Icon name="trash-outline" size={18} color="#EF4444" />
-              </Pressable>
-            )}
+            <Pressable onPress={() => removeRow(row.id)} hitSlop={8}>
+              <Icon name="trash-outline" size={18} color="#EF4444" />
+            </Pressable>
             <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textSecondary} />
           </View>
         </Pressable>
@@ -165,15 +271,40 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
             <View style={styles.formRowDouble}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Miktar *</Text>
-                <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                  <TextInput
-                    style={[styles.formInputText, { color: colors.text, textAlign: 'right' }]}
-                    value={row.miktar}
-                    onChangeText={(v) => updateRow(row.id, 'miktar', v)}
-                    placeholder="0"
-                    placeholderTextColor={colors.placeholder}
-                    keyboardType="decimal-pad"
-                  />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Pressable
+                    style={[styles.qtyBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}
+                    onPress={() => {
+                      const cur = parseFloat(row.miktar) || 1;
+                      const next = Math.max(1, cur - 1);
+                      updateRow(row.id, 'miktar', String(next));
+                    }}
+                  >
+                    <Icon name="remove" size={18} color={colors.primary} />
+                  </Pressable>
+                  <View style={[styles.formInput, { flex: 1, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <TextInput
+                      style={[styles.formInputText, { color: colors.text, textAlign: 'center' }]}
+                      value={row.miktar}
+                      onChangeText={(v) => updateRow(row.id, 'miktar', v)}
+                      onBlur={() => {
+                        const n = parseFloat(row.miktar);
+                        if (!n || n < 1) updateRow(row.id, 'miktar', '1');
+                      }}
+                      placeholder="1"
+                      placeholderTextColor={colors.placeholder}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <Pressable
+                    style={[styles.qtyBtn, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}
+                    onPress={() => {
+                      const cur = parseFloat(row.miktar) || 0;
+                      updateRow(row.id, 'miktar', String(cur + 1));
+                    }}
+                  >
+                    <Icon name="add" size={18} color={colors.primary} />
+                  </Pressable>
                 </View>
               </View>
               <View style={{ flex: 1 }}>
@@ -191,8 +322,8 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
               </View>
             </View>
 
-            {/* İndirim */}
-            <View style={styles.formRowDouble}>
+            {/* İndirim + Tezgahtar butonu */}
+            <View style={[styles.formRowDouble, { marginBottom: 0, alignItems: 'center' }]}>
               <View style={[styles.formSegment, { flex: 1 }]}>
                 <Pressable
                   style={[styles.formSegmentBtn, row.indirimTipi === -1 && { backgroundColor: '#EF4444' }]}
@@ -230,21 +361,50 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
                   </View>
                 </View>
               )}
+              <Pressable
+                style={{
+                  width: 48, height: 48, borderRadius: 10, borderWidth: 1,
+                  alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: row.tezgahtarIds.length > 0 ? colors.primary + '15' : 'transparent',
+                  borderColor: row.tezgahtarIds.length > 0 ? colors.primary : (isDark ? colors.border : '#CBD5E1'),
+                }}
+                onPress={() => setTezgahtarPickerRowId(row.id)}
+              >
+                <Icon name="people-outline" size={18} color={row.tezgahtarIds.length > 0 ? colors.primary : colors.textSecondary} />
+                {row.tezgahtarIds.length > 0 && (
+                  <View style={{
+                    position: 'absolute', top: -4, right: -4,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    backgroundColor: colors.primary,
+                    alignItems: 'center', justifyContent: 'center',
+                    paddingHorizontal: 4,
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>{row.tezgahtarIds.length}</Text>
+                  </View>
+                )}
+              </Pressable>
             </View>
 
-            {/* Açıklama */}
-            <View style={{ marginBottom: 10 }}>
-              <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Açıklama</Text>
-              <View style={[styles.formInput, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                <TextInput
-                  style={[styles.formInputText, { color: colors.text }]}
-                  value={row.aciklama}
-                  onChangeText={(v) => updateRow(row.id, 'aciklama', v)}
-                  placeholder="Not..."
-                  placeholderTextColor={colors.placeholder}
-                />
+            {/* Seçilen tezgahtar chip'leri */}
+            {row.tezgahtarIds.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {row.tezgahtarIds.map((tid) => {
+                  const p = personelList.find(x => x.id === tid);
+                  return (
+                    <Pressable
+                      key={tid}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary + '15', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                      onPress={() => updateRow(row.id, 'tezgahtarIds', row.tezgahtarIds.filter(x => x !== tid))}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: colors.primary }}>
+                        {(p?.label || tid).replace(/^[\d.]+\s*-\s*/, '')}
+                      </Text>
+                      <Icon name="close-circle" size={14} color={colors.primary} />
+                    </Pressable>
+                  );
+                })}
               </View>
-            </View>
+            )}
 
             {/* Satır Tutar */}
             <View style={[styles.tutarCard, { backgroundColor: isDark ? colors.background : '#F0FDF4', borderColor: isDark ? colors.border : '#BBF7D0' }]}>
@@ -277,16 +437,66 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
         </>
       }
     >
-      {/* Barkod Okuma - Bağımsız */}
-      <BarcodeScanInput
-        label="Barkod Okut"
-        value=""
-        onChangeText={() => {}}
-        onBarcodeScanned={handleBarcodeScanned}
-        placeholder="Barkod okutun veya yazın..."
-        scannerTitle="Barkod Tara"
-        containerStyle={{ marginBottom: 12 }}
-      />
+      {/* Tek Input: Stok Arama + Barkod */}
+      <View style={{ marginBottom: 12 }}>
+        <Text style={[styles.formLabel, { color: colors.inputLabel }]}>Ürün Ara / Barkod</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={[
+            styles.searchInputWrapper,
+            { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder },
+          ]}>
+            <Icon name="search-outline" size={18} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.searchInputText, { color: colors.text }]}
+              value={searchText}
+              onChangeText={handleSearchChange}
+              placeholder="Stok adı, kodu veya barkod..."
+              placeholderTextColor={colors.placeholder}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchLoading && <ActivityIndicator size="small" color={colors.primary} />}
+            {!!searchText && !searchLoading && (
+              <Pressable onPress={() => { setSearchText(''); setSearchResults([]); }} hitSlop={8}>
+                <Icon name="close-circle" size={18} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
+          <Pressable
+            style={[styles.cameraBtn, { backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF', borderColor: colors.primary }]}
+            onPress={() => setScannerVisible(true)}
+          >
+            <View style={[styles.cameraIconCircle, { backgroundColor: colors.primary }]}>
+              <Icon name="camera-outline" size={20} color="#fff" />
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Sonuç Listesi */}
+        {searchResults.length > 0 && (
+          <View style={[styles.resultsList, { backgroundColor: isDark ? colors.card : '#fff', borderColor: isDark ? colors.border : '#E2E8F0' }]}>
+            {searchResults.slice(0, 8).map((item) => (
+              <Pressable
+                key={item.id}
+                style={styles.resultItem}
+                onPress={() => addVaryantRow(item)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.resultTitle, { color: colors.text }]} numberOfLines={1}>
+                    {item.varyantAdi || item.stokAdi}
+                  </Text>
+                  <Text style={[styles.resultSub, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {item.stokKodu}{item.barkod ? ` · ${item.barkod}` : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.resultPrice, { color: '#10B981' }]}>
+                  {item.satisFiyat?.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.satisDoviz}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Satır Listesi Header */}
       <View style={styles.listHeader}>
@@ -310,12 +520,132 @@ export default function SatisDetayForm({ visible, onClose, onSave, saving = fals
           <Text style={{ fontSize: 18, fontWeight: '800', color: '#10B981' }}>{fmt(genelToplam.ara)} {doviz}</Text>
         </View>
       </View>
+
+      <BarcodeScanner
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onBarcodeScanned={handleBarcodeFromCamera}
+        title="Barkod Tara"
+      />
+
+      {/* Tezgahtar Seçim Modal */}
+      <Modal
+        visible={!!tezgahtarPickerRowId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTezgahtarPickerRowId(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setTezgahtarPickerRowId(null)}
+        >
+          <Pressable
+            style={{
+              width: '88%', maxWidth: 420, maxHeight: '70%',
+              backgroundColor: isDark ? colors.card : '#fff',
+              borderRadius: 16, overflow: 'hidden',
+            }}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }}>
+              <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: colors.primary + '15', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="people-outline" size={16} color={colors.primary} />
+              </View>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, flex: 1 }}>Tezgahtar Seç</Text>
+              <Pressable onPress={() => setTezgahtarPickerRowId(null)} hitSlop={8}>
+                <Icon name="close" size={22} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {personelList.map((p) => {
+                const currentRow = rows.find(r => r.id === tezgahtarPickerRowId);
+                const selected = currentRow?.tezgahtarIds.includes(p.id) || false;
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 10,
+                      paddingHorizontal: 16, paddingVertical: 12,
+                      borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
+                      backgroundColor: selected ? colors.primary + '10' : 'transparent',
+                    }}
+                    onPress={() => {
+                      if (!tezgahtarPickerRowId || !currentRow) return;
+                      const newIds = selected
+                        ? currentRow.tezgahtarIds.filter(x => x !== p.id)
+                        : [...currentRow.tezgahtarIds, p.id];
+                      updateRow(tezgahtarPickerRowId, 'tezgahtarIds', newIds);
+                    }}
+                  >
+                    <View style={{
+                      width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+                      borderColor: selected ? colors.primary : (isDark ? colors.border : '#CBD5E1'),
+                      backgroundColor: selected ? colors.primary : 'transparent',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {selected && <Icon name="checkmark" size={14} color="#fff" />}
+                    </View>
+                    <Text style={{ fontSize: 14, color: colors.text, flex: 1 }}>
+                      {(p.label || '').replace(/^[\d.]+\s*-\s*/, '')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </BottomSheet>
   );
 }
 
 const createStyles = (colors: any, isDark: boolean) =>
   StyleSheet.create({
+    searchInputWrapper: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1.5,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      height: 48,
+    },
+    searchInputText: {
+      flex: 1,
+      fontSize: 14,
+      paddingVertical: 0,
+    },
+    cameraBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderRadius: 12,
+      width: 48,
+      height: 48,
+    },
+    cameraIconCircle: {
+      width: 28, height: 28, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    resultsList: {
+      marginTop: 6,
+      borderWidth: 1,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    resultItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: isDark ? colors.border : '#F1F5F9',
+      gap: 8,
+    },
+    resultTitle: { fontSize: 13, fontWeight: '700' },
+    resultSub: { fontSize: 11, marginTop: 1 },
+    resultPrice: { fontSize: 12, fontWeight: '700' },
     listHeader: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       paddingVertical: 12, marginBottom: 8,
@@ -364,6 +694,10 @@ const createStyles = (colors: any, isDark: boolean) =>
       paddingHorizontal: 12, height: 48,
     },
     formInputText: { flex: 1, fontSize: 14, paddingVertical: 0 },
+    qtyBtn: {
+      width: 40, height: 48, borderRadius: 10, borderWidth: 1,
+      alignItems: 'center', justifyContent: 'center',
+    },
     formSegment: {
       flexDirection: 'row', borderRadius: 10, overflow: 'hidden',
       backgroundColor: isDark ? colors.background : '#F1F5F9',
@@ -375,7 +709,7 @@ const createStyles = (colors: any, isDark: boolean) =>
     formSegmentText: { fontSize: 16, fontWeight: '600', color: colors.textSecondary },
     tutarCard: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 4,
+      padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 8,
     },
     totalCard: {
       borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1,

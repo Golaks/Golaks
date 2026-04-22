@@ -55,6 +55,7 @@ interface TanimSelectInputProps {
   containerStyle?: any;
   error?: boolean;
   shake?: boolean;
+  hideIcon?: boolean;
 }
 
 export default function TanimSelectInput({
@@ -70,6 +71,7 @@ export default function TanimSelectInput({
   containerStyle,
   error = false,
   shake = false,
+  hideIcon = false,
 }: TanimSelectInputProps) {
   const { user } = useAuth();
   const { showConfirm } = useAlert();
@@ -194,7 +196,7 @@ export default function TanimSelectInput({
   return (
     <SelectInput
       label={label}
-      icon={meta.icon}
+      icon={hideIcon ? undefined : meta.icon}
       placeholder={placeholder}
       value={value}
       items={items}

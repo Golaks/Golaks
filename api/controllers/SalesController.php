@@ -204,15 +204,23 @@ class SalesController {
             $faturaService = new FaturaService($ctx['pdo'], $ctx['firmaId'], $ctx['subeId'], $ctx['userId']);
             $seriNo = $faturaService->getNextSeriNo($prefix);
 
-            // Şubenin varsayılan dövizi
-            $subeStmt = $ctx['pdo']->prepare("SELECT varsayilan_doviz FROM subeler WHERE id = ?");
+            // Şubenin varsayılan dövizi ve hesap kodları
+            $subeStmt = $ctx['pdo']->prepare("SELECT varsayilan_doviz, sube_genel_ayar FROM subeler WHERE id = ?");
             $subeStmt->execute([$ctx['subeId']]);
             $subeRow = $subeStmt->fetch();
             $varsayilanDoviz = ($subeRow && !empty($subeRow['varsayilan_doviz'])) ? $subeRow['varsayilan_doviz'] : 'TL';
+            $pasanMusteriId = null;
+            if ($subeRow && !empty($subeRow['sube_genel_ayar'])) {
+                $genelAyar = json_decode($subeRow['sube_genel_ayar'], true);
+                if (!empty($genelAyar['hesapKodlari']['pasanMusteri'])) {
+                    $pasanMusteriId = $genelAyar['hesapKodlari']['pasanMusteri'];
+                }
+            }
 
             Response::success([
                 'seriNo' => $seriNo,
                 'varsayilanDoviz' => $varsayilanDoviz,
+                'pasanMusteriId' => $pasanMusteriId,
             ]);
 
         } catch (PDOException $e) {
@@ -391,6 +399,47 @@ class SalesController {
 
             Response::success([
                 'message' => 'Fatura güncellendi',
+                'id' => $faturaId,
+            ]);
+
+        } catch (PDOException $e) {
+            Response::error('DB: ' . $e->getMessage(), 'DB_ERROR', 500);
+        } catch (Exception $e) {
+            Response::error('ERR: ' . $e->getMessage(), 'GENERAL_ERROR', 500);
+        }
+    }
+
+    /**
+     * POST /sales/onayla
+     * Satış faturasını onaylar (aktif = 0 yapar)
+     */
+    public function onayla() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            Response::error('Method not allowed', 'METHOD_NOT_ALLOWED', 405);
+        }
+
+        try {
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            $ctx = $this->getContext();
+
+            $faturaId = (int)($data['id'] ?? 0);
+            if ($faturaId <= 0) {
+                Response::error('Fatura ID gereklidir', 'VALIDATION_ERROR', 400);
+            }
+
+            // En az bir detay olmalı
+            $sayiStmt = $ctx['pdo']->prepare("SELECT COUNT(*) AS sayi FROM stok_detay WHERE fatura_master_id = ? AND aktif = 1");
+            $sayiStmt->execute([$faturaId]);
+            $sayiRow = $sayiStmt->fetch();
+            if ((int)$sayiRow['sayi'] === 0) {
+                Response::error('Faturada hiç ürün yok. Onaylamak için en az bir ürün ekleyin.', 'NO_DETAIL', 400);
+            }
+
+            $stmt = $ctx['pdo']->prepare("UPDATE fatura_irsaliye_master SET aktif = 0 WHERE id = ? AND firma_id = ?");
+            $stmt->execute([$faturaId, $ctx['firmaId']]);
+
+            Response::success([
+                'message' => 'Fatura onaylandı',
                 'id' => $faturaId,
             ]);
 

@@ -54,6 +54,7 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
   const [rehberList, setRehberList] = useState<{ id: string; label: string }[]>([]);
   const [personelList, setPersonelList] = useState<{ id: string; label: string }[]>([]);
   const [rezervasyonList, setRezervasyonList] = useState<{ id: string; label: string }[]>([]);
+  const [rezervasyonRaw, setRezervasyonRaw] = useState<Record<string, any>>({});
   const [showCariForm, setShowCariForm] = useState(false);
   const fieldErrors = useFieldErrors();
 
@@ -121,19 +122,28 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         })) || []);
       }
 
-      // Rezervasyonlar
+      // Rezervasyonlar (sadece beklenenler - durum=0)
       try {
         const rezRes = await fetch(API_ENDPOINTS.RESERVATIONS_LIST, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ dataName }),
+          body: JSON.stringify({ dataName, durum: 0 }),
         });
         const rezData = await rezRes.json();
         if (rezData.success && rezData.data?.items) {
-          setRezervasyonList(rezData.data.items.map((r: any) => ({
-            id: String(r.id),
-            label: `${r.rezervasyonKodu || ''} - ${r.musteriAdi || ''}`.trim(),
-          })));
+          const raw: Record<string, any> = {};
+          setRezervasyonList(rezData.data.items.map((r: any) => {
+            const totalPax = (r.beklenenPax || 0) + (r.beklenenCocukPax || 0);
+            const saatStr = r.beklenenSaat ? String(r.beklenenSaat).slice(0, 5) : '';
+            const parts = [
+              saatStr,
+              r.acenteAdi || '',
+              totalPax ? `${totalPax} pax` : '',
+            ].filter(Boolean);
+            raw[String(r.id)] = r;
+            return { id: String(r.id), label: parts.join(' · ') };
+          }));
+          setRezervasyonRaw(raw);
         }
       } catch {}
 
@@ -151,6 +161,9 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
             if (seriData.data.varsayilanDoviz) {
               setDoviz(seriData.data.varsayilanDoviz);
             }
+            if (seriData.data.pasanMusteriId) {
+              setCariId(String(seriData.data.pasanMusteriId));
+            }
           }
         } catch {}
       }
@@ -164,8 +177,20 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
       setTarih(editingItem.tarih ? new Date(editingItem.tarih) : new Date());
       setCariId(editingItem.carilerId ? String(editingItem.carilerId) : '');
       const art = editingItem.artId || {};
-      setAcenteId(art.acente?.id ? String(art.acente.id) : '');
-      setRehberId(art.rehber?.id ? String(art.rehber.id) : '');
+      if (art.acente?.id) {
+        const acId = String(art.acente.id);
+        setAcenteList(prev => prev.find(a => a.id === acId) ? prev : [...prev, { id: acId, label: art.acente.adi || acId }]);
+        setAcenteId(acId);
+      } else {
+        setAcenteId('');
+      }
+      if (art.rehber?.id) {
+        const rhId = String(art.rehber.id);
+        setRehberList(prev => prev.find(a => a.id === rhId) ? prev : [...prev, { id: rhId, label: art.rehber.adi || rhId }]);
+        setRehberId(rhId);
+      } else {
+        setRehberId('');
+      }
       setTezgahtarIds((art.tezgahtar || []).map((t: any) => String(t.id)));
       setRezervasyonId(art.rezervasyon?.id ? String(art.rezervasyon.id) : '');
       setMasterIndirimTipi(editingItem.masterIndirimTipi ?? -1);
@@ -313,6 +338,38 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
         />
       </View>
 
+      {/* Rezervasyon */}
+      <View style={{ marginBottom: 10 }}>
+        <SelectInput
+          label="Rezervasyon"
+          placeholder="Rezervasyon seçiniz..."
+          value={rezervasyonId}
+          items={rezervasyonList}
+          onSelect={(v) => {
+            setRezervasyonId(v);
+            const r = rezervasyonRaw[v];
+            if (r) {
+              if (r.acenteId) {
+                const acId = String(r.acenteId);
+                if (!acenteList.find(a => a.id === acId)) {
+                  setAcenteList(prev => [...prev, { id: acId, label: r.acenteAdi || acId }]);
+                }
+                setAcenteId(acId);
+              }
+              if (r.rehberId) {
+                const rhId = String(r.rehberId);
+                if (!rehberList.find(a => a.id === rhId)) {
+                  setRehberList(prev => [...prev, { id: rhId, label: r.rehberAdi || rhId }]);
+                }
+                setRehberId(rhId);
+              }
+            }
+          }}
+          searchPlaceholder="Rezervasyon ara..."
+          containerStyle={{ marginBottom: 0 }}
+        />
+      </View>
+
       {/* Müşteri */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 10 }}>
         <View style={{ flex: 1 }}>
@@ -391,19 +448,6 @@ export default function SatisForm({ visible, onClose, onSave, saving = false, ed
             })}
           </View>
         )}
-      </View>
-
-      {/* Rezervasyon */}
-      <View style={{ marginBottom: 10 }}>
-        <SelectInput
-          label="Rezervasyon"
-          placeholder="Rezervasyon seçiniz..."
-          value={rezervasyonId}
-          items={rezervasyonList}
-          onSelect={setRezervasyonId}
-          searchPlaceholder="Rezervasyon ara..."
-          containerStyle={{ marginBottom: 0 }}
-        />
       </View>
 
       {/* Master İndirim */}

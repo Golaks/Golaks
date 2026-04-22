@@ -1,7 +1,41 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.3.8 (Build 13) / iOS v1.1.5 (Build 18)
+[GELİŞTİRME] Android v3.4.1 (Build 16) / iOS v1.1.7 (Build 20)
+==================================================================
+
+Yeni Özellikler
+
+İyileştirmeler
+
+
+[YAYINLANDI] Android v3.4.0 (Build 15) / iOS v1.1.6 (Build 19)
+==================================================================
+
+Yeni Özellikler
+- Şube Ayarları: "Pasan Müşteri Hesabı" alanı eklendi (sadece mağaza modülü aktif firmalarda görünüyor, prefix 120)
+- Satış formu (mağaza): Şubenin varsayılan pasan müşteri hesabı yeni satışta otomatik geliyor
+- Satış formu: Rezervasyon alanı müşteri üstüne taşındı ve sadece "Beklenen" (durum=0) rezervasyonlar listeleniyor
+- Satış formu: Rezervasyon listesi saat · acente · pax formatında, saat HH:MM olarak gösteriliyor
+- Satış formu: Rezervasyon seçilince acente ve rehber otomatik dolduruluyor (düzenleme modunda da)
+- Satış detay formu: Tek input ile hem stok adı/kodu araması hem barkod kamera okutma yapılabiliyor
+- Satış detay formu: Stok arama sonuçları inline dropdown olarak gösteriliyor, tıklanınca satır ekleniyor
+- Satış detay formu: Miktar alanına +/- butonları eklendi (minimum 1, manuel sıfır girişinde otomatik 1'e döner)
+- Satış detay formu: Son kalan ürün de silinebiliyor, satır açıklama alanı kaldırıldı
+- Rezervasyon formu: Beklenen Saat, Yetişkin Pax, Milliyet zorunlu (kırmızı border + shake validation)
+
+İyileştirmeler
+- Rezervasyon formu: Tüm input ikonları (saat, pax, milliyet, şube, acente, rehber, not) temizlendi
+- Rezervasyon formu: Tarih alanı takvim ikonu rengi nötrleştirildi, label'dan zorunlu yıldızı kaldırıldı
+- Rezervasyon listesi: Durum filter chip'leri kompakt pill tasarımına çevrildi
+- TanimSelectInput'a hideIcon prop'u eklendi (şu an milliyet alanında kullanılıyor)
+- Şube Ayarları: Kaydet butonu alt boşluğu artırıldı
+- SalesController getNextSeriNo: Şube varsayılan döviz yanı sıra pasanMusteriId de dönüyor
+- Satış detay formu: İndirim satırı ile satır tutarı arasındaki boşluk azaltıldı
+- BarcodeScanner nested modal sorununu aşmak için SatisDetayForm'da root seviyede render ediliyor
+
+
+[YAYINLANDI] Android v3.3.9 (Build 14) / iOS v1.1.5 (Build 18)
 ==================================================================
 
 Yeni Özellikler

@@ -39,10 +39,13 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
   const [indirimCariler, setIndirimCariler] = useState<{ id: string; label: string }[]>([]);
   const [kasaCariler, setKasaCariler] = useState<{ id: string; label: string }[]>([]);
   const [bankaCariler, setBankaCariler] = useState<{ id: string; label: string }[]>([]);
+  const [pasanMusteriCariler, setPasanMusteriCariler] = useState<{ id: string; label: string }[]>([]);
   const [avansHesapId, setAvansHesapId] = useState('');
   const [indirimHesapId, setIndirimHesapId] = useState('');
   const [varsayilanKasaId, setVarsayilanKasaId] = useState('');
   const [varsayilanBankaId, setVarsayilanBankaId] = useState('');
+  const [pasanMusteriId, setPasanMusteriId] = useState('');
+  const isMagazaAktif = !!user?.firmaAyarlar?.programlar?.magaza?.aktif;
   const [varsayilanDoviz, setVarsayilanDoviz] = useState('TL');
   const [dovizTipleri, setDovizTipleri] = useState<{ id: string; label: string }[]>([]);
   const [muhasebeFisiKapali, setMuhasebeFisiKapali] = useState(true);
@@ -100,6 +103,7 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
         setIndirimHesapId(ayar.hesapKodlari?.siparisIndirim ?? '');
         setVarsayilanKasaId(ayar.hesapKodlari?.varsayilanKasa ?? '');
         setVarsayilanBankaId(ayar.hesapKodlari?.varsayilanBanka ?? '');
+        setPasanMusteriId(ayar.hesapKodlari?.pasanMusteri ?? '');
         setVarsayilanDoviz(ayar.varsayilanDoviz ?? 'TL');
 
         // Döviz tiplerini yükle
@@ -122,15 +126,19 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
       if (!dataName) return;
+      const hesapKodlari: Record<string, string> = {
+        siparisAvans: avansHesapId,
+        siparisIndirim: indirimHesapId,
+        varsayilanKasa: varsayilanKasaId,
+        varsayilanBanka: varsayilanBankaId,
+      };
+      if (isMagazaAktif) {
+        hesapKodlari.pasanMusteri = pasanMusteriId;
+      }
       const ayarlar = {
         fisleri_aktif_yaz: muhasebeFisiKapali,
         recete_normal_hesaplama: receteNormalHesaplama,
-        hesapKodlari: {
-          siparisAvans: avansHesapId,
-          siparisIndirim: indirimHesapId,
-          varsayilanKasa: varsayilanKasaId,
-          varsayilanBanka: varsayilanBankaId,
-        },
+        hesapKodlari,
       };
       const response = await fetch(
         `${require('../config/env').BASE_URL}/account/sube-ayarlar-save`,
@@ -168,13 +176,17 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
   };
 
   const loadAllCariler = React.useCallback(async () => {
-    await Promise.all([
+    const tasks: Promise<void>[] = [
       loadHesapListesi('customers', '340', setAvansCariler),
       loadHesapListesi('customers', '611', setIndirimCariler),
       loadHesapListesi('safes', '100', setKasaCariler),
       loadHesapListesi('banks', '102', setBankaCariler),
-    ]);
-  }, [selectedSubeId, user]);
+    ];
+    if (isMagazaAktif) {
+      tasks.push(loadHesapListesi('customers', '120', setPasanMusteriCariler));
+    }
+    await Promise.all(tasks);
+  }, [selectedSubeId, user, isMagazaAktif]);
 
   React.useEffect(() => {
     loadSubeler();
@@ -187,16 +199,18 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
     }
   }, [selectedSubeId]);
 
-  const [cariFormField, setCariFormField] = useState<'avans' | 'indirim' | 'kasa' | 'banka'>('avans');
+  type CariField = 'avans' | 'indirim' | 'kasa' | 'banka' | 'pasan';
+  const [cariFormField, setCariFormField] = useState<CariField>('avans');
 
-  const HESAP_KODU_PREFIX: Record<string, { prefix: string; hesapTipi: string }> = {
+  const HESAP_KODU_PREFIX: Record<CariField, { prefix: string; hesapTipi: string }> = {
     avans: { prefix: '340', hesapTipi: 'customers' },
     indirim: { prefix: '611', hesapTipi: 'customers' },
     kasa: { prefix: '100', hesapTipi: 'kasa' },
     banka: { prefix: '102', hesapTipi: 'banka' },
+    pasan: { prefix: '120', hesapTipi: 'customers' },
   };
 
-  const handleOpenCariForm = (field: 'avans' | 'indirim' | 'kasa' | 'banka') => {
+  const handleOpenCariForm = (field: CariField) => {
     setCariFormField(field);
     setShowCariForm(true);
   };
@@ -206,6 +220,7 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
     else if (cariFormField === 'indirim') { setIndirimCariler(prev => [...prev, cari]); setIndirimHesapId(cari.id); }
     else if (cariFormField === 'kasa') { setKasaCariler(prev => [...prev, cari]); setVarsayilanKasaId(cari.id); }
     else if (cariFormField === 'banka') { setBankaCariler(prev => [...prev, cari]); setVarsayilanBankaId(cari.id); }
+    else if (cariFormField === 'pasan') { setPasanMusteriCariler(prev => [...prev, cari]); setPasanMusteriId(cari.id); }
     setShowCariForm(false);
     showSuccess('Hesap oluşturuldu');
   };
@@ -358,7 +373,7 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
                   </Pressable>
                 </View>
               </View>
-              <View style={[styles.fieldRow, { marginBottom: 0 }]}>
+              <View style={[styles.fieldRow, !isMagazaAktif && { marginBottom: 0 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
                   <View style={{ flex: 1 }}>
                     <SelectInput
@@ -380,6 +395,30 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
                   </Pressable>
                 </View>
               </View>
+              {isMagazaAktif && (
+                <View style={[styles.fieldRow, { marginBottom: 0 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <SelectInput
+                        label="Pasan Müşteri Hesabı (120)"
+                        icon="person-outline"
+                        placeholder="Müşteri seçiniz..."
+                        value={pasanMusteriId}
+                        items={pasanMusteriCariler}
+                        onSelect={setPasanMusteriId}
+                        searchPlaceholder="Müşteri ara..."
+                        containerStyle={{ marginBottom: 0 }}
+                      />
+                    </View>
+                    <Pressable
+                      style={[styles.addBtn, { backgroundColor: colors.primary }]}
+                      onPress={() => handleOpenCariForm('pasan')}
+                    >
+                      <Icon name="add" size={22} color="#fff" />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
               <View style={[styles.switchRow, { marginTop: 14 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                   <Icon name="document-lock-outline" size={18} color={colors.textSecondary} />
@@ -492,7 +531,7 @@ const createStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   switchLabel: { fontSize: 14, fontWeight: '500' },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 12, marginTop: 4,
+    gap: 8, paddingVertical: 14, borderRadius: 12, marginTop: 4, marginBottom: 24,
   },
   saveBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

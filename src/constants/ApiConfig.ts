@@ -91,6 +91,7 @@ export const API_ENDPOINTS = {
   SALES_NEXT_SERI_NO: `${BASE_API_URL}/sales/next-seri-no`,
   SALES_CREATE: `${BASE_API_URL}/sales/create`,
   SALES_UPDATE: `${BASE_API_URL}/sales/update`,
+  SALES_ONAYLA: `${BASE_API_URL}/sales/onayla`,
   FATURA_TIPI_LIST: `${BASE_API_URL}/sales/fatura-tipi-list`,
   FIS_LIST: `${BASE_API_URL}/fis/list`,
   FIS_CREATE: `${BASE_API_URL}/fis/create`,
