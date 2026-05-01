@@ -956,6 +956,7 @@ class AccountController {
         $startDate = $data['startDate'] ?? null;
         $endDate = $data['endDate'] ?? null;
         $limit = min((int)($data['limit'] ?? 100), 500); // Max 500
+        $offset = max((int)($data['offset'] ?? 0), 0);
 
         // Validasyon
         if (empty($dataName)) {
@@ -1037,7 +1038,49 @@ class AccountController {
                 $params[':endDate'] = $endDate;
             }
 
-            // Ekstre sorgusu - kümülatif bakiye hesaplama
+            // Toplam ve genel summary (tüm kayıtlar üzerinden)
+            $totalSql = "
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(COALESCE(d.cari_borc, 0)), 0) AS toplamBorc,
+                    COALESCE(SUM(COALESCE(d.cari_alacak, 0)), 0) AS toplamAlacak
+                FROM fis_detay d
+                INNER JOIN fis_master m ON m.id = d.fis_master_id
+                WHERE d.aktif <> -1
+                    AND d.hesap_kodu = :hesapKodu
+                    {$dateFilter}
+            ";
+            $totalStmt = $pdo->prepare($totalSql);
+            $totalStmt->execute($params);
+            $totalRow = $totalStmt->fetch() ?: ['total' => 0, 'toplamBorc' => 0, 'toplamAlacak' => 0];
+            $totalCount = (int)$totalRow['total'];
+            $toplamBorc = floatval($totalRow['toplamBorc']);
+            $toplamAlacak = floatval($totalRow['toplamAlacak']);
+
+            // Sayfa başı kümülatif bakiye (offset > 0 ise önceki kayıtların net toplamı)
+            $startBalance = 0;
+            if ($offset > 0) {
+                $startBalSql = "
+                    SELECT COALESCE(SUM(borc - alacak), 0) AS bal
+                    FROM (
+                        SELECT
+                            COALESCE(d.cari_borc, 0) AS borc,
+                            COALESCE(d.cari_alacak, 0) AS alacak
+                        FROM fis_detay d
+                        INNER JOIN fis_master m ON m.id = d.fis_master_id
+                        WHERE d.aktif <> -1
+                            AND d.hesap_kodu = :hesapKodu
+                            {$dateFilter}
+                        ORDER BY m.fis_tarihi ASC, m.id ASC
+                        LIMIT {$offset}
+                    ) AS earlier
+                ";
+                $startBalStmt = $pdo->prepare($startBalSql);
+                $startBalStmt->execute($params);
+                $startBalance = floatval($startBalStmt->fetchColumn());
+            }
+
+            // Sayfa kayıtları
             $ekstreSql = "
                 SELECT
                     d.id,
@@ -1053,16 +1096,16 @@ class AccountController {
                     AND d.hesap_kodu = :hesapKodu
                     {$dateFilter}
                 ORDER BY m.fis_tarihi ASC, m.id ASC
-                LIMIT {$limit}
+                LIMIT {$limit} OFFSET {$offset}
             ";
 
             $ekstreStmt = $pdo->prepare($ekstreSql);
             $ekstreStmt->execute($params);
             $rows = $ekstreStmt->fetchAll();
 
-            // Kümülatif bakiye hesapla
+            // Kümülatif bakiye hesapla (önceki sayfaların toplamından devam eder)
             $transactions = [];
-            $bakiye = 0;
+            $bakiye = $startBalance;
 
             foreach ($rows as $row) {
                 $borc = floatval($row['borc'] ?? 0);
@@ -1082,9 +1125,7 @@ class AccountController {
                 ];
             }
 
-            // Toplam hesapla
-            $toplamBorc = array_sum(array_column($transactions, 'borc'));
-            $toplamAlacak = array_sum(array_column($transactions, 'alacak'));
+            $hasMore = ($offset + count($transactions)) < $totalCount;
 
             Response::success([
                 'cari' => [
@@ -1097,8 +1138,14 @@ class AccountController {
                 'summary' => [
                     'toplamBorc' => $toplamBorc,
                     'toplamAlacak' => $toplamAlacak,
-                    'bakiye' => $bakiye,
-                    'count' => count($transactions)
+                    'bakiye' => $toplamBorc - $toplamAlacak,
+                    'count' => $totalCount
+                ],
+                'pagination' => [
+                    'limit' => $limit,
+                    'offset' => $offset,
+                    'total' => $totalCount,
+                    'hasMore' => $hasMore
                 ]
             ]);
 

@@ -22,6 +22,7 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   isLoading?: boolean;
+  serverName?: string | null;
 }
 
 export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProps) {
@@ -180,6 +181,7 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
           text: response.success && response.data ? response.data.message : errorText,
           isUser: false,
           timestamp: new Date(),
+          serverName: response.success && response.data ? response.data.server_name : null,
         };
         return [...filtered, aiMessage];
       });
@@ -291,18 +293,30 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
                   />
                 </View>
               )}
-              <View
-                style={[
-                  styles.messageBubble,
-                  msg.isUser ? styles.userBubble : styles.systemBubble,
-                ]}
-              >
-                {msg.isLoading ? (
-                  <TypingDots />
-                ) : (
-                  <Text style={[styles.messageText, msg.isUser ? styles.userText : styles.systemText]}>
-                    {msg.text}
-                  </Text>
+              <View style={msg.isUser ? styles.bubbleColumnUser : styles.bubbleColumnSystem}>
+                <View
+                  style={[
+                    styles.messageBubble,
+                    msg.isUser ? styles.userBubble : styles.systemBubble,
+                  ]}
+                >
+                  {msg.isLoading ? (
+                    <TypingDots />
+                  ) : (
+                    <Text style={[styles.messageText, msg.isUser ? styles.userText : styles.systemText]}>
+                      {msg.text}
+                    </Text>
+                  )}
+                </View>
+                {!msg.isLoading && (
+                  <View style={msg.isUser ? styles.metaRowUser : styles.metaRowSystem}>
+                    <Text style={styles.metaText}>
+                      {msg.timestamp.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    {!msg.isUser && msg.serverName && (
+                      <Text style={styles.metaServerText}>· {msg.serverName}</Text>
+                    )}
+                  </View>
                 )}
               </View>
               {msg.isUser && user?.avatar && (
@@ -408,11 +422,41 @@ const createStyles = (colors: any, isDark: boolean) =>
     systemMessageContainer: {
       flexDirection: 'row',
     },
-    messageBubble: {
+    bubbleColumnUser: {
       maxWidth: '75%',
+      alignItems: 'flex-end',
+    },
+    bubbleColumnSystem: {
+      maxWidth: '75%',
+      alignItems: 'flex-start',
+    },
+    messageBubble: {
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderRadius: 18,
+    },
+    metaRowUser: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+      marginRight: 4,
+    },
+    metaRowSystem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 4,
+      marginLeft: 4,
+    },
+    metaText: {
+      fontSize: 10,
+      color: colors.textTertiary,
+    },
+    metaServerText: {
+      fontSize: 9,
+      color: colors.textTertiary,
+      opacity: 0.7,
     },
     userBubble: {
       backgroundColor: colors.primary,

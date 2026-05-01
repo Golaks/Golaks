@@ -160,7 +160,8 @@ class AIController extends BaseController {
             // Return successful response
             $this->sendSuccess([
                 'message' => $aiResponse,
-                'language' => $language
+                'language' => $language,
+                'server_name' => $usedServer['sunucu_adi'] ?? null
             ], 'Yanıt alındı');
 
         } catch (Exception $e) {

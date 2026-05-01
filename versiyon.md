@@ -1,12 +1,34 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.4.1 (Build 16) / iOS v1.1.7 (Build 20)
+[GELİŞTİRME] Android v3.4.2 (Build 22) / iOS v3.4.2 (Build 22)
 ==================================================================
 
 Yeni Özellikler
+- Mağaza Stokları'na "Varyanta Göre" görünüm eklendi; stoklarınızı stok kodu sırasında, tip / alt tip / cins / renk / kalite bilgileriyle birlikte tek kartta görebilirsiniz
+- Mağaza stoklarında stok kodu, adı, barkod, tip, alt tip, cins, renk veya kalite ile arama yapılabiliyor
+- Mağaza stoklarında "Sadece stoğu olanlar" filtresi eklendi
+- Birden fazla şubesi olan ürünlerde kart açılarak şubelere göre kalan miktarlar görüntüleniyor
+- Cari ekstresinde tüm hareketler görüntülenebiliyor: aşağı kaydırınca otomatik olarak sonraki sayfa yükleniyor, sayfalar arası bakiye tutarlı
+- AI Chat'te her mesajın altında gönderim saati gösteriliyor; ayrıca yanıtı veren sunucu da küçük olarak yazıyor
+- Güncelleme kontrolü artık mağazadaki en son sürümü gerçek zamanlı kontrol ediyor; yeni sürüm yayınlandığında size haber veriyor
 
 İyileştirmeler
+- Cari ekstrelerinde önceki 100 kayıt sınırı kaldırıldı, tüm hareketler erişilebilir
+- Stok ekranlarında performans iyileştirmeleri
+- AI sohbet altyapısı yenilendi
+
+
+[YAYINLANDI] Android v3.4.1 (Build 21) / iOS v3.4.1 (Build 21)
+==================================================================
+
+Yeni Özellikler
+- Kasa işlemlerinde cari hesap araması yenilendi; yazdıkça anında filtreleme yapılıyor, kayıt sayısı sınırı kaldırıldı
+- Kasa hareket eklerken cari seçince açıklama otomatik olarak cari adıyla dolduruluyor; cari değişince yeniden güncelleniyor
+
+İyileştirmeler
+- iOS ve Android sürüm numaraları eşitlendi
+- Liste ve seçim alanlarında küçük tasarım ve davranış düzeltmeleri
 
 
 [YAYINLANDI] Android v3.4.0 (Build 15) / iOS v1.1.6 (Build 19)

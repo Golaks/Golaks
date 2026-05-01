@@ -65,6 +65,10 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
   const [transactions, setTransactions] = useState<CariTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [transactionTotal, setTransactionTotal] = useState(0);
+  const [transactionHasMore, setTransactionHasMore] = useState(false);
+  const [transactionLoadingMore, setTransactionLoadingMore] = useState(false);
+  const TRANSACTION_PAGE_SIZE = 100;
 
   // Branch state
   const [subeler, setSubeler] = useState<{ id: string; label: string }[]>([]);
@@ -142,9 +146,14 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
       setTransactionError(null);
       const token = await authService.getToken();
       if (!token) throw new Error('Token bulunamadı');
-      const response = await accountService.getCariEkstre(token, dataName, cari.id);
+      const response = await accountService.getCariEkstre(
+        token, dataName, cari.id, undefined, undefined, TRANSACTION_PAGE_SIZE, 0
+      );
       if (response.success) {
         setTransactions(response.data.transactions);
+        const pg = response.data.pagination;
+        setTransactionTotal(pg?.total ?? response.data.transactions.length);
+        setTransactionHasMore(pg?.hasMore ?? false);
       } else {
         throw new Error(response.message || 'İşlemler alınamadı');
       }
@@ -155,6 +164,29 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
       setIsLoadingTransactions(false);
     }
   };
+
+  const loadMoreTransactions = useCallback(async () => {
+    if (!selectedCari || transactionLoadingMore || !transactionHasMore || transactionSearch) return;
+    const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || 'golaks_demo';
+    try {
+      setTransactionLoadingMore(true);
+      const token = await authService.getToken();
+      if (!token) return;
+      const response = await accountService.getCariEkstre(
+        token, dataName, selectedCari.id,
+        undefined, undefined, TRANSACTION_PAGE_SIZE, transactions.length
+      );
+      if (response.success) {
+        setTransactions(prev => [...prev, ...response.data.transactions]);
+        const pg = response.data.pagination;
+        setTransactionHasMore(pg?.hasMore ?? false);
+        if (pg?.total !== undefined) setTransactionTotal(pg.total);
+      }
+    } catch (_) {
+    } finally {
+      setTransactionLoadingMore(false);
+    }
+  }, [selectedCari, transactionLoadingMore, transactionHasMore, transactionSearch, transactions.length, user]);
 
   const handleTabPress = (tab: TabName) => {
     setActiveTab(tab);
@@ -225,6 +257,9 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
     setTransactionSearch('');
     setTransactionSearchVisible(false);
     setSummaryExpanded(false);
+    setTransactionTotal(0);
+    setTransactionHasMore(false);
+    setTransactionLoadingMore(false);
   };
 
   const getAccountTypeInfo = (hesapKodu: string) => {
@@ -350,7 +385,9 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
         <View style={styles.transactionListTitleContainer}>
           <Icon name="list-outline" size={16} color={colors.textSecondary} />
           <Text style={styles.transactionListTitle}>
-            Hesap Hareketleri ({filteredTransactions.length})
+            Hesap Hareketleri {transactionSearch
+              ? `(${filteredTransactions.length})`
+              : `(${transactions.length}${transactionTotal > transactions.length ? ` / ${transactionTotal}` : ''})`}
           </Text>
         </View>
         {transactionSearchVisible && (
@@ -505,6 +542,15 @@ export default function CariDetayScreen({ onBack, onTabChange, onLogout }: CariD
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={TransactionListHeader}
                 ListEmptyComponent={<EmptyState />}
+                onEndReached={loadMoreTransactions}
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={
+                  transactionLoadingMore ? (
+                    <View style={{ paddingVertical: 12 }}>
+                      <LoadingSpinner />
+                    </View>
+                  ) : null
+                }
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing}

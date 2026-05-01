@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
+  FlatList,
+  Switch,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -18,7 +20,7 @@ import SearchInput from '../components/SearchInput';
 import SearchButton from '../components/SearchButton';
 import BackButton from '../components/BackButton';
 import TabBar, { TabName } from '../components/TabBar';
-import stockService, { StockItem, StockSummaryItem, StockGroupItem } from '../services/stock.service';
+import stockService, { StockItem, StockSummaryItem, StockGroupItem, StockVariantItem } from '../services/stock.service';
 import { authService } from '../services/auth.service';
 
 export type StockModul = 'muhasebe' | 'magaza' | 'konfeksiyon' | 'tabakhane';
@@ -84,6 +86,19 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const isHammadde = stokTipi === 'hammadde';
   const isGroupedMode = stokModul === 'magaza' && !isHammadde;
+
+  // Varyant view state (sadece magaza modunda kullanılıyor)
+  const [viewMode, setViewMode] = useState<'type' | 'variant'>('type');
+  const [variantData, setVariantData] = useState<StockVariantItem[]>([]);
+  const [variantSummary, setVariantSummary] = useState<StockSummaryItem[]>([]);
+  const [variantTotal, setVariantTotal] = useState(0);
+  const [variantHasMore, setVariantHasMore] = useState(false);
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variantLoadingMore, setVariantLoadingMore] = useState(false);
+  const [onlyInStock, setOnlyInStock] = useState(true);
+  const [expandedVariantKey, setExpandedVariantKey] = useState<string | null>(null);
+  const VARIANT_PAGE_SIZE = 100;
+  const variantSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeHammaddeFilter, setActiveHammaddeFilter] = useState<HammaddeFilter>('deri');
   const [activeTabakhaneFilter, setActiveTabakhaneFilter] = useState<TabakhaneFilter>('tabakhane-hamderi-stok');
   const isTabakhane = stokModul === 'tabakhane';
@@ -132,6 +147,64 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Varyant verisi fetch
+  const fetchVariants = useCallback(async (offset: number, search: string, inStockOnly: boolean) => {
+    const isFirstPage = offset === 0;
+    if (isFirstPage) setVariantLoading(true);
+    else setVariantLoadingMore(true);
+    try {
+      const token = await authService.getToken();
+      if (!token) return;
+      const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
+      const response = await stockService.getList(token, dataName, {
+        stokModul,
+        groupBy: 'variant',
+        search,
+        onlyInStock: inStockOnly,
+        limit: VARIANT_PAGE_SIZE,
+        offset,
+      });
+      const respData = response.data as any;
+      if ((response as any).success && respData?.variants) {
+        const variants: StockVariantItem[] = respData.variants;
+        const pg = respData.pagination;
+        setVariantData(prev => isFirstPage ? variants : [...prev, ...variants]);
+        setVariantSummary(respData.summary || []);
+        setVariantTotal(pg?.total ?? variants.length);
+        setVariantHasMore(pg?.hasMore ?? false);
+      }
+    } catch (_) {
+    } finally {
+      if (isFirstPage) setVariantLoading(false);
+      else setVariantLoadingMore(false);
+    }
+  }, [user, stokModul]);
+
+  // viewMode='variant' aktifken: search/onlyInStock değişince debounce ile yeniden çek
+  useEffect(() => {
+    if (viewMode !== 'variant') return;
+    if (variantSearchTimer.current) clearTimeout(variantSearchTimer.current);
+    variantSearchTimer.current = setTimeout(() => {
+      fetchVariants(0, searchText.trim(), onlyInStock);
+    }, 300);
+    return () => {
+      if (variantSearchTimer.current) clearTimeout(variantSearchTimer.current);
+    };
+  }, [viewMode, searchText, onlyInStock, fetchVariants]);
+
+  const loadMoreVariants = useCallback(() => {
+    if (variantLoadingMore || !variantHasMore) return;
+    fetchVariants(variantData.length, searchText.trim(), onlyInStock);
+  }, [variantLoadingMore, variantHasMore, variantData.length, searchText, onlyInStock, fetchVariants]);
+
+  const handleViewModeChange = (mode: 'type' | 'variant') => {
+    if (mode === viewMode) return;
+    setViewMode(mode);
+    setSearchText('');
+    setExpandedVariantKey(null);
+  };
+
 
   // Frontend search filter
   const filteredData = useMemo(() => {
@@ -203,17 +276,6 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
           onLogout={handleLogout}
         />
 
-        {/* Search */}
-        {searchVisible && (
-          <View style={styles.searchContainer}>
-            <SearchInput
-              value={searchText}
-              onChangeText={setSearchText}
-              placeholder="Stok kodu, adı, barkod ara..."
-            />
-          </View>
-        )}
-
         {/* Page Title */}
         <View style={styles.pageHeader}>
           <View style={styles.pageTitleContainer}>
@@ -225,6 +287,37 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
             </Text>
           </View>
         </View>
+
+        {/* View Mode Toggle (sadece magaza modunda) */}
+        {isGroupedMode && (
+          <View style={styles.viewModeContainer}>
+            <Pressable
+              style={[styles.viewModeBtn, viewMode === 'type' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => handleViewModeChange('type')}
+            >
+              <Icon name="layers-outline" size={16} color={viewMode === 'type' ? '#fff' : colors.textSecondary} />
+              <Text style={[styles.viewModeText, { color: viewMode === 'type' ? '#fff' : colors.textSecondary }]}>Tipe Göre</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.viewModeBtn, viewMode === 'variant' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => handleViewModeChange('variant')}
+            >
+              <Icon name="cube-outline" size={16} color={viewMode === 'variant' ? '#fff' : colors.textSecondary} />
+              <Text style={[styles.viewModeText, { color: viewMode === 'variant' ? '#fff' : colors.textSecondary }]}>Varyanta Göre</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Search */}
+        {searchVisible && (
+          <View style={styles.searchContainer}>
+            <SearchInput
+              value={searchText}
+              onChangeText={setSearchText}
+              placeholder="Stok kodu, adı, barkod ara..."
+            />
+          </View>
+        )}
 
         {/* Filter Buttons */}
         <View style={styles.filterContainer}>
@@ -270,7 +363,127 @@ export default function StockScreen({ onGoBack, onTabChange, onLogout, stokModul
         </View>
 
         {/* Content */}
-        {isLoading ? (
+        {isGroupedMode && viewMode === 'variant' ? (
+          <View style={styles.content}>
+            {/* Sadece stoklu toggle */}
+            <View style={styles.variantFilterRow}>
+              <View style={styles.variantFilterLabelGroup}>
+                <Icon name="funnel-outline" size={14} color={colors.textSecondary} />
+                <Text style={[styles.variantFilterLabel, { color: colors.textSecondary }]}>Sadece stoklu</Text>
+              </View>
+              <Text style={[styles.variantCount, { color: colors.textTertiary }]}>
+                {variantTotal > 0 ? `${variantData.length}/${variantTotal}` : ''}
+              </Text>
+              <Switch
+                value={onlyInStock}
+                onValueChange={setOnlyInStock}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={'#FFFFFF'}
+                ios_backgroundColor={colors.border}
+                style={styles.variantFilterSwitch}
+              />
+            </View>
+            {variantLoading ? (
+              <LoadingSpinner />
+            ) : variantData.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <EmptyState title={searchText ? 'Sonuç bulunamadı' : 'Kayıt yok'} icon="cube-outline" />
+              </View>
+            ) : (
+              <FlatList
+                data={variantData}
+                keyExtractor={(v) => `${v.stockCode}|${v.currency}`}
+                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 100, paddingTop: 4 }}
+                onEndReached={loadMoreVariants}
+                onEndReachedThreshold={0.4}
+                ListFooterComponent={variantLoadingMore ? <View style={{ paddingVertical: 12 }}><LoadingSpinner /></View> : null}
+                renderItem={({ item: v }) => {
+                  const key = `${v.stockCode}|${v.currency}`;
+                  const isExpanded = expandedVariantKey === key;
+                  const statusColor = getStockStatusColor(v.totalRemaining);
+                  return (
+                    <Pressable
+                      style={[styles.variantCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => setExpandedVariantKey(prev => prev === key ? null : key)}
+                    >
+                      <View style={styles.variantHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.variantCode, { color: colors.text }]} numberOfLines={1}>{v.stockCode}</Text>
+                          {v.stockName ? (
+                            <Text style={[styles.variantName, { color: colors.textSecondary }]} numberOfLines={2}>{v.stockName}</Text>
+                          ) : null}
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={[styles.variantRemaining, { color: statusColor }]}>{formatNumber(v.totalRemaining)}</Text>
+                          <Text style={[styles.variantRemainingLabel, { color: colors.textTertiary }]}>Kalan</Text>
+                        </View>
+                      </View>
+                      {(v.tip || v.altTip || v.cins || v.renkler || v.kaliteler) && (
+                        <View style={styles.variantAttrGrid}>
+                          {!!v.tip && (
+                            <View style={styles.variantAttrCell}>
+                              <Text style={[styles.variantAttrLabel, { color: colors.textTertiary }]}>Tip</Text>
+                              <Text style={[styles.variantAttrValue, { color: colors.text }]} numberOfLines={1}>{v.tip}</Text>
+                            </View>
+                          )}
+                          {!!v.altTip && (
+                            <View style={styles.variantAttrCell}>
+                              <Text style={[styles.variantAttrLabel, { color: colors.textTertiary }]}>Alt Tip</Text>
+                              <Text style={[styles.variantAttrValue, { color: colors.text }]} numberOfLines={1}>{v.altTip}</Text>
+                            </View>
+                          )}
+                          {!!v.cins && (
+                            <View style={styles.variantAttrCell}>
+                              <Text style={[styles.variantAttrLabel, { color: colors.textTertiary }]}>Cins</Text>
+                              <Text style={[styles.variantAttrValue, { color: colors.text }]} numberOfLines={1}>{v.cins}</Text>
+                            </View>
+                          )}
+                          {!!v.renkler && (
+                            <View style={styles.variantAttrCell}>
+                              <Text style={[styles.variantAttrLabel, { color: colors.textTertiary }]}>Renk</Text>
+                              <Text style={[styles.variantAttrValue, { color: colors.text }]} numberOfLines={2}>{v.renkler}</Text>
+                            </View>
+                          )}
+                          {!!v.kaliteler && (
+                            <View style={styles.variantAttrCell}>
+                              <Text style={[styles.variantAttrLabel, { color: colors.textTertiary }]}>Kalite</Text>
+                              <Text style={[styles.variantAttrValue, { color: colors.text }]} numberOfLines={2}>{v.kaliteler}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                      <View style={styles.variantStatsRow}>
+                        <View style={styles.variantStat}>
+                          <Text style={[styles.variantStatLabel, { color: colors.textTertiary }]}>Giren</Text>
+                          <Text style={[styles.variantStatValue, { color: '#3B82F6' }]}>{formatNumber(v.totalIn)}</Text>
+                        </View>
+                        <View style={styles.variantStat}>
+                          <Text style={[styles.variantStatLabel, { color: colors.textTertiary }]}>Çıkan</Text>
+                          <Text style={[styles.variantStatValue, { color: '#EF4444' }]}>{formatNumber(v.totalOut)}</Text>
+                        </View>
+                        {v.branches.length > 1 && (
+                          <View style={styles.variantStat}>
+                            <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textTertiary} />
+                          </View>
+                        )}
+                      </View>
+                      {isExpanded && v.branches.length > 0 && (
+                        <View style={[styles.branchList, { borderTopColor: colors.border }]}>
+                          {v.branches.map((b) => (
+                            <View key={b.subeId} style={styles.branchRow}>
+                              <Text style={[styles.branchName, { color: colors.text }]} numberOfLines={1}>{b.subeAdi}</Text>
+                              <Text style={[styles.branchValue, { color: getStockStatusColor(b.remaining) }]}>{formatNumber(b.remaining)}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                }}
+              />
+            )}
+          </View>
+        ) : isLoading ? (
           <LoadingSpinner />
         ) : error ? (
           <View style={styles.emptyContainer}>
@@ -1233,5 +1446,137 @@ const createStyles = (colors: any, isDark: boolean) =>
       fontSize: 13,
       fontWeight: '600',
       textAlign: 'right',
+    },
+    viewModeContainer: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
+    viewModeBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    viewModeText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    variantFilterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+    },
+    variantFilterLabelGroup: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    variantFilterLabel: {
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    variantFilterSwitch: {
+      transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }],
+    },
+    variantCount: {
+      fontSize: 11,
+      marginLeft: 4,
+    },
+    variantCard: {
+      borderWidth: 1,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 8,
+    },
+    variantHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    variantCode: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    variantName: {
+      fontSize: 12,
+      marginTop: 2,
+    },
+    variantRemaining: {
+      fontSize: 18,
+      fontWeight: '700',
+    },
+    variantRemainingLabel: {
+      fontSize: 10,
+    },
+    variantAttrGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginTop: 8,
+      rowGap: 6,
+    },
+    variantAttrCell: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      width: '50%',
+      paddingRight: 8,
+      gap: 6,
+    },
+    variantAttrLabel: {
+      fontSize: 11,
+      width: 50,
+    },
+    variantAttrValue: {
+      fontSize: 12,
+      fontWeight: '500',
+      flex: 1,
+    },
+    variantStatsRow: {
+      flexDirection: 'row',
+      gap: 16,
+      marginTop: 10,
+      alignItems: 'center',
+    },
+    variantStat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    variantStatLabel: {
+      fontSize: 11,
+    },
+    variantStatValue: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    branchList: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTopWidth: 1,
+      gap: 6,
+    },
+    branchRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    branchName: {
+      fontSize: 12,
+      flex: 1,
+    },
+    branchValue: {
+      fontSize: 13,
+      fontWeight: '600',
     },
   });

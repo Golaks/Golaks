@@ -83,6 +83,47 @@ export interface StockGroupedResponse {
   message?: string;
 }
 
+export interface StockVariantBranch {
+  subeId: number;
+  subeAdi: string;
+  in: number;
+  out: number;
+  remaining: number;
+}
+
+export interface StockVariantItem {
+  stockCode: string;
+  stockName: string;
+  barcode: string;
+  currency: string;
+  tip?: string;
+  altTip?: string;
+  cins?: string;
+  renkler?: string;
+  kaliteler?: string;
+  totalIn: number;
+  totalOut: number;
+  totalRemaining: number;
+  branches: StockVariantBranch[];
+}
+
+export interface StockVariantResponse {
+  success: boolean;
+  data: {
+    reportMode: 'variant';
+    variants: StockVariantItem[];
+    count: number;
+    summary: StockSummaryItem[];
+    pagination: {
+      limit: number;
+      offset: number;
+      total: number;
+      hasMore: boolean;
+    };
+  };
+  message?: string;
+}
+
 export interface CreateStockData {
   stockCode: string;
   stockName: string;
@@ -121,6 +162,10 @@ class StockService {
       stokModul?: string;
       stokAltModul?: string;
       search?: string;
+      groupBy?: 'variant';
+      onlyInStock?: boolean;
+      limit?: number;
+      offset?: number;
     } = {}
   ): Promise<StockListResponse> {
     try {
@@ -132,6 +177,10 @@ class StockService {
           stokModul: params.stokModul || '',
           stokAltModul: params.stokAltModul || '',
           search: params.search || '',
+          groupBy: params.groupBy || '',
+          onlyInStock: !!params.onlyInStock,
+          limit: params.limit ?? 100,
+          offset: params.offset ?? 0,
         }),
       });
 

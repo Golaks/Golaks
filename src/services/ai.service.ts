@@ -9,6 +9,7 @@ export interface ChatMessage {
 export interface AIChatResponse {
   message: string;
   language: string;
+  server_name?: string | null;
 }
 
 export interface ApiResponse<T> {

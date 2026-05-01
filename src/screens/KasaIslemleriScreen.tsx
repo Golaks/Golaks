@@ -120,8 +120,9 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
   const [hareketCariTutar, setHareketCariTutar] = useState('');
   const [hareketCariDoviz, setHareketCariDoviz] = useState('TL');
   const [hareketCariKur, setHareketCariKur] = useState('1');
-  const [cariList, setCariList] = useState<{ id: string; label: string }[]>([]);
+  const [cariList, setCariList] = useState<{ id: string; label: string; unvan?: string; doviz?: string }[]>([]);
   const [cariListLoading, setCariListLoading] = useState(false);
+  const [selectedCari, setSelectedCari] = useState<{ id: string; label: string; unvan?: string; doviz?: string } | null>(null);
   const kurlarRef = useRef<Record<string, any>>({});
 
   const loadKurlar = async (tarih?: Date): Promise<Record<string, any>> => {
@@ -337,6 +338,16 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     setHareketTipi(tipi);
     setHareketCariHesapKodu(hareket.hesapKodu || '');
     setHareketAciklama(hareket.aciklama || '');
+    if (hareket.hesapKodu) {
+      setSelectedCari({
+        id: hareket.hesapKodu,
+        label: `${hareket.unvan || hareket.hesapKodu} (${hareket.hesapKodu}) [${hareket.cariDoviz || hareket.doviz || 'TL'}]`,
+        unvan: hareket.unvan || '',
+        doviz: hareket.cariDoviz || hareket.doviz || '',
+      });
+    } else {
+      setSelectedCari(null);
+    }
     setHareketDovizliTutar(String(hareket.tutar || ''));
     setHareketDovizliDoviz(hareket.doviz || 'TL');
     setHareketDovizliKur(String(hareket.dovizKuru || '1'));
@@ -502,24 +513,25 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
   };
 
 
-  // Cari listesi yükle (100% hariç)
-  const loadCariList = useCallback(async () => {
-    if (cariList.length > 0) return;
+  // Cari listesi yükle (100% hariç) - server-side arama destekli
+  const fetchCariList = useCallback(async (search: string = '') => {
     setCariListLoading(true);
     try {
       const token = await authService.getToken();
       if (!token) return;
       const dataName = user?.firmaAyarlar?.veritabani?.veriAdi || '';
-      const response = await accountService.getCariList(token, dataName, 'all', '');
+      const response = await accountService.getCariList(token, dataName, 'all', search);
       if (response.success) {
         const items = (response.data?.data || [])
-          .filter((c: any) => !c.hesapKodu?.startsWith('100'))
-          .map((c: any) => ({ id: c.hesapKodu, label: `${c.unvan} (${c.hesapKodu}) [${c.doviz || 'TL'}]`, doviz: c.doviz || '' }));
+          .filter((c: any) => c.hesapKodu && !c.hesapKodu.startsWith('100'))
+          .map((c: any) => ({ id: c.hesapKodu, label: `${c.unvan} (${c.hesapKodu}) [${c.doviz || 'TL'}]`, unvan: c.unvan || '', doviz: c.doviz || '' }));
         setCariList(items);
       }
     } catch (_) {}
     finally { setCariListLoading(false); }
-  }, [cariList.length, user]);
+  }, [user]);
+
+  const loadCariList = useCallback(() => fetchCariList(''), [fetchCariList]);
 
   const handleOpenHareketForm = async (kasaId: number, kasaLabel: string, tipi: 'giris' | 'cikis') => {
     hareketFieldErrors.clearAll();
@@ -528,6 +540,7 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
     setHareketTipi(tipi);
     setHareketCariHesapKodu('');
     setHareketAciklama('');
+    setSelectedCari(null);
     setHareketDovizliTutar('');
     setHareketMuhasebeTutar('');
     setHareketCariTutar('');
@@ -1145,13 +1158,27 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
               label="Cari Hesap *"
               placeholder={cariListLoading ? 'Yükleniyor...' : 'Cari hesap seçin...'}
               value={hareketCariHesapKodu}
-              items={cariList}
+              items={selectedCari && !cariList.some(c => c.id === selectedCari.id) ? [selectedCari, ...cariList] : cariList}
+              onSearchChange={(text) => fetchCariList(text)}
+              searchLoading={cariListLoading}
               onSelect={(val) => {
                 setHareketCariHesapKodu(val);
                 hareketFieldErrors.clearFieldError('cari');
-                const selectedCariItem = cariList.find((c: any) => c.id === val) as any;
-                if (selectedCariItem?.doviz) {
-                  const cDoviz = selectedCariItem.doviz as string;
+                if (!val) {
+                  setHareketAciklama('');
+                  setSelectedCari(null);
+                  return;
+                }
+                const pickedItem = (selectedCari && selectedCari.id === val
+                  ? selectedCari
+                  : (cariList.find((c: any) => c.id === val) as any)) as any;
+                if (pickedItem) setSelectedCari(pickedItem);
+                const cariUnvan = pickedItem?.unvan || (pickedItem?.label ? String(pickedItem.label).split(' (')[0] : '');
+                if (cariUnvan) {
+                  setHareketAciklama(cariUnvan);
+                }
+                if (pickedItem?.doviz) {
+                  const cDoviz = pickedItem.doviz as string;
                   const cKur = getKurFromRef(cDoviz);
                   setHareketCariDoviz(cDoviz);
                   setHareketCariKur(cKur);

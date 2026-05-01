@@ -74,14 +74,29 @@ function AppContent(): React.JSX.Element {
         `${API_ENDPOINTS.VERSION_CHECK}?platform=${platform}&version=${version}`,
       );
       const data = await res.json();
-      if (data.success && data.data?.needsUpdate) {
-        setUpdateMinVersion(data.data.minVersion);
-        setUpdateStoreUrl(data.data.storeUrl);
+      if (!data.success || !data.data) return;
+      const d = data.data;
+
+      // 1) Zorunlu güncelleme (min sürüm altındaysa)
+      if (d.needsUpdate) {
+        setUpdateMinVersion(d.minVersion);
+        setUpdateStoreUrl(d.storeUrl);
         setUpdateModalVisible(true);
-      } else if (manual) {
+        return;
+      }
+
+      // 2) Mağazada yeni sürüm var (önerilen güncelleme)
+      if (d.isOutdated && d.latestVersion) {
+        setUpdateMinVersion(d.latestVersion);
+        setUpdateStoreUrl(d.storeUrl);
+        setUpdateModalVisible(true);
+        return;
+      }
+
+      // 3) Güncel - sadece manuel kontrolde göster
+      if (manual) {
         setUpdateMinVersion(version);
         setUpdateModalVisible(false);
-        // Güncel olduğunu göster - kısa süreliğine modal
         setUpToDateVisible(true);
       }
     } catch {}

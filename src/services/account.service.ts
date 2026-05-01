@@ -91,6 +91,12 @@ export interface CariEkstreResponse {
       bakiye: number;
       count: number;
     };
+    pagination?: {
+      limit: number;
+      offset: number;
+      total: number;
+      hasMore: boolean;
+    };
   };
   message?: string;
 }
@@ -338,7 +344,8 @@ class AccountService {
     cariId: number,
     startDate?: string,
     endDate?: string,
-    limit: number = 100
+    limit: number = 100,
+    offset: number = 0
   ): Promise<CariEkstreResponse> {
     try {
       const response = await fetch(API_ENDPOINTS.ACCOUNT_CARI_EKSTRE, {
@@ -350,6 +357,7 @@ class AccountService {
           startDate,
           endDate,
           limit,
+          offset,
         }),
       });
 

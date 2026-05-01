@@ -24,6 +24,10 @@ class StockController {
         $stokModul = $data['stokModul'] ?? '';
         $stokAltModul = $data['stokAltModul'] ?? '';
         $search = $data['search'] ?? '';
+        $groupBy = $data['groupBy'] ?? '';
+        $onlyInStock = !empty($data['onlyInStock']);
+        $limit = min((int)($data['limit'] ?? 100), 500);
+        $offset = max((int)($data['offset'] ?? 0), 0);
 
         if (empty($dataName)) {
             Response::error('dataName gereklidir', 'VALIDATION_ERROR', 400);
@@ -73,6 +77,12 @@ class StockController {
             // Sube bilgisi
             $subeAyarlar = $firmaAyarlar['sube'] ?? [];
             $subeId = (int)($subeAyarlar['subeId'] ?? 0);
+
+            // Varyant raporu (stok kodu bazlı, tüm şube toplamlarıyla)
+            if ($groupBy === 'variant') {
+                $this->getVariantReport($pdo, $firmaId, $stokModul, $search, $onlyInStock, $limit, $offset);
+                return;
+            }
 
             // Mağaza rapor modları: gruplanmış rapor döndür
             $magazaReportModes = ['sube_tipi', 'tumu_tipi', 'tumu_uretici', 'sube_uretici'];
@@ -514,6 +524,239 @@ class StockController {
             'groups' => $groups,
             'count' => count($groups),
             'summary' => array_values($grandTotals),
+        ]);
+    }
+
+    /**
+     * Varyant raporu - aynı stok kodlu kayıtları tüm şubeler genelinde toplar
+     * Server-side search, only-in-stock filtresi, sayfalama
+     */
+    private function getVariantReport($pdo, $firmaId, $stokModul, $search, $onlyInStock, $limit, $offset) {
+        $params = [':firmaId' => $firmaId];
+        $conditions = ["sm.aktif = 1", "sm.firma_id = :firmaId"];
+
+        if (!empty($stokModul)) {
+            $conditions[] = "sm.stok_modul = :stokModul";
+            $params[':stokModul'] = $stokModul;
+        }
+
+        if (!empty($search)) {
+            $conditions[] = "(
+                sm.stok_kodu LIKE :search1
+                OR sm.stok_adi LIKE :search2
+                OR sm.barkod LIKE :search3
+                OR EXISTS (SELECT 1 FROM tanimlar tt WHERE tt.id = sm.tipi_id AND tt.tanim_deger LIKE :search4)
+                OR EXISTS (SELECT 1 FROM tanimlar tat WHERE tat.id = sm.alt_tipi_id AND tat.tanim_deger LIKE :search5)
+                OR EXISTS (SELECT 1 FROM tanimlar tc WHERE tc.id = sm.cinsi_id AND tc.tanim_deger LIKE :search6)
+                OR EXISTS (
+                    SELECT 1 FROM stok_varyant sv2
+                    LEFT JOIN tanimlar tr ON tr.id = sv2.renk_id
+                    LEFT JOIN tanimlar tk ON tk.id = sv2.kalite_id
+                    WHERE sv2.stok_master_id = sm.id AND sv2.aktif = 1
+                      AND (tr.tanim_deger LIKE :search7 OR tk.tanim_deger LIKE :search8)
+                )
+            )";
+            $like = "%{$search}%";
+            $params[':search1'] = $like;
+            $params[':search2'] = $like;
+            $params[':search3'] = $like;
+            $params[':search4'] = $like;
+            $params[':search5'] = $like;
+            $params[':search6'] = $like;
+            $params[':search7'] = $like;
+            $params[':search8'] = $like;
+        }
+
+        $whereClause = implode(' AND ', $conditions);
+        $havingClause = $onlyInStock ? "HAVING SUM(sm.miktar1_kalan) > 0" : "";
+
+        // Toplam varyant sayısı (sayfalama için)
+        $countSql = "
+            SELECT COUNT(*) FROM (
+                SELECT 1
+                FROM stok_master sm
+                WHERE {$whereClause}
+                GROUP BY sm.stok_kodu, sm.doviz
+                {$havingClause}
+            ) AS t
+        ";
+        $countStmt = $pdo->prepare($countSql);
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+
+        // Genel summary (tüm varyantlar üzerinden, doviz bazlı)
+        $summarySql = "
+            SELECT
+                t.doviz AS currency,
+                COUNT(*) AS totalItems,
+                SUM(t.total_in) AS totalIn,
+                SUM(t.total_out) AS totalOut,
+                SUM(t.total_remaining) AS totalRemaining
+            FROM (
+                SELECT
+                    sm.doviz,
+                    SUM(sm.miktar1_giren) AS total_in,
+                    SUM(sm.miktar1_cikan) AS total_out,
+                    SUM(sm.miktar1_kalan) AS total_remaining
+                FROM stok_master sm
+                WHERE {$whereClause}
+                GROUP BY sm.stok_kodu, sm.doviz
+                {$havingClause}
+            ) t
+            GROUP BY t.doviz
+            ORDER BY t.doviz ASC
+        ";
+        $summaryStmt = $pdo->prepare($summarySql);
+        $summaryStmt->execute($params);
+        $summaryRows = $summaryStmt->fetchAll();
+        $summary = [];
+        foreach ($summaryRows as $r) {
+            $summary[] = [
+                'currency' => $r['currency'] ?? 'TL',
+                'totalItems' => (int)$r['totalItems'],
+                'totalIn' => (float)$r['totalIn'],
+                'totalOut' => (float)$r['totalOut'],
+                'totalRemaining' => (float)$r['totalRemaining'],
+                'totalValue' => 0,
+                'amountIn' => 0,
+                'amountOut' => 0,
+                'amountRemaining' => 0,
+            ];
+        }
+
+        // Sayfa varyantları
+        $variantSql = "
+            SELECT
+                sm.stok_kodu AS stockCode,
+                MAX(sm.stok_adi) AS stockName,
+                MAX(sm.barkod) AS barcode,
+                sm.doviz AS currency,
+                COALESCE(MAX(t_tip.tanim_deger), '') AS tip,
+                COALESCE(MAX(t_alttip.tanim_deger), '') AS altTip,
+                COALESCE(MAX(t_cins.tanim_deger), '') AS cins,
+                SUM(sm.miktar1_giren) AS totalIn,
+                SUM(sm.miktar1_cikan) AS totalOut,
+                SUM(sm.miktar1_kalan) AS totalRemaining
+            FROM stok_master sm
+            LEFT JOIN tanimlar t_tip ON t_tip.id = sm.tipi_id
+            LEFT JOIN tanimlar t_alttip ON t_alttip.id = sm.alt_tipi_id
+            LEFT JOIN tanimlar t_cins ON t_cins.id = sm.cinsi_id
+            WHERE {$whereClause}
+            GROUP BY sm.stok_kodu, sm.doviz
+            {$havingClause}
+            ORDER BY sm.doviz ASC, sm.stok_kodu ASC
+            LIMIT {$limit} OFFSET {$offset}
+        ";
+        $variantStmt = $pdo->prepare($variantSql);
+        $variantStmt->execute($params);
+        $variantRows = $variantStmt->fetchAll();
+
+        $variants = [];
+        $variantKeys = [];
+        foreach ($variantRows as $r) {
+            $key = $r['stockCode'] . '|' . ($r['currency'] ?? 'TL');
+            $variantKeys[] = $key;
+            $variants[$key] = [
+                'stockCode' => $r['stockCode'],
+                'stockName' => $r['stockName'] ?? '',
+                'barcode' => $r['barcode'] ?? '',
+                'currency' => $r['currency'] ?? 'TL',
+                'tip' => $r['tip'] ?? '',
+                'altTip' => $r['altTip'] ?? '',
+                'cins' => $r['cins'] ?? '',
+                'renkler' => '',
+                'kaliteler' => '',
+                'totalIn' => (float)$r['totalIn'],
+                'totalOut' => (float)$r['totalOut'],
+                'totalRemaining' => (float)$r['totalRemaining'],
+                'branches' => [],
+            ];
+        }
+
+        // Sayfa varyantları için şube dağılımını çek (tek query, sadece görünen sayfa için)
+        if (!empty($variantKeys)) {
+            $codes = array_unique(array_map(function($k) { return explode('|', $k)[0]; }, $variantKeys));
+            $placeholders = implode(',', array_fill(0, count($codes), '?'));
+            $branchParams = array_values($codes);
+            // firmaId + stokModul için ek koşul
+            $branchConditions = ["sm.aktif = 1", "sm.firma_id = ?", "sm.stok_kodu IN ({$placeholders})"];
+            $branchSqlParams = array_merge([$firmaId], $branchParams);
+            if (!empty($stokModul)) {
+                $branchConditions[] = "sm.stok_modul = ?";
+                $branchSqlParams[] = $stokModul;
+            }
+            $branchWhere = implode(' AND ', $branchConditions);
+
+            $branchSql = "
+                SELECT
+                    sm.stok_kodu AS stockCode,
+                    sm.doviz AS currency,
+                    sm.sube_id AS subeId,
+                    COALESCE(s.sube_adi, 'Tanımsız') AS subeAdi,
+                    SUM(sm.miktar1_giren) AS branchIn,
+                    SUM(sm.miktar1_cikan) AS branchOut,
+                    SUM(sm.miktar1_kalan) AS branchRemaining
+                FROM stok_master sm
+                LEFT JOIN subeler s ON s.id = sm.sube_id
+                WHERE {$branchWhere}
+                GROUP BY sm.stok_kodu, sm.doviz, sm.sube_id, s.sube_adi
+                ORDER BY s.sube_adi ASC
+            ";
+            $branchStmt = $pdo->prepare($branchSql);
+            $branchStmt->execute($branchSqlParams);
+            $branchRows = $branchStmt->fetchAll();
+
+            foreach ($branchRows as $b) {
+                $key = $b['stockCode'] . '|' . ($b['currency'] ?? 'TL');
+                if (!isset($variants[$key])) continue;
+                $variants[$key]['branches'][] = [
+                    'subeId' => (int)$b['subeId'],
+                    'subeAdi' => $b['subeAdi'],
+                    'in' => (float)$b['branchIn'],
+                    'out' => (float)$b['branchOut'],
+                    'remaining' => (float)$b['branchRemaining'],
+                ];
+            }
+
+            // Renk ve kalite aggregation - varyantlardan stok_kodu+doviz bazlı virgüllü
+            $rkSql = "
+                SELECT
+                    sm.stok_kodu AS stockCode,
+                    sm.doviz AS currency,
+                    GROUP_CONCAT(DISTINCT NULLIF(t_renk.tanim_deger, '') ORDER BY t_renk.tanim_deger SEPARATOR ', ') AS renkler,
+                    GROUP_CONCAT(DISTINCT NULLIF(t_kalite.tanim_deger, '') ORDER BY t_kalite.tanim_deger SEPARATOR ', ') AS kaliteler
+                FROM stok_master sm
+                INNER JOIN stok_varyant sv ON sv.stok_master_id = sm.id AND sv.aktif = 1
+                LEFT JOIN tanimlar t_renk ON t_renk.id = sv.renk_id
+                LEFT JOIN tanimlar t_kalite ON t_kalite.id = sv.kalite_id
+                WHERE {$branchWhere}
+                GROUP BY sm.stok_kodu, sm.doviz
+            ";
+            $rkStmt = $pdo->prepare($rkSql);
+            $rkStmt->execute($branchSqlParams);
+            $rkRows = $rkStmt->fetchAll();
+
+            foreach ($rkRows as $rk) {
+                $key = $rk['stockCode'] . '|' . ($rk['currency'] ?? 'TL');
+                if (!isset($variants[$key])) continue;
+                $variants[$key]['renkler'] = $rk['renkler'] ?? '';
+                $variants[$key]['kaliteler'] = $rk['kaliteler'] ?? '';
+            }
+        }
+
+        $hasMore = ($offset + count($variants)) < $total;
+
+        Response::success([
+            'reportMode' => 'variant',
+            'variants' => array_values($variants),
+            'count' => $total,
+            'summary' => $summary,
+            'pagination' => [
+                'limit' => $limit,
+                'offset' => $offset,
+                'total' => $total,
+                'hasMore' => $hasMore,
+            ],
         ]);
     }
 

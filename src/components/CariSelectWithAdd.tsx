@@ -18,6 +18,8 @@ interface CariSelectWithAddProps {
   shake?: boolean;
   hesapKoduPrefix?: string;
   filterType?: string;
+  onSearchChange?: (text: string) => void;
+  searchLoading?: boolean;
 }
 
 export default function CariSelectWithAdd({
@@ -33,6 +35,8 @@ export default function CariSelectWithAdd({
   shake,
   hesapKoduPrefix = '120',
   filterType = 'customers',
+  onSearchChange,
+  searchLoading,
 }: CariSelectWithAddProps) {
   const { colors } = useTheme();
   const [showCariForm, setShowCariForm] = useState(false);
@@ -51,6 +55,8 @@ export default function CariSelectWithAdd({
             containerStyle={{ marginBottom: 0 }}
             error={error}
             shake={shake}
+            onSearchChange={onSearchChange}
+            searchLoading={searchLoading}
           />
         </View>
         <Pressable

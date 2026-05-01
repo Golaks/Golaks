@@ -40,6 +40,9 @@ interface SelectInputProps {
   containerStyle?: any;
   error?: boolean;
   shake?: boolean;
+  onSearchChange?: (text: string) => void;
+  searchLoading?: boolean;
+  searchDebounceMs?: number;
 }
 
 export default function SelectInput({
@@ -63,6 +66,9 @@ export default function SelectInput({
   containerStyle,
   error = false,
   shake = false,
+  onSearchChange,
+  searchLoading = false,
+  searchDebounceMs = 300,
 }: SelectInputProps) {
   const { colors, isDark } = useTheme();
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -76,15 +82,22 @@ export default function SelectInput({
   const styles = createStyles(colors, isDark);
 
   const selectedItem = useMemo(
-    () => items.find((i) => i.id === value),
+    () => (value ? items.find((i) => i.id === value) : undefined),
     [items, value],
   );
 
   const filtered = useMemo(() => {
+    if (onSearchChange) return items;
     if (!search.trim()) return items;
     const q = search.toLowerCase().trim();
     return items.filter((i) => i.label.toLowerCase().includes(q));
-  }, [items, search]);
+  }, [items, search, onSearchChange]);
+
+  useEffect(() => {
+    if (!onSearchChange || !open) return;
+    const t = setTimeout(() => onSearchChange(search), searchDebounceMs);
+    return () => clearTimeout(t);
+  }, [search, open, onSearchChange, searchDebounceMs]);
 
   const handleSelect = (id: string) => {
     onSelect(id);
@@ -256,6 +269,9 @@ export default function SelectInput({
                   autoCorrect={false}
                   autoFocus
                 />
+                {searchLoading && (
+                  <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginRight: 4 }} />
+                )}
                 {search.length > 0 && (
                   <Pressable onPress={() => setSearch('')} hitSlop={8}>
                     <Icon name="close-circle" size={15} color={colors.textSecondary} />
@@ -305,10 +321,16 @@ export default function SelectInput({
             >
               {filtered.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Icon name="file-tray-outline" size={32} color={colors.textSecondary + '60'} />
-                  <Text style={styles.emptyText}>
-                    {search.trim() ? 'Sonuç bulunamadı' : 'Henüz kayıt yok'}
-                  </Text>
+                  {searchLoading ? (
+                    <ActivityIndicator size="small" color={colors.textSecondary} />
+                  ) : (
+                    <>
+                      <Icon name="file-tray-outline" size={32} color={colors.textSecondary + '60'} />
+                      <Text style={styles.emptyText}>
+                        {search.trim() ? 'Sonuç bulunamadı' : 'Henüz kayıt yok'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               ) : (
                 filtered.map((item) => {
