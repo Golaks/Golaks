@@ -63,7 +63,8 @@ class AIService {
 
   async sendChatMessage(
     message: string,
-    conversationHistory: ChatMessage[]
+    conversationHistory: ChatMessage[],
+    pageContext?: string | null
   ): Promise<ApiResponse<AIChatResponse>> {
     return this.makeRequest<AIChatResponse>('/ai/chat', {
       method: 'POST',
@@ -71,6 +72,7 @@ class AIService {
         message,
         conversation_history: conversationHistory,
         language: 'tr',
+        ...(pageContext ? { page_context: pageContext } : {}),
       }),
     });
   }

@@ -19,6 +19,8 @@ import { useAlert } from '../contexts/AlertContext';
 import { authService } from '../services/auth.service';
 import salesService from '../services/sales.service';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
+import { useRegisterHelp } from '../lib/helpContext';
+import { satisIslemleriHelp } from './satisIslemleri/help';
 
 type DatePreset = 'today' | 'thisWeek' | 'thisMonth' | 'lastMonth' | 'last3Months' | 'thisYear' | 'custom';
 
@@ -70,6 +72,8 @@ export default function SatisIslemleriScreen({ onGoBack, onTabChange, onLogout }
   const { logout, user, notificationCount } = useAuth();
   const { showSuccess, showError, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(satisIslemleriHelp);
   const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchText, setSearchText] = useState('');

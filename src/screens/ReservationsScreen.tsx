@@ -34,6 +34,8 @@ import reservationsService, {
 } from '../services/reservations.service';
 import { authService } from '../services/auth.service';
 import { useFieldErrors } from '../hooks/useFieldErrors';
+import { useRegisterHelp } from '../lib/helpContext';
+import { reservationsHelp } from './reservations/help';
 
 type DurumFilter = 'all' | '0' | '1' | '2' | '3';
 
@@ -65,6 +67,8 @@ export default function ReservationsScreen({ onGoBack, onTabChange, onLogout }: 
   const fieldErrors = useFieldErrors();
   const iptalFieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(reservationsHelp);
 
   const [searchText, setSearchText] = useState('');
   const [filterVisible, setFilterVisible] = useState(false);

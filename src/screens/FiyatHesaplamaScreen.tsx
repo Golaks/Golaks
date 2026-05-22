@@ -18,6 +18,8 @@ import BackButton from '../components/BackButton';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
 import { authService } from '../services/auth.service';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useRegisterHelp } from '../lib/helpContext';
+import { fiyatHesaplamaHelp } from './fiyatHesaplama/help';
 import { useAlert } from '../contexts/AlertContext';
 
 interface FiyatHesaplamaScreenProps {
@@ -113,6 +115,8 @@ export default function FiyatHesaplamaScreen({ onGoBack, onTabChange, onLogout }
   const { logout, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('profile');
+
+  useRegisterHelp(fiyatHesaplamaHelp);
   const [kartlar, setKartlar] = useState<Kart[]>(mobilAyarlarToKartlar(DEFAULT_MOBIL_AYARLAR));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

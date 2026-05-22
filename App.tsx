@@ -19,6 +19,8 @@ import LoginScreen from './src/screens/LoginScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import MainNavigator, { MainNavigatorRef } from './src/navigation/MainNavigator';
 import pushNotificationService from './src/services/pushNotification.service';
+import { HelpProvider } from './src/lib/helpContext';
+import HelpBottomSheet from './src/components/HelpBottomSheet';
 
 type Screen = 'splash' | 'login' | 'forgot-password' | 'home';
 
@@ -222,6 +224,8 @@ function AppContent(): React.JSX.Element {
           </View>
         </View>
       </Modal>
+
+      <HelpBottomSheet />
     </SafeAreaProvider>
   );
 }
@@ -287,7 +291,9 @@ export default function App(): React.JSX.Element {
     <ThemeProvider>
       <AuthProvider>
         <AlertProvider>
-          <AppContent />
+          <HelpProvider>
+            <AppContent />
+          </HelpProvider>
         </AlertProvider>
       </AuthProvider>
     </ThemeProvider>

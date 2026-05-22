@@ -18,6 +18,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import DateFilter from '../components/DateFilter';
 import ConfirmDialog from '../components/ConfirmDialog';
 import FisForm from '../components/FisForm';
+import { useRegisterHelp } from '../lib/helpContext';
+import { fisIslemleriHelp } from './fisIslemleri/help';
 
 type DatePreset = 'today' | 'thisWeek' | 'thisMonth' | 'lastMonth' | 'last3Months' | 'thisYear' | 'custom';
 
@@ -61,6 +63,8 @@ export default function FisIslemleriScreen({ onGoBack, onTabChange, onLogout }: 
   const { logout, user, notificationCount } = useAuth();
   const { showSuccess } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(fisIslemleriHelp);
   const [filterVisible, setFilterVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchText, setSearchText] = useState('');

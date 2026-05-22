@@ -1,7 +1,29 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.4.2 (Build 22) / iOS v3.4.2 (Build 22)
+[GELİŞTİRME] Android v3.4.4 (Build 24) / iOS v3.4.4 (Build 24)
+==================================================================
+
+Yeni Özellikler
+
+İyileştirmeler
+
+
+[YAYINLANDI] Android v3.4.3 (Build 23) / iOS v3.4.3 (Build 23)
+==================================================================
+
+Yeni Özellikler
+- Sayfa Yardımları: Birçok ekranın sağ üstünde yeni bir yardım simgesi belirir; tıklayınca o sayfaya özel kullanım kılavuzu, adım adım rehber ve sık sorulan sorular açılır
+- Yardım panelinin altındaki "AI'a sor" butonu ile bulunduğunuz sayfa hakkında doğrudan GolaksIQ'ya soru sorabilirsiniz; AI o sayfanın bağlamını otomatik olarak bilir
+- Sık sorulan sorular akordeon olarak açılıp kapanır, sade görünüm
+- İlk sürümde yardım eklenen ekranlar: Kasa İşlemleri, Profil, Kullanıcı Yönetimi, Şube Ayarları, Fiyat Hesaplama, Cari Hesaplar, Fiş İşlemleri, Banka Komisyon
+
+İyileştirmeler
+- AI Chat artık sayfa bağlamını ayrı bir alanla aldığı için uzun yardım metinleri "mesaj çok uzun" hatası vermiyor
+- Çeşitli arayüz iyileştirmeleri
+
+
+[YAYINLANDI] Android v3.4.2 (Build 22) / iOS v3.4.2 (Build 22)
 ==================================================================
 
 Yeni Özellikler

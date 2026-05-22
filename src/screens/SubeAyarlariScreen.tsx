@@ -16,6 +16,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import { useAlert } from '../contexts/AlertContext';
 import { useFieldErrors } from '../hooks/useFieldErrors';
+import { useRegisterHelp } from '../lib/helpContext';
+import { subeAyarlariHelp } from './subeAyarlari/help';
 
 interface SubeAyarlariScreenProps {
   onGoBack?: () => void;
@@ -29,6 +31,8 @@ export default function SubeAyarlariScreen({ onGoBack, onTabChange, onLogout }: 
   const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('profile');
   const styles = createStyles(colors, isDark);
+
+  useRegisterHelp(subeAyarlariHelp);
 
   // Şube state
   const [subeler, setSubeler] = useState<{ id: string; label: string }[]>([]);

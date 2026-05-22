@@ -10,6 +10,7 @@ import { aiService, ChatMessage } from '../services/ai.service';
 import Header from '../components/Header';
 import TabBar, { TabName } from '../components/TabBar';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useHelp } from '../lib/helpContext';
 
 interface AIChatScreenProps {
   onTabChange?: (tab: TabName) => void;
@@ -35,6 +36,30 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
   const [isLoading, setIsLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const { consumePendingAIContext } = useHelp();
+  const pageContextRef = useRef<string | null>(null);
+
+  // Help sheet'ten "AI'a Sor" ile gelinmişse o sayfanın yardım bağlamını al
+  useEffect(() => {
+    const ctx = consumePendingAIContext();
+    if (ctx) {
+      pageContextRef.current = ctx;
+      // İlk satırdan sayfa adını çıkar (`# Sayfa Adı`)
+      const firstLine = ctx.split('\n')[0] || '';
+      const pageTitle = firstLine.replace(/^#\s*/, '').trim();
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `ctx-${Date.now()}`,
+          text: pageTitle
+            ? `📄 "${pageTitle}" sayfası hakkında bilgileri yükledim. Sormak istediğin bir şey var mı?`
+            : 'Bu sayfa hakkında bilgileri yükledim. Sormak istediğin bir şey var mı?',
+          isUser: false,
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, []);
 
   // Klavye listener
   useEffect(() => {
@@ -161,8 +186,12 @@ export default function AIChatScreen({ onTabChange, onLogout }: AIChatScreenProp
       content: userMessageText,
     });
 
+    // İlk soruda yardım bağlamını ayrı alanla gönder (tek seferlik)
+    const pageContext = pageContextRef.current;
+    pageContextRef.current = null;
+
     try {
-      const response = await aiService.sendChatMessage(userMessageText, conversationHistory);
+      const response = await aiService.sendChatMessage(userMessageText, conversationHistory, pageContext);
 
       setMessages(prev => {
         const filtered = prev.filter(msg => msg.id !== loadingMessageId);

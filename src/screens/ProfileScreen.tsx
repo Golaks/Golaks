@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useRegisterHelp } from '../lib/helpContext';
+import { profileHelp } from './profile/help';
 import { View, StyleSheet, ScrollView, Text, Pressable, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -38,6 +40,8 @@ export default function ProfileScreen({ onTabChange, onLogout, onUserManagement,
   const { logout, user, refreshUser, notificationCount } = useAuth();
   const { showSuccess, showError } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('profile');
+
+  useRegisterHelp(profileHelp);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);

@@ -40,6 +40,8 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import accountService from '../services/account.service';
 import { generateSiparisPDF } from '../utils/pdfSiparis';
+import { useRegisterHelp } from '../lib/helpContext';
+import { siparisIslemleriHelp } from './siparisIslemleri/help';
 
 interface SiparisIslemleriScreenProps {
   onGoBack?: () => void;
@@ -56,6 +58,8 @@ export default function SiparisIslemleriScreen({
   const { user, logout, notificationCount } = useAuth();
   const { showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(siparisIslemleriHelp);
 
   const [searchText, setSearchText] = useState('');
   const [filterVisible, setFilterVisible] = useState(false);

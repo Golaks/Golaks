@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useRegisterHelp } from '../lib/helpContext';
+import { kasaIslemleriHelp } from './kasaIslemleri/help';
 import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl, TextInput, Image, Modal } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -91,6 +93,8 @@ export default function KasaIslemleriScreen({ onGoBack, onTabChange, onLogout }:
   const { showError, showSuccess } = useAlert();
   const fieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(kasaIslemleriHelp);
 
   // List state
   const [kasaList, setKasaList] = useState<KasaFis[]>([]);

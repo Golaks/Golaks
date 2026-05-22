@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRegisterHelp } from '../lib/helpContext';
+import { userManagementHelp } from './userManagement/help';
 import {
   View,
   Text,
@@ -68,6 +70,8 @@ export default function UserManagementScreen({ onTabChange, onLogout }: UserMana
   const { colors, isDark } = useTheme();
   const { logout, user: authUser } = useAuth();
   const { showSuccess, showError } = useAlert();
+
+  useRegisterHelp(userManagementHelp);
 
   // Get available programs from firma_ayarlar
   const getAvailablePrograms = () => {

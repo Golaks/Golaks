@@ -22,6 +22,7 @@ class AIController extends BaseController {
         $message = trim($this->requestData['message'] ?? '');
         $conversationHistory = $this->requestData['conversation_history'] ?? [];
         $language = $this->requestData['language'] ?? 'tr';
+        $pageContext = trim($this->requestData['page_context'] ?? '');
 
         // Validation
         if (empty($message)) {
@@ -30,6 +31,10 @@ class AIController extends BaseController {
 
         if (strlen($message) > 2000) {
             $this->sendError('Mesaj çok uzun (max 2000 karakter)', 'VALIDATION_ERROR', 400);
+        }
+
+        if (strlen($pageContext) > 20000) {
+            $pageContext = substr($pageContext, 0, 20000);
         }
 
         // Validate language
@@ -51,8 +56,14 @@ class AIController extends BaseController {
             // Build messages array
             $messages = [];
 
-            // Add system prompt
+            // Add system prompt (sayfa bağlamı varsa ek olarak)
             $systemPrompt = ChatSystemPrompts::getPrompt($language);
+            if (!empty($pageContext)) {
+                $systemPrompt .= "\n\n# Aktif Sayfa Bağlamı\n"
+                    . "Kullanıcı şu an aşağıdaki sayfa hakkında soru soruyor. "
+                    . "Cevabını bu sayfa bilgilerine dayandır:\n\n"
+                    . $pageContext;
+            }
             $messages[] = [
                 'role' => 'system',
                 'content' => $systemPrompt

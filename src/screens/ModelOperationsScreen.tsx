@@ -23,6 +23,8 @@ import modelService, { ModelKart, ModelColor } from '../services/model.service';
 import { authService } from '../services/auth.service';
 import ordersService, { DetailBedenSetItem } from '../services/orders.service';
 import { useFieldErrors } from '../hooks/useFieldErrors';
+import { useRegisterHelp } from '../lib/helpContext';
+import { modelOperationsHelp } from './modelOperations/help';
 
 interface ModelOperationsScreenProps {
   onBack?: () => void;
@@ -35,6 +37,8 @@ export default function ModelOperationsScreen({ onBack, onTabChange, onLogout }:
   const { user, logout, notificationCount } = useAuth();
   const { showError, showSuccess, showInfo } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(modelOperationsHelp);
   const [modelList, setModelList] = useState<ModelKart[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

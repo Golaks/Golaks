@@ -25,6 +25,8 @@ import { authService } from '../services/auth.service';
 import { API_ENDPOINTS } from '../constants/ApiConfig';
 import ordersService from '../services/orders.service';
 import { generateEkstrePDF } from '../utils/pdfEkstre';
+import { useRegisterHelp } from '../lib/helpContext';
+import { cariHesaplarHelp } from './cariHesaplar/help';
 
 interface CariHesaplarScreenProps {
   onGoBack: () => void;
@@ -57,6 +59,8 @@ export default function CariHesaplarScreen({ onGoBack, onTabChange, onLogout }: 
   const { showError, showWarning, showSuccess } = useAlert();
   const cariFieldErrors = useFieldErrors();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(cariHesaplarHelp);
   const [selectedFilter, setSelectedFilter] = useState<AccountFilterType>('customers');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchVisible, setSearchVisible] = useState(false);

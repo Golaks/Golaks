@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../contexts/ThemeContext';
 import ConfirmDialog from './ConfirmDialog';
+import { useHelp } from '../lib/helpContext';
 
 const AppIcon = require('../assets/images/icon.png');
 const GolaksLogo = require('../assets/images/golaks-logo.png');
@@ -48,6 +49,7 @@ export default function Header({
 }: HeaderProps) {
   const { colors, isDark, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { activeHelp, open: openHelp } = useHelp();
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showCustomMenu, setShowCustomMenu] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -119,6 +121,11 @@ export default function Header({
 
         {/* Right Side - Action Button */}
         <View style={styles.rightContainer}>
+          {!!activeHelp && (
+            <Pressable onPress={openHelp} style={styles.helpButton} hitSlop={6}>
+              <Icon name="help-circle-outline" size={20} color="#FFF" />
+            </Pressable>
+          )}
           {rightButton ? (
             rightButton
           ) : customMenuItems ? (
@@ -360,7 +367,18 @@ const createStyles = (colors: any, topInset: number) =>
     },
     rightContainer: {
       flex: 1,
-      alignItems: 'flex-end',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    helpButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: '#3B82F6',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 6,
     },
     iconButton: {
       width: 40,

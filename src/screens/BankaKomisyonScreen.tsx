@@ -27,6 +27,8 @@ import accountService, {
   CariAccount,
 } from '../services/account.service';
 import { authService } from '../services/auth.service';
+import { useRegisterHelp } from '../lib/helpContext';
+import { bankaKomisyonHelp } from './bankaKomisyon/help';
 
 interface BankaKomisyonScreenProps {
   onGoBack: () => void;
@@ -60,6 +62,8 @@ export default function BankaKomisyonScreen({ onGoBack, onTabChange, onLogout }:
   const { user, logout, notificationCount } = useAuth();
   const { showError, showSuccess, showConfirm } = useAlert();
   const [activeTab, setActiveTab] = useState<TabName>('dashboard');
+
+  useRegisterHelp(bankaKomisyonHelp);
 
   const [bankalar, setBankalar] = useState<CariAccount[]>([]);
   const [tanimlar, setTanimlar] = useState<BankaKomisyonDef[]>([]);

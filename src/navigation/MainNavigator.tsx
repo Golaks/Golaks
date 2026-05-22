@@ -1,4 +1,5 @@
-import React, { useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { useHelp } from '../lib/helpContext';
 import { View, StyleSheet } from 'react-native';
 import { TabName } from '../components/TabBar';
 import ApplicationsScreen from '../screens/ApplicationsScreen';
@@ -50,6 +51,16 @@ export interface MainNavigatorRef {
 
 function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
   const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
+  const help = useHelp();
+
+  // Help sheet'ten "AI'a Sor" tetiklendiğinde AI Chat tab'ına geç
+  useEffect(() => {
+    if (help.pendingNavigationTab === 'aiChat') {
+      setActiveScreen('aiChat');
+      help.clearPendingNavigation();
+    }
+  }, [help.pendingNavigationTab]);
+
   const [barcodeQuery, setBarcodeQuery] = useState<{ type: 'barcode' | 'model'; value: string }>({ type: 'barcode', value: '' });
   const [modelOpsFrom, setModelOpsFrom] = useState<'shop' | 'confection'>('shop');
   const [accountTab, setAccountTab] = useState<'reports' | 'transactions'>('reports');
