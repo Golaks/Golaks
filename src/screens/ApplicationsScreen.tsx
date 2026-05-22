@@ -12,8 +12,11 @@ import MenuCard from '../components/MenuCard';
 import ComingSoonModal from '../components/ComingSoonModal';
 import VersionBadge from '../components/VersionBadge';
 
+type ProgramKey = 'muhasebe' | 'tabakhane' | 'konfeksiyon' | 'magaza';
+
 interface Application {
   id: string;
+  key: ProgramKey;
   name: string;
   icon: string;
   color: string;
@@ -24,6 +27,7 @@ interface Application {
 const APPLICATIONS: Application[] = [
   {
     id: '1',
+    key: 'muhasebe',
     name: 'Muhasebe',
     icon: 'calculator-outline',
     color: '#3B82F6',
@@ -31,6 +35,7 @@ const APPLICATIONS: Application[] = [
   },
   {
     id: '2',
+    key: 'tabakhane',
     name: 'Tabakhane',
     icon: 'business-outline',
     color: '#10B981',
@@ -38,6 +43,7 @@ const APPLICATIONS: Application[] = [
   },
   {
     id: '3',
+    key: 'konfeksiyon',
     name: 'Konfeksiyon',
     icon: 'shirt-outline',
     color: '#F59E0B',
@@ -45,6 +51,7 @@ const APPLICATIONS: Application[] = [
   },
   {
     id: '4',
+    key: 'magaza',
     name: 'Mağaza',
     icon: 'storefront-outline',
     color: '#8B5CF6',
@@ -74,6 +81,21 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress, 
   });
 
   const styles = createStyles(colors, isDark);
+
+  // İki aşamalı uygulama yetkisi:
+  //  1) Firma yetkisi: firmaAyarlar.programlar.<modül>.aktif (ayar yoksa hepsi açık varsayılır)
+  //  2) Kullanıcı yetkisi: admin/superAdmin tümüne yetkili; user rolü yetkiler.uygulamalar ile sınırlı
+  const visibleApplications = React.useMemo(() => {
+    const programlar = user?.firmaAyarlar?.programlar;
+    const isAdmin = user?.role === 'admin' || user?.role === 'superAdmin';
+    const userPerms = user?.yetkiler?.uygulamalar ?? {};
+
+    return APPLICATIONS.filter((app) => {
+      const companyHas = programlar ? !!programlar[app.key]?.aktif : true;
+      if (!companyHas) return false;
+      return isAdmin ? true : !!userPerms[app.key];
+    });
+  }, [user]);
 
   // Update photo URL when user changes
   useEffect(() => {
@@ -169,32 +191,42 @@ export default function ApplicationsScreen({ onTabChange, onLogout, onAppPress, 
           </View>
 
           {/* Applications Grid */}
-          <View style={styles.grid}>
-            {APPLICATIONS.map((app) => (
-              <Pressable
-                key={app.id}
-                style={({ pressed }) => [
-                  styles.appCard,
-                  app.comingSoon && styles.appCardDisabled,
-                  pressed && !app.comingSoon && styles.appCardPressed,
-                ]}
-                onPress={() => handleAppPress(app)}
-              >
-                {app.comingSoon && (
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>{'Çok Yakında'.toLocaleUpperCase('tr-TR')}</Text>
+          {visibleApplications.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Icon name="lock-closed-outline" size={40} color={colors.textTertiary} />
+              <Text style={styles.emptyTitle}>Erişilebilir uygulama yok</Text>
+              <Text style={styles.emptyText}>
+                Hesabınıza tanımlı bir modül bulunmuyor. Lütfen yöneticinizle iletişime geçin.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {visibleApplications.map((app) => (
+                <Pressable
+                  key={app.id}
+                  style={({ pressed }) => [
+                    styles.appCard,
+                    app.comingSoon && styles.appCardDisabled,
+                    pressed && !app.comingSoon && styles.appCardPressed,
+                  ]}
+                  onPress={() => handleAppPress(app)}
+                >
+                  {app.comingSoon && (
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonText}>{'Çok Yakında'.toLocaleUpperCase('tr-TR')}</Text>
+                    </View>
+                  )}
+                  <View style={[styles.iconContainer, { backgroundColor: `${app.color}15` }]}>
+                    <Icon name={app.icon} size={32} color={app.color} />
                   </View>
-                )}
-                <View style={[styles.iconContainer, { backgroundColor: `${app.color}15` }]}>
-                  <Icon name={app.icon} size={32} color={app.color} />
-                </View>
-                <Text style={styles.appName}>{app.name}</Text>
-                <Text style={styles.appDescription} numberOfLines={2}>
-                  {app.description}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Text style={styles.appName}>{app.name}</Text>
+                  <Text style={styles.appDescription} numberOfLines={2}>
+                    {app.description}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {/* Bildirimler */}
           <MenuCard
@@ -302,6 +334,26 @@ const createStyles = (colors: any, isDark: boolean) =>
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'space-between',
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      paddingHorizontal: 24,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: 12,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    emptyText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 19,
     },
     appCard: {
       width: '48%',

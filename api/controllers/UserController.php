@@ -77,6 +77,7 @@ class UserController {
                     'permissions' => $permissions,
                     'subeYetkileri' => $subeYetkileri,
                     'varsayilanSube' => $varsayilanSube,
+                    'defaultScreen' => $yetkiler['ana_ekran'] ?? 'apps',
                     'programYetkileri' => $yetkiler['program_yetkileri'] ?? null,
                     'barcodePermissions' => $yetkiler['barcode_permissions'] ?? null,
                 ];
@@ -124,6 +125,7 @@ class UserController {
             $permissions = $data['permissions'] ?? [];
             $subeYetkileri = $data['subeYetkileri'] ?? [];
             $varsayilanSube = $data['varsayilanSube'] ?? '';
+            $defaultScreen = $data['defaultScreen'] ?? 'apps';
 
             // Validasyon
             if (empty($name)) {
@@ -165,6 +167,7 @@ class UserController {
                 'uygulamalar' => $permissions,
                 'sube_yetkileri' => array_values($subeYetkileri),
                 'varsayilan_sube' => $varsayilanSube,
+                'ana_ekran' => $defaultScreen,
                 'program_yetkileri' => new stdClass(),
             ], JSON_UNESCAPED_UNICODE);
 
@@ -217,6 +220,7 @@ class UserController {
             $permissions = $data['permissions'] ?? [];
             $subeYetkileri = $data['subeYetkileri'] ?? null;
             $varsayilanSube = $data['varsayilanSube'] ?? null;
+            $defaultScreen = $data['defaultScreen'] ?? null;
             $programYetkileri = $data['programYetkileri'] ?? null;
             $barcodePermissions = $data['barcodePermissions'] ?? null;
             $password = $data['password'] ?? '';
@@ -274,6 +278,7 @@ class UserController {
                 'uygulamalar' => $permissions,
                 'sube_yetkileri' => $subeYetkileri !== null ? array_values($subeYetkileri) : ($mevcutYetkiler['sube_yetkileri'] ?? []),
                 'varsayilan_sube' => $varsayilanSube !== null ? $varsayilanSube : ($mevcutYetkiler['varsayilan_sube'] ?? ''),
+                'ana_ekran' => $defaultScreen !== null ? $defaultScreen : ($mevcutYetkiler['ana_ekran'] ?? 'apps'),
                 'bildirim_ayarlari' => $mevcutYetkiler['bildirim_ayarlari'] ?? [],
                 'program_yetkileri' => $programYetkileri !== null ? $programYetkileri : ($mevcutYetkiler['program_yetkileri'] ?? new stdClass()),
                 'barcode_permissions' => $barcodePermissions !== null ? $barcodePermissions : ($mevcutYetkiler['barcode_permissions'] ?? null),

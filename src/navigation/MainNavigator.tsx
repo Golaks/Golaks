@@ -1,5 +1,6 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { useHelp } from '../lib/helpContext';
+import { useAuth } from '../contexts/AuthContext';
 import { View, StyleSheet } from 'react-native';
 import { TabName } from '../components/TabBar';
 import ApplicationsScreen from '../screens/ApplicationsScreen';
@@ -50,7 +51,11 @@ export interface MainNavigatorRef {
 }
 
 function MainNavigatorInner({ onLogout, onCheckUpdate }: MainNavigatorProps, ref: React.Ref<MainNavigatorRef>) {
-  const [activeScreen, setActiveScreen] = useState<AppScreen>('dashboard');
+  const { user } = useAuth();
+  // Kullanıcının "Ana Ekran" tercihi: 'barcode' → barkod sorgulama, diğer → uygulama seçim ekranı
+  const [activeScreen, setActiveScreen] = useState<AppScreen>(
+    () => (user?.yetkiler?.ana_ekran === 'barcode' ? 'qrScan' : 'dashboard'),
+  );
   const help = useHelp();
 
   // Help sheet'ten "AI'a Sor" tetiklendiğinde AI Chat tab'ına geç

@@ -1,12 +1,23 @@
 Golaks Versiyon Notları
 
 
-[GELİŞTİRME] Android v3.4.4 (Build 24) / iOS v3.4.4 (Build 24)
+[GELİŞTİRME] Android v3.4.5 (Build 25) / iOS v3.4.5 (Build 25)
 ==================================================================
 
 Yeni Özellikler
 
 İyileştirmeler
+
+
+[YAYINLANDI] Android v3.4.4 (Build 24) / iOS v3.4.4 (Build 24)
+==================================================================
+
+Yeni Özellikler
+- Kullanıcı bazlı "Ana Ekran" tercihi: Kullanıcı yönetiminde her kullanıcı için açılış ekranı (Uygulama Seçim / Barkod Sorgulama) belirlenebiliyor; giriş yapınca doğrudan seçilen ekran açılıyor
+- Uygulamalar ekranı artık iki aşamalı yetkiye göre filtreleniyor: önce firmanın aktif olduğu modüller, sonra kullanıcının yetkili olduğu modüller gösteriliyor (admin/süper admin firmadaki tüm aktif modülleri görür)
+
+İyileştirmeler
+- Hiç erişilebilir modülü olmayan kullanıcıya uygulamalar ekranında bilgilendirme mesajı gösteriliyor
 
 
 [YAYINLANDI] Android v3.4.3 (Build 23) / iOS v3.4.3 (Build 23)
